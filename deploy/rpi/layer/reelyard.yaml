@@ -1,0 +1,19 @@
+# METABEGIN
+# X-Env-Layer-Name: reelyard
+# X-Env-Layer-Version: 1.0.0
+# X-Env-Layer-Category: app
+# X-Env-Layer-Desc: Reelyard appliance: ffmpeg, reelyard.local over mDNS,
+#  cloud-init for Raspberry Pi Imager settings, and the Reelyard service
+#  enabled at boot.
+# METAEND
+---
+mmdebstrap:
+  packages:
+    - ffmpeg
+    - avahi-daemon
+    - libnss-mdns
+    - cloud-init
+  customize-hooks:
+    # The package's postinstall can't start services inside the image
+    # build; enable it so it starts on first boot.
+    - chroot $1 systemctl enable reelyard.service avahi-daemon.service

@@ -1,0 +1,20 @@
+# Reelyard appliance image for Raspberry Pi 5 (64-bit, Debian Trixie).
+# Built by .github/workflows/rpi-image.yml:
+#   rpi-image-gen build -S deploy/rpi -c config/reelyard-pi5.yaml
+include:
+  file: trixie-minbase.yaml
+
+device:
+  layer: rpi5
+  hostname: reelyard
+
+image:
+  layer: image-rpios
+  name: reelyard-pi5
+
+layer:
+  app: reelyard
+
+packages:
+  # The arm64 .deb from the release, copied here by the workflow.
+  - pkgs/reelyard.deb

@@ -48,6 +48,7 @@ terminal (`reelyard.exe install`, `reelyard.exe start`), plus the firewall rules
 
 ```sh
 docker run -d --name reelyard --network host --restart unless-stopped \
+  -e PUID=1000 -e PGID=1000 \
   -v reelyard-config:/config -v /srv/media:/data \
   ghcr.io/reelyard/server:latest
 ```
@@ -55,7 +56,8 @@ docker run -d --name reelyard --network host --restart unless-stopped \
 `/data` holds `downloads/` and `library/`; keeping both on that one volume lets imports
 use hardlinks instead of copies. `--network host` is needed for DLNA discovery (TVs find
 servers by multicast); without DLNA you can publish ports instead:
-`-p 8787:8787 -p 42069:42069 -p 42069:42069/udp`. The image runs as user 1000 and
+`-p 8787:8787 -p 42069:42069 -p 42069:42069/udp`. `PUID`/`PGID` set the user that owns
+your files (default 1000) and `UMASK` their permissions (default `002`); the image
 includes ffmpeg. Docker Compose:
 
 ```yaml
@@ -70,6 +72,12 @@ services:
 volumes:
   reelyard-config:
 ```
+
+**NAS systems** (ZimaOS/CasaOS app store, Unraid, TrueNAS SCALE, Synology, QNAP,
+OpenMediaVault): see [docs/nas.md](docs/nas.md).
+
+**Raspberry Pi:** flash the ready-made Pi 4 / Pi 5 image from the release, or install the
+arm64 `.deb` on Raspberry Pi OS: see [docs/raspberry-pi.md](docs/raspberry-pi.md).
 
 **From source** (Go 1.25+, Node 20+):
 
