@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
 import { ApiError, api, type Candidate, type Meta, type StreamSearch } from "../api";
 import { bytes, episodeCode, langName } from "../format";
+import LibraryFiles from "../components/LibraryFiles";
 import { Poster } from "./Search";
 
 const RES_ORDER = ["2160p", "1080p", "720p", "576p", "480p", "360p"];
@@ -216,6 +217,7 @@ export default function Title() {
 
       {meta.type === "movie" && (
         <section className="flex flex-col gap-3">
+          <LibraryFiles titleId={meta.id} />
           <h2 className="text-lg font-semibold">Available streams</h2>
           <Streams type="movie" id={meta.id} name={meta.name} />
         </section>
@@ -258,6 +260,7 @@ export default function Title() {
           </ol>
           {picked ? (
             <section className="flex flex-col gap-3">
+              <LibraryFiles key={picked.id} titleId={meta.id} episodeId={picked.id} />
               <h3 className="font-semibold">Streams for {episodeCode(picked.season, picked.episode)} · {picked.title}</h3>
               <Streams type="series" id={picked.id} name={meta.name} />
             </section>

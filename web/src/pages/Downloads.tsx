@@ -82,6 +82,7 @@ function Row({ d }: { d: Download }) {
         {d.state === "downloading" && <span>{d.eta >= 0 ? `${duration(d.eta)} left` : "waiting for speed"}</span>}
         {d.state === "seeding" && <span>Shared {bytes(d.uploaded)} · ratio {d.ratio.toFixed(2)}</span>}
         {d.error && <span className="text-bad">{d.error}</span>}
+        <ImportStatus d={d} />
         {error && <span role="alert" className="text-bad">{error}</span>}
         <span className="ml-auto flex items-center gap-2">
           {running ? (
@@ -105,6 +106,47 @@ function Row({ d }: { d: Download }) {
       </div>
     </li>
   );
+}
+
+function ImportStatus({ d }: { d: Download }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const finished = d.state === "seeding" || (d.state === "paused" && d.size > 0 && d.doneBytes >= d.size);
+  if (!finished) return null;
+
+  async function again() {
+    setBusy(true);
+    setError("");
+    try {
+      await api.importDownload(d.id);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't start the import.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const retry = (
+    <button className="text-deep underline disabled:opacity-60" disabled={busy} onClick={again}>
+      Import again
+    </button>
+  );
+  switch (d.importState) {
+    case "imported":
+      return <span className="text-ok">In your library</span>;
+    case "importing":
+      return <span>Moving to your library…</span>;
+    case "failed":
+      return (
+        <span className="text-bad">
+          Not imported: {d.importError} {retry} {error && <span role="alert">{error}</span>}
+        </span>
+      );
+    case "skipped":
+      return <span title={d.importError}>Not linked to a title, kept in the download folder</span>;
+    default:
+      return <span>Waiting to import {retry}</span>;
+  }
 }
 
 function episodeOf(id: string) {

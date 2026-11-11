@@ -101,6 +101,23 @@ type Engine struct {
 	wake   chan struct{}
 	cancel context.CancelFunc
 	done   chan struct{}
+
+	onComplete func(id int64)
+}
+
+// OnComplete sets a function called (without locks held by the caller's
+// goroutine) when a download finishes. Used to start the library import.
+func (e *Engine) OnComplete(fn func(id int64)) {
+	e.mu.Lock()
+	e.onComplete = fn
+	e.mu.Unlock()
+}
+
+func (e *Engine) activity(level, titleID, msg string) {
+	a, err := e.opts.Store.AddActivity(context.Background(), level, "download", titleID, msg)
+	if err == nil && e.opts.Bus != nil {
+		e.opts.Bus.Publish(events.Event{Type: "activity", Data: a})
+	}
 }
 
 // New creates and starts the torrent client, restores downloads from the
@@ -273,6 +290,7 @@ func (e *Engine) Add(ctx context.Context, r AddRequest) (*Status, error) {
 	e.mu.Unlock()
 	e.kick()
 	e.opts.Log.Info("download added", "id", d.ID, "name", name, "file", idx)
+	e.activity("info", d.TitleID, "Started downloading "+displayName(*d))
 	return &st, nil
 }
 
@@ -491,6 +509,11 @@ func (e *Engine) Remove(ctx context.Context, id int64, deleteData bool) error {
 		}
 	}
 	e.opts.Log.Info("download removed", "id", id, "deletedData", deleteData)
+	msg := "Removed " + displayName(j.d) + " from downloads"
+	if deleteData {
+		msg += " and deleted its files"
+	}
+	e.activity("info", j.d.TitleID, msg)
 	e.kick()
 	return nil
 }
@@ -507,6 +530,17 @@ func (e *Engine) removeInside(path string) error {
 		return fmt.Errorf("refusing to delete %s: outside the download folder", abs)
 	}
 	return os.RemoveAll(abs)
+}
+
+// SetImport records the library import state of a download, in memory and
+// in the database.
+func (e *Engine) SetImport(ctx context.Context, id int64, state, msg string) error {
+	e.mu.Lock()
+	if j, ok := e.jobs[id]; ok {
+		j.d.ImportState, j.d.ImportError = state, msg
+	}
+	e.mu.Unlock()
+	return e.opts.Store.SetImportState(ctx, id, state, msg)
 }
 
 // ---- status ----
@@ -638,6 +672,11 @@ func (e *Engine) refresh(dt float64) {
 			e.setState(j, store.StateSeeding, "")
 			j.d.CompletedAt = ptr(time.Now().UTC())
 			e.opts.Log.Info("download complete", "id", j.d.ID, "name", j.d.Name)
+			e.activity("info", j.d.TitleID, "Finished downloading "+displayName(j.d))
+			if fn := e.onComplete; fn != nil {
+				id := j.d.ID
+				go fn(id)
+			}
 		}
 	}
 }
@@ -665,6 +704,23 @@ func smooth(prev, now float64) float64 {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+func displayName(d store.Download) string {
+	if d.TitleName == "" {
+		return d.Name
+	}
+	if parts := strings.Split(d.TitleID, ":"); len(parts) == 3 {
+		return fmt.Sprintf("%s S%sE%s", d.TitleName, pad(parts[1]), pad(parts[2]))
+	}
+	return d.TitleName
+}
+
+func pad(s string) string {
+	if len(s) == 1 {
+		return "0" + s
+	}
+	return s
+}
 
 // persistAll writes state changes now, and progress counters when full.
 func (e *Engine) persistAll(ctx context.Context, full bool) {

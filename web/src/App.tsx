@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router";
 import { api, type User } from "./api";
 import Layout from "./components/Layout";
 import AuthPage from "./pages/AuthPage";
+import Activity from "./pages/Activity";
 import Dashboard from "./pages/Dashboard";
 import Downloads from "./pages/Downloads";
 import Placeholder from "./pages/Placeholder";
@@ -63,7 +64,7 @@ export default function App() {
             <Route path="suppliers" element={<Suppliers />} />
             <Route path="profiles" element={<Placeholder title="Quality profiles" milestone="M4" text="Choose screen sizes, size limits, audio and subtitle languages, and seeding rules for each title." />} />
             <Route path="downloads" element={<Downloads />} />
-            <Route path="activity" element={<Placeholder title="Activity" milestone="M3" text="A log of everything Harbor did: searches, grabs, imports and failures." />} />
+            <Route path="activity" element={<Activity />} />
             <Route path="settings" element={<Settings user={phase.user} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

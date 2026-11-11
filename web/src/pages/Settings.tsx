@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { api, type APIKey, type DownloadSettings, type User } from "../api";
+import { api, type APIKey, type DownloadSettings, type Language, type User } from "../api";
 
 function fmt(d?: string) {
   return d ? new Date(d).toLocaleString() : "never";
@@ -194,14 +194,88 @@ function DownloadOptions() {
   );
 }
 
+function LibraryOptions() {
+  const [langs, setLangs] = useState<string[] | null>(null);
+  const [all, setAll] = useState<Language[]>([]);
+  const [dir, setDir] = useState("");
+  const [pick, setPick] = useState("");
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.librarySettings().then((r) => (setLangs(r.settings.subtitleLangs), setDir(r.libraryDir))).catch((e) => setMsg({ ok: false, text: e.message }));
+    api.languages().then(setAll).catch(() => {});
+  }, []);
+
+  const name = (c: string) => all.find((l) => l.code === c)?.name ?? c;
+
+  async function save(next: string[]) {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await api.saveLibrarySettings({ subtitleLangs: next });
+      setLangs(r.settings.subtitleLangs);
+      setMsg({ ok: true, text: "Saved. Applies to the next imports and to “Find subtitles”." });
+    } catch (err) {
+      setMsg({ ok: false, text: err instanceof Error ? err.message : "Couldn't save." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card flex flex-col gap-4 p-5">
+      <div>
+        <h2 className="font-semibold">Library</h2>
+        <p className="text-sm text-muted">
+          Finished downloads are linked into <span className="font-mono break-all">{dir || "…"}</span> with Jellyfin/Plex names. Change the folder with <code className="font-mono">library_dir</code> in the config file.
+        </p>
+      </div>
+      <div className="flex flex-col gap-2">
+        <span className="label">Subtitle languages</span>
+        <p className="text-xs text-muted">Harbor saves a subtitle file for each of these unless the video already has one built in. Uses your subtitle suppliers (e.g. OpenSubtitles).</p>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {langs?.length === 0 && <span className="text-sm text-muted">None: subtitles are not downloaded.</span>}
+          {langs?.map((l, i) => (
+            <span key={l} className="flex items-center gap-1 rounded-full bg-deep-soft py-0.5 pr-1 pl-2.5 text-sm text-deep">
+              {name(l)}
+              <button
+                type="button"
+                className="grid h-5 w-5 place-items-center rounded-full hover:bg-surface"
+                aria-label={`Remove ${name(l)}`}
+                disabled={busy}
+                onClick={() => save(langs.filter((_, j) => j !== i))}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <label htmlFor="add-lang" className="sr-only">Add a language</label>
+          <select id="add-lang" className="input w-auto" value={pick} onChange={(e) => setPick(e.target.value)}>
+            <option value="">Add a language…</option>
+            {all.filter((l) => !langs?.includes(l.code)).map((l) => (
+              <option key={l.code} value={l.code}>{l.name}</option>
+            ))}
+          </select>
+          <button type="button" className="btn-ghost" disabled={!pick || busy || !langs} onClick={() => (save([...(langs ?? []), pick]), setPick(""))}>Add</button>
+        </div>
+      </div>
+      {msg && <p role="status" className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-ok-soft text-ok" : "bg-bad-soft text-bad"}`}>{msg.text}</p>}
+    </section>
+  );
+}
+
 export default function Settings({ user }: { user: User }) {
   return (
     <div className="flex flex-col gap-6">
       <header>
         <p className="eyebrow">Settings</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="mt-1 text-muted">Signed in as <span className="font-medium text-ink">{user.username}</span>. Library and DLNA settings arrive with later milestones.</p>
+        <p className="mt-1 text-muted">Signed in as <span className="font-medium text-ink">{user.username}</span>. DLNA settings arrive with a later milestone.</p>
       </header>
+      <LibraryOptions />
       <DownloadOptions />
       <Password />
       <ApiKeys />
