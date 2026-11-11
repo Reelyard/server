@@ -18,10 +18,12 @@ import (
 	"github.com/inluxc/harbor/internal/events"
 	"github.com/inluxc/harbor/internal/importer"
 	"github.com/inluxc/harbor/internal/metadata"
+	"github.com/inluxc/harbor/internal/profile"
 	"github.com/inluxc/harbor/internal/search"
 	"github.com/inluxc/harbor/internal/store"
 	"github.com/inluxc/harbor/internal/stremio"
 	"github.com/inluxc/harbor/internal/suppliers"
+	"github.com/inluxc/harbor/internal/tracker"
 	"github.com/inluxc/harbor/internal/version"
 )
 
@@ -68,9 +70,17 @@ func (a *App) Start(ctx context.Context) error {
 	client := stremio.New("Harbor/" + version.Version)
 	sup := &suppliers.Service{Store: st, Client: client}
 	meta := metadata.New(client)
+	srch := &search.Service{Suppliers: sup, Client: client}
+	if err := profile.EnsureDefaults(ctx, st); err != nil {
+		eng.Close()
+		st.Close()
+		return fmt.Errorf("create default profiles: %w", err)
+	}
+	trk := tracker.New(tracker.Options{Store: st, Meta: meta, Search: srch, Downloads: eng, Bus: bus, Log: a.Log})
 	imp := importer.New(importer.Options{
 		Store: st, Downloads: eng, Meta: meta, Suppliers: sup, Client: client, Bus: bus, Log: a.Log,
 		LibraryDir: a.Config.LibraryDir, DownloadDir: a.Config.DownloadDir,
+		SubtitleLangsFor: trk.SubtitleLangs, CheckAudio: trk.CheckAudio, AfterImport: trk.Kick,
 	})
 	eng.OnComplete(imp.Enqueue)
 	srv := &api.Server{
@@ -78,7 +88,8 @@ func (a *App) Start(ctx context.Context) error {
 		Suppliers: sup,
 		Meta:      meta,
 		Importer:  imp,
-		Search:    &search.Service{Suppliers: sup, Client: client},
+		Tracker:   trk,
+		Search:    srch,
 		Engine:    eng,
 		Bus:       bus,
 	}
@@ -107,6 +118,7 @@ func (a *App) Start(ctx context.Context) error {
 	}()
 	go a.housekeeping(runCtx)
 	go imp.Run(runCtx)
+	go trk.Run(runCtx)
 
 	a.Log.Info("harbor started", "version", version.Version, "listen", a.addr.String(),
 		"data", a.Config.DataDir, "downloads", a.Config.DownloadDir, "library", a.Config.LibraryDir)

@@ -13,7 +13,7 @@ function uptime(sec: number) {
 const STEPS = [
   { to: "/suppliers", title: "Add a supplier", text: "Paste a Stremio addon manifest URL that returns torrent streams.", milestone: "" },
   { to: "/search", title: "Find a title", text: "Search a movie or series and see which torrents your suppliers have.", milestone: "" },
-  { to: "/downloads", title: "Download it", text: "Press Download on a stream; follow it live on the Downloads page.", milestone: "" },
+  { to: "/titles", title: "Track it", text: "Press Track on a title; Harbor downloads what fits its quality profile.", milestone: "" },
 ];
 
 export default function Dashboard() {
@@ -29,7 +29,7 @@ export default function Dashboard() {
       <header>
         <p className="eyebrow">Dashboard</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Harbor</h1>
-        <p className="mt-1 text-muted">Your downloads at a glance. Tracking and imports arrive in later milestones.</p>
+        <p className="mt-1 text-muted">Your downloads at a glance.</p>
       </header>
 
       <DownloadsWidget />

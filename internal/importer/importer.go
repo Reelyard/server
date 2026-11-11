@@ -44,6 +44,13 @@ type Options struct {
 	LibraryDir  string
 	DownloadDir string
 	HTTP        *http.Client // for fetching subtitle files
+
+	// Optional hooks from the tracker (M4): per-title subtitle languages,
+	// and a check that rejects a file whose audio the profile can't use.
+	SubtitleLangsFor func(ctx context.Context, itemID string) ([]string, bool)
+	CheckAudio       func(ctx context.Context, itemID string, audio []string) error
+	// AfterImport runs after each import attempt (e.g. to wake the tracker).
+	AfterImport func()
 }
 
 // Importer runs imports one at a time from a queue.
@@ -84,6 +91,9 @@ func (im *Importer) Run(ctx context.Context) {
 			im.mu.Unlock()
 			if err := im.Import(ctx, id); err != nil && ctx.Err() == nil {
 				im.o.Log.Warn("import failed", "download", id, "err", err)
+			}
+			if im.o.AfterImport != nil {
+				im.o.AfterImport()
 			}
 		}
 	}
@@ -148,6 +158,14 @@ func (im *Importer) Import(ctx context.Context, id int64) (err error) {
 	probe, probed, perr := ProbeFile(ctx, src)
 	if perr != nil {
 		im.o.Log.Warn("probe", "file", src, "err", perr)
+	}
+	if probed && im.o.CheckAudio != nil {
+		if aerr := im.o.CheckAudio(ctx, d.TitleID, probe.AudioLangs); aerr != nil {
+			msg := capitalize(aerr.Error())
+			_ = im.o.Downloads.SetImport(ctx, id, store.ImportRejected, msg)
+			im.activity(ctx, "warn", "import", d.TitleID, fmt.Sprintf("Didn't import %s: %s", d.TitleName, aerr))
+			return nil
+		}
 	}
 	// Name the file by what's really in it when ffprobe can tell.
 	res := firstNonEmpty(probe.Resolution, release.Parse(d.Name).Resolution)
@@ -286,8 +304,13 @@ func (im *Importer) Subtitles(ctx context.Context, mediaID int64) ([]SubtitleRes
 	if err != nil {
 		return nil, err
 	}
-	settings := LoadSettings(ctx, im.o.Store)
-	wanted := normalizeLangs(settings.SubtitleLangs)
+	langsWanted := LoadSettings(ctx, im.o.Store).SubtitleLangs
+	if im.o.SubtitleLangsFor != nil {
+		if l, ok := im.o.SubtitleLangsFor(ctx, mf.TitleID); ok {
+			langsWanted = l
+		}
+	}
+	wanted := normalizeLangs(langsWanted)
 	results := []SubtitleResult{}
 	var missing []string
 	for _, w := range wanted {
@@ -419,6 +442,13 @@ func writeFileAtomic(dst string, b []byte) error {
 	}
 	_ = os.Chmod(tmp.Name(), 0o644)
 	return os.Rename(tmp.Name(), dst)
+}
+
+func capitalize(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
 }
 
 func firstNonEmpty(vals ...string) string {

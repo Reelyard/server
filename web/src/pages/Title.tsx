@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
-import { ApiError, api, type Candidate, type Meta, type StreamSearch } from "../api";
+import { ApiError, api, type Candidate, type Item, type Meta, type Profile, type StreamSearch, type Tracked } from "../api";
 import { bytes, episodeCode, langName } from "../format";
 import LibraryFiles from "../components/LibraryFiles";
+import TrackPanel from "../components/TrackPanel";
 import { Poster } from "./Search";
 
 const RES_ORDER = ["2160p", "1080p", "720p", "576p", "480p", "360p"];
@@ -62,7 +63,7 @@ function DownloadButton({ c, title }: { c: Candidate; title: TitleRef }) {
 
 function CandidateRow({ c, title }: { c: Candidate; title: TitleRef }) {
   const i = c.stream.info;
-  const ok = !c.problems || c.problems.length === 0;
+  const ok = c.eval ? c.eval.accepted : !c.problems || c.problems.length === 0;
   return (
     <li className={`flex flex-col gap-2 px-4 py-3 ${ok ? "" : "opacity-60"}`}>
       <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
@@ -93,12 +94,15 @@ function CandidateRow({ c, title }: { c: Candidate; title: TitleRef }) {
         </span>
         <DownloadButton c={c} title={title} />
       </div>
-      {!ok && <p className="text-xs text-bad">{c.problems!.join(" · ")}</p>}
+      {c.eval?.accepted && (
+        <p className="text-xs text-ok">Fits the profile{c.eval.notes?.length ? ` · ${c.eval.notes.join(" · ")}` : ""}</p>
+      )}
+      {!ok && <p className="text-xs text-bad">{(c.eval?.rejections ?? c.problems ?? []).join(" · ")}</p>}
     </li>
   );
 }
 
-function Streams({ type, id, name }: { type: string; id: string; name: string }) {
+function Streams({ type, id, name, profileId }: { type: string; id: string; name: string; profileId?: number }) {
   const [data, setData] = useState<StreamSearch | null>(null);
   const [error, setError] = useState("");
   const [res, setRes] = useState("");
@@ -108,11 +112,11 @@ function Streams({ type, id, name }: { type: string; id: string; name: string })
     let live = true;
     setData(null);
     setError("");
-    api.streams(type, id).then((d) => live && setData(d)).catch((e) => live && setError(e.message));
+    api.streams(type, id, profileId).then((d) => live && setData(d)).catch((e) => live && setError(e.message));
     return () => {
       live = false;
     };
-  }, [type, id]);
+  }, [type, id, profileId]);
 
   const resolutions = useMemo(() => {
     const set = new Set((data?.candidates ?? []).map((c) => c.stream.info.resolution).filter(Boolean) as string[]);
@@ -122,8 +126,9 @@ function Streams({ type, id, name }: { type: string; id: string; name: string })
   if (error) return <p role="alert" className="rounded-lg bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p>;
   if (!data) return <p className="text-muted">Asking your suppliers…</p>;
 
-  const good = data.candidates.filter((c) => !c.problems?.length);
-  const shown = data.candidates.filter((c) => (showAll || !c.problems?.length) && (!res || c.stream.info.resolution === res));
+  const fits = (c: Candidate) => (c.eval ? c.eval.accepted : !c.problems?.length);
+  const good = data.candidates.filter(fits);
+  const shown = data.candidates.filter((c) => (showAll || fits(c)) && (!res || c.stream.info.resolution === res));
 
   return (
     <section className="flex flex-col gap-3">
@@ -141,7 +146,9 @@ function Streams({ type, id, name }: { type: string; id: string; name: string })
       </div>
       {data.candidates.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="mr-1 text-sm text-muted">{good.length} usable of {data.candidates.length}</span>
+          <span className="mr-1 text-sm text-muted">
+            {data.profile ? `${good.length} of ${data.candidates.length} fit “${data.profile}”` : `${good.length} usable of ${data.candidates.length}`}
+          </span>
           {["", ...resolutions].map((r) => (
             <button
               key={r || "all"}
@@ -154,10 +161,11 @@ function Streams({ type, id, name }: { type: string; id: string; name: string })
           ))}
           <label className="ml-auto flex items-center gap-1.5 text-sm">
             <input id="show-all" type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} className="accent-[var(--hb-deep)]" />
-            Show unusable
+            {data.profile ? "Show the rest" : "Show unusable"}
           </label>
         </div>
       )}
+      {data.profile && good.length === 0 && data.summary && <p className="text-sm text-muted">{data.summary}.</p>}
       {shown.length > 0 ? (
         <ul className="card divide-y divide-line">{shown.map((c) => <CandidateRow key={c.key} c={c} title={{ type, id, name }} />)}</ul>
       ) : (
@@ -168,11 +176,75 @@ function Streams({ type, id, name }: { type: string; id: string; name: string })
   );
 }
 
+const ITEM_STATE: Record<Item["state"], { text: string; cls: string }> = {
+  unaired: { text: "Not out yet", cls: "bg-bg text-muted" },
+  missing: { text: "Wanted", cls: "bg-accent-soft text-accent" },
+  downloading: { text: "Downloading", cls: "bg-deep-soft text-deep" },
+  imported: { text: "In library", cls: "bg-ok-soft text-ok" },
+};
+
+function StateChip({ it }: { it: Item }) {
+  if (!it.monitored && it.state !== "imported") return <span className="shrink-0 rounded px-1.5 py-0.5 text-xs text-muted">Skipped</span>;
+  const s = ITEM_STATE[it.state];
+  return <span className={`shrink-0 rounded px-1.5 py-0.5 text-xs ${s.cls}`}>{s.text}</span>;
+}
+
+function ItemStatus({ it, onSearch }: { it: Item; onSearch: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [monitored, setMonitored] = useState(it.monitored);
+  const next = it.nextSearchAt ? new Date(it.nextSearchAt) : null;
+
+  async function run(fn: () => Promise<unknown>) {
+    setBusy(true);
+    setError("");
+    try {
+      await fn();
+      setTimeout(onSearch, 1500);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="card flex flex-col gap-2 p-4 text-sm">
+      <div className="flex flex-wrap items-center gap-2">
+        <StateChip it={{ ...it, monitored }} />
+        <span className="min-w-0 flex-1 break-words">{it.note || (it.state === "missing" ? "Waiting for the next search." : "")}</span>
+      </div>
+      <div className="flex flex-wrap items-center gap-3 text-xs text-muted">
+        {it.lastSearchAt && <span>Last search {new Date(it.lastSearchAt).toLocaleString()}</span>}
+        {it.state === "missing" && monitored && next && <span>Next {next.toLocaleString()}</span>}
+        <label className="flex items-center gap-1.5">
+          <input
+            id={`mon-${it.id}`}
+            type="checkbox"
+            checked={monitored}
+            disabled={busy}
+            onChange={(e) => { const on = e.target.checked; setMonitored(on); run(() => api.setItemMonitored(it.id, on)); }}
+            className="accent-[var(--hb-deep)]"
+          />
+          Get this automatically
+        </label>
+        {it.state === "missing" && monitored && (
+          <button className="btn-ghost ml-auto py-1" disabled={busy} onClick={() => run(() => api.searchItemNow(it.id))}>Search now</button>
+        )}
+      </div>
+      {error && <p role="alert" className="text-xs text-bad">{error}</p>}
+    </div>
+  );
+}
+
 export default function Title() {
   const { type = "", id = "" } = useParams();
   const [params, setParams] = useSearchParams();
   const [meta, setMeta] = useState<Meta | null>(null);
   const [error, setError] = useState("");
+  const [tracked, setTracked] = useState<Tracked | null>(null);
+  const [items, setItems] = useState<Item[]>([]);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
 
   useEffect(() => {
     let live = true;
@@ -192,11 +264,16 @@ export default function Title() {
   const episodeId = params.get("ep");
   const episodes = (meta?.videos ?? []).filter((v) => v.season === season);
   const picked = meta?.videos?.find((v) => v.id === episodeId);
+  const itemByID = useMemo(() => new Map(items.map((i) => [i.itemId, i])), [items]);
+  const refreshItems = () => {
+    if (meta) api.trackedByImdb(meta.id).then((r) => (setTracked(r.title), setItems(r.items))).catch(() => {});
+  };
 
   if (error) return <p role="alert" className="rounded-lg bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p>;
   if (!meta) return <p className="text-muted">Loading…</p>;
 
   const now = Date.now();
+  void profiles;
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-5 sm:flex-row">
@@ -208,9 +285,8 @@ export default function Title() {
             {[meta.runtime, meta.genres?.slice(0, 3).join(", "), meta.imdbRating && `IMDb ${meta.imdbRating}`, meta.status].filter(Boolean).join(" · ")}
           </p>
           {meta.description && <p className="max-w-prose text-sm">{meta.description}</p>}
-          <div className="mt-1 flex flex-wrap items-center gap-2">
-            <button className="btn-primary" disabled title="Tracking arrives in M4">Track this {meta.type === "movie" ? "movie" : "series"}</button>
-            <span className="text-xs text-muted">Tracking and automatic downloads arrive in M4.</span>
+          <div className="mt-1">
+            <TrackPanel imdbId={meta.id} type={meta.type} onChange={(t, it, ps) => (setTracked(t), setItems(it), setProfiles(ps))} />
           </div>
         </div>
       </header>
@@ -218,8 +294,9 @@ export default function Title() {
       {meta.type === "movie" && (
         <section className="flex flex-col gap-3">
           <LibraryFiles titleId={meta.id} />
+          {itemByID.get(meta.id) && <ItemStatus it={itemByID.get(meta.id)!} onSearch={refreshItems} />}
           <h2 className="text-lg font-semibold">Available streams</h2>
-          <Streams type="movie" id={meta.id} name={meta.name} />
+          <Streams type="movie" id={meta.id} name={meta.name} profileId={tracked?.profileId} />
         </section>
       )}
 
@@ -241,6 +318,7 @@ export default function Title() {
             {episodes.map((v) => {
               const aired = new Date(v.released).getTime() <= now;
               const active = v.id === episodeId;
+              const it = itemByID.get(v.id);
               return (
                 <li key={v.id}>
                   <button
@@ -250,6 +328,7 @@ export default function Title() {
                   >
                     <span className="w-16 shrink-0 font-mono text-xs text-muted">{episodeCode(v.season, v.episode)}</span>
                     <span className="min-w-0 flex-1 truncate">{v.title || `Episode ${v.episode}`}</span>
+                    {it && <StateChip it={it} />}
                     <span className={`shrink-0 text-xs ${aired ? "text-muted" : "text-accent"}`}>
                       {v.released ? (aired ? new Date(v.released).toLocaleDateString() : `Airs ${new Date(v.released).toLocaleDateString()}`) : ""}
                     </span>
@@ -261,8 +340,9 @@ export default function Title() {
           {picked ? (
             <section className="flex flex-col gap-3">
               <LibraryFiles key={picked.id} titleId={meta.id} episodeId={picked.id} />
+              {itemByID.get(picked.id) && <ItemStatus it={itemByID.get(picked.id)!} onSearch={refreshItems} />}
               <h3 className="font-semibold">Streams for {episodeCode(picked.season, picked.episode)} · {picked.title}</h3>
-              <Streams type="series" id={picked.id} name={meta.name} />
+              <Streams type="series" id={picked.id} name={meta.name} profileId={tracked?.profileId} />
             </section>
           ) : (
             <p className="text-muted">Pick an episode to see the streams your suppliers have for it.</p>

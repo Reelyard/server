@@ -6,10 +6,11 @@ import AuthPage from "./pages/AuthPage";
 import Activity from "./pages/Activity";
 import Dashboard from "./pages/Dashboard";
 import Downloads from "./pages/Downloads";
-import Placeholder from "./pages/Placeholder";
+import Profiles from "./pages/Profiles";
 import Search from "./pages/Search";
 import Settings from "./pages/Settings";
 import Suppliers from "./pages/Suppliers";
+import Titles from "./pages/Titles";
 import Title from "./pages/Title";
 
 type Phase = { kind: "loading" } | { kind: "error"; message: string } | { kind: "setup" } | { kind: "login" } | { kind: "ready"; user: User };
@@ -58,11 +59,11 @@ export default function App() {
         <Routes>
           <Route element={<Layout user={phase.user} onSignOut={() => setPhase({ kind: "login" })} />}>
             <Route index element={<Dashboard />} />
-            <Route path="titles" element={<Placeholder title="Titles" milestone="M4" text="Your tracked movies and series will show here as a poster grid, with what's missing, downloading and done." />} />
+            <Route path="titles" element={<Titles />} />
             <Route path="search" element={<Search />} />
             <Route path="title/:type/:id" element={<Title />} />
             <Route path="suppliers" element={<Suppliers />} />
-            <Route path="profiles" element={<Placeholder title="Quality profiles" milestone="M4" text="Choose screen sizes, size limits, audio and subtitle languages, and seeding rules for each title." />} />
+            <Route path="profiles" element={<Profiles />} />
             <Route path="downloads" element={<Downloads />} />
             <Route path="activity" element={<Activity />} />
             <Route path="settings" element={<Settings user={phase.user} />} />

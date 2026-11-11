@@ -25,6 +25,7 @@ import (
 	"github.com/inluxc/harbor/internal/search"
 	"github.com/inluxc/harbor/internal/store"
 	"github.com/inluxc/harbor/internal/suppliers"
+	"github.com/inluxc/harbor/internal/tracker"
 	"github.com/inluxc/harbor/internal/version"
 )
 
@@ -37,6 +38,7 @@ type Server struct {
 	Search    *search.Service
 	Engine    *engine.Engine
 	Importer  *importer.Importer
+	Tracker   *tracker.Tracker
 	Bus       *events.Bus
 	Config    *config.Config
 	UI        fs.FS // built web app (index.html + assets); may be empty
@@ -79,6 +81,7 @@ func (s *Server) Handler() http.Handler {
 	s.routesMedia(mux)
 	s.routesDownloads(mux)
 	s.routesLibrary(mux)
+	s.routesTracking(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "no such API endpoint")
 	})

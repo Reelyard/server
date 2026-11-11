@@ -100,6 +100,7 @@ export type Candidate = {
   stream: { torrentName: string; filePath?: string; info: ReleaseInfo; seeders: number; size?: number; site?: string; label?: string };
   usable: boolean;
   problems?: string[];
+  eval?: Evaluation;
 };
 export type StreamSearch = {
   type: string;
@@ -108,6 +109,8 @@ export type StreamSearch = {
   episode?: number;
   candidates: Candidate[];
   suppliers: { id: number; name: string; count: number; error?: string; durationMs: number }[];
+  profile?: string;
+  summary?: string;
 };
 
 export type Download = {
@@ -169,6 +172,58 @@ export type SubtitleResult = { lang: string; status: "embedded" | "present" | "s
 export type Activity = { id: number; time: string; level: "info" | "warn" | "error"; kind: string; titleId?: string; message: string };
 export type LibrarySettings = { subtitleLangs: string[] };
 export type Language = { code: string; name: string };
+
+export type Profile = {
+  id: number;
+  name: string;
+  resolutions: string[];
+  movieMinMB: number;
+  movieMaxMB: number;
+  episodeMinMB: number;
+  episodeMaxMB: number;
+  audioLangs: string[];
+  audioRequired: boolean;
+  subtitleLangs: string[];
+  blockedTerms: string[];
+  preferredTerms: string[];
+  minSeeders: number;
+  seedRatio: number;
+  seedHours: number;
+};
+export type Tracked = {
+  id: number;
+  imdbId: string;
+  type: "movie" | "series";
+  name: string;
+  year?: number;
+  poster?: string;
+  profileId: number;
+  monitor: "all" | "future" | "none";
+  seasons: number[];
+  addedAt: string;
+  refreshedAt?: string;
+  wanted: number;
+  downloading: number;
+  imported: number;
+  unaired: number;
+};
+export type Item = {
+  id: number;
+  titleId: number;
+  itemId: string;
+  season: number;
+  episode: number;
+  name?: string;
+  airDate?: string;
+  monitored: boolean;
+  state: "unaired" | "missing" | "downloading" | "imported";
+  downloadId?: number;
+  attempts: number;
+  nextSearchAt?: string;
+  lastSearchAt?: string;
+  note?: string;
+};
+export type Evaluation = { accepted: boolean; score: number; rejections?: string[]; notes?: string[] };
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -241,5 +296,21 @@ export const api = {
   saveLibrarySettings: (s: LibrarySettings) => request<{ settings: LibrarySettings; libraryDir: string }>("PUT", "/settings/library", s),
   languages: () => request<{ languages: Language[] }>("GET", "/languages").then((r) => r.languages),
 
-  streams: (type: string, id: string) => request<StreamSearch>("GET", `/streams/${type}/${id}`),
+  streams: (type: string, id: string, profileId?: number) =>
+    request<StreamSearch>("GET", `/streams/${type}/${id}${profileId ? `?profile=${profileId}` : ""}`),
+
+  profiles: () => request<{ profiles: Profile[]; resolutions: string[] }>("GET", "/profiles"),
+  saveProfile: (p: Partial<Profile>) =>
+    (p.id ? request<{ profile: Profile }>("PUT", `/profiles/${p.id}`, { ...p, id: undefined }) : request<{ profile: Profile }>("POST", "/profiles", p)).then((r) => r.profile),
+  deleteProfile: (id: number) => request<void>("DELETE", `/profiles/${id}`),
+  titles: () => request<{ titles: Tracked[] }>("GET", "/titles").then((r) => r.titles),
+  trackedByImdb: (imdb: string) => request<{ title: Tracked; items: Item[] }>("GET", `/titles/by-imdb/${imdb}`),
+  track: (b: { imdbId: string; type: string; profileId: number; monitor: string; seasons?: number[] }) =>
+    request<{ title: Tracked; items: Item[] }>("POST", "/titles", b),
+  updateTracked: (id: number, b: { profileId: number; monitor: string; seasons: number[] }) =>
+    request<{ title: Tracked; items: Item[] }>("PATCH", `/titles/${id}`, b),
+  untrack: (id: number) => request<void>("DELETE", `/titles/${id}`),
+  searchTitleNow: (id: number) => request<void>("POST", `/titles/${id}/search`),
+  searchItemNow: (id: number) => request<void>("POST", `/items/${id}/search`),
+  setItemMonitored: (id: number, monitored: boolean) => request<{ item: Item }>("PATCH", `/items/${id}`, { monitored }),
 };

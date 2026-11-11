@@ -532,6 +532,20 @@ func (e *Engine) removeInside(path string) error {
 	return os.RemoveAll(abs)
 }
 
+// Find returns the download of this torrent file, if there is one.
+func (e *Engine) Find(infoHash string, fileIdx int) (*Status, bool) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	ih := strings.ToLower(infoHash)
+	for _, j := range e.jobs {
+		if j.d.InfoHash == ih && j.d.FileIdx == fileIdx {
+			st := e.status(j)
+			return &st, true
+		}
+	}
+	return nil, false
+}
+
 // SetImport records the library import state of a download, in memory and
 // in the database.
 func (e *Engine) SetImport(ctx context.Context, id int64, state, msg string) error {
