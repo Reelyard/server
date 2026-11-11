@@ -11,7 +11,7 @@ export CGO_ENABLED = 0
 
 PLATFORMS := linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64
 
-.PHONY: all web build test vet run cross clean
+.PHONY: all web build test vet run cross clean ci ci-checks smoke hooks
 
 all: web build
 
@@ -27,6 +27,22 @@ test:
 vet:
 	go vet ./...
 	@test -z "$$(gofmt -l .)" || (echo "gofmt needed:"; gofmt -l .; exit 1)
+
+# The CI workflow's checks, locally: web build once, then gofmt/vet, tests
+# and the smoke test in parallel.
+ci: web
+	@$(MAKE) --no-print-directory -j3 -O ci-checks
+	@echo "ci: all checks passed"
+
+ci-checks: vet test smoke
+
+smoke:
+	CGO_ENABLED=0 go build -o bin/reelyard-smoke ./cmd/reelyard
+	./scripts/smoke.sh bin/reelyard-smoke
+
+# Run `make ci` before every git push (skip once with --no-verify).
+hooks:
+	git config core.hooksPath .githooks
 
 run:
 	go run ./cmd/reelyard serve
