@@ -379,6 +379,33 @@ func (c *Client) Meta(ctx context.Context, base, typ, id string) (*Meta, error) 
 	return body.Meta, nil
 }
 
+// ---- addon catalogs ----
+
+// AddonDescriptor is an entry in an addon catalog: an addon's manifest
+// plus where to reach it.
+type AddonDescriptor struct {
+	TransportURL  string   `json:"transportUrl"`
+	TransportName string   `json:"transportName"`
+	Manifest      Manifest `json:"manifest"`
+	Flags         struct {
+		Official  bool `json:"official,omitempty"`
+		Protected bool `json:"protected,omitempty"`
+	} `json:"flags"`
+}
+
+// AddonCatalog fetches an addon catalog ({base}/addon_catalog/{type}/{id}.json),
+// the list Stremio's Addons screen shows. Cinemeta serves "official" and
+// "community".
+func (c *Client) AddonCatalog(ctx context.Context, base, typ, id string) ([]AddonDescriptor, error) {
+	var body struct {
+		Addons []AddonDescriptor `json:"addons"`
+	}
+	if err := c.getJSON(ctx, resourceURL(base, "addon_catalog", typ, id, nil), &body); err != nil {
+		return nil, err
+	}
+	return body.Addons, nil
+}
+
 // ---- transport ----
 
 // resourceURL builds {base}/{resource}/{type}/{id}[/{extra}].json.

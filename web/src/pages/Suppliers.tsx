@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type Supplier, type SupplierTest } from "../api";
+import AddonCatalog from "../components/AddonCatalog";
 import { ago } from "../format";
 
 const RESOURCE_LABEL: Record<string, string> = { stream: "Streams", subtitles: "Subtitles", catalog: "Catalogs", meta: "Metadata" };
@@ -125,6 +126,7 @@ export default function Suppliers() {
   const [url, setUrl] = useState("");
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
+  const [browsing, setBrowsing] = useState(false);
 
   const load = () => api.suppliers().then(setList).catch((e) => setError(e.message));
   useEffect(() => {
@@ -192,7 +194,7 @@ export default function Suppliers() {
       {list === null && !error && <p className="text-muted">Loading suppliers…</p>}
       {list && list.length === 0 && (
         <div className="card border-dashed p-6 text-muted">
-          No suppliers yet. Add a torrent addon such as Torrentio for streams, and OpenSubtitles (<code className="font-mono text-sm">https://opensubtitles-v3.strem.io/manifest.json</code>) for subtitles.
+          No suppliers yet. Paste a torrent addon such as Torrentio for streams, or browse the catalog below for subtitle addons like OpenSubtitles.
         </div>
       )}
       {list && list.length > 0 && (
@@ -201,6 +203,14 @@ export default function Suppliers() {
             <SupplierCard key={s.id} s={s} first={i === 0} last={i === list.length - 1} onChange={load} onMove={(d) => move(i, d)} />
           ))}
         </ul>
+      )}
+
+      {browsing ? (
+        <AddonCatalog onAdded={load} />
+      ) : (
+        <div>
+          <button className="btn-ghost" onClick={() => setBrowsing(true)}>Browse Stremio's addon catalog</button>
+        </div>
       )}
     </div>
   );
