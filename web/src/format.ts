@@ -36,3 +36,15 @@ export function episodeCode(season?: number, episode?: number) {
   const p = (n: number) => String(n).padStart(2, "0");
   return season !== undefined && episode !== undefined ? `S${p(season)}E${p(episode)}` : "";
 }
+
+export function rate(bps: number) {
+  return bps > 0 ? `${bytes(bps)}/s` : "—";
+}
+
+export function duration(sec: number) {
+  if (sec < 0 || !isFinite(sec)) return "—";
+  if (sec < 60) return `${Math.max(1, Math.round(sec))} s`;
+  if (sec < 3600) return `${Math.round(sec / 60)} min`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)} h ${Math.round((sec % 3600) / 60)} min`;
+  return `${Math.floor(sec / 86400)} d ${Math.floor((sec % 86400) / 3600)} h`;
+}

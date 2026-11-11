@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { api, type APIKey, type User } from "../api";
+import { api, type APIKey, type DownloadSettings, type User } from "../api";
 
 function fmt(d?: string) {
   return d ? new Date(d).toLocaleString() : "never";
@@ -132,14 +132,77 @@ function ApiKeys() {
   );
 }
 
+function DownloadOptions() {
+  const [s, setS] = useState<DownloadSettings | null>(null);
+  const [port, setPort] = useState(0);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    api.downloadSettings().then((r) => (setS(r.settings), setPort(r.port))).catch((e) => setMsg({ ok: false, text: e.message }));
+  }, []);
+
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    if (!s) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await api.saveDownloadSettings(s);
+      setS(r.settings);
+      setMsg({ ok: true, text: "Saved. Changes apply right away." });
+    } catch (err) {
+      setMsg({ ok: false, text: err instanceof Error ? err.message : "Couldn't save." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const num = (k: keyof DownloadSettings) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    s && setS({ ...s, [k]: Math.max(0, Number(e.target.value) || 0) });
+
+  return (
+    <form onSubmit={save} className="card flex flex-col gap-4 p-5">
+      <div>
+        <h2 className="font-semibold">Downloads</h2>
+        <p className="text-sm text-muted">
+          Peers connect on port <span className="font-mono">{port || "…"}</span> (TCP and UDP). Forwarding it in your router helps speeds; change it with <code className="font-mono">torrent_port</code> in the config file.
+        </p>
+      </div>
+      {s && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <label className="label" htmlFor="max-active">Downloads at once</label>
+            <input id="max-active" type="number" min={0} max={50} className="input" value={s.maxActive} onChange={num("maxActive")} />
+            <p className="mt-1 text-xs text-muted">0 = no limit. Finished files sharing don't count.</p>
+          </div>
+          <div>
+            <label className="label" htmlFor="dl-limit">Download limit (KB/s)</label>
+            <input id="dl-limit" type="number" min={0} className="input" value={s.downloadLimitKBps} onChange={num("downloadLimitKBps")} />
+            <p className="mt-1 text-xs text-muted">0 = unlimited.</p>
+          </div>
+          <div>
+            <label className="label" htmlFor="ul-limit">Upload limit (KB/s)</label>
+            <input id="ul-limit" type="number" min={0} className="input" value={s.uploadLimitKBps} onChange={num("uploadLimitKBps")} />
+            <p className="mt-1 text-xs text-muted">0 = unlimited.</p>
+          </div>
+        </div>
+      )}
+      {msg && <p role="status" className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-ok-soft text-ok" : "bg-bad-soft text-bad"}`}>{msg.text}</p>}
+      <div><button className="btn-primary" disabled={busy || !s}>Save download settings</button></div>
+    </form>
+  );
+}
+
 export default function Settings({ user }: { user: User }) {
   return (
     <div className="flex flex-col gap-6">
       <header>
         <p className="eyebrow">Settings</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Account</h1>
-        <p className="mt-1 text-muted">Signed in as <span className="font-medium text-ink">{user.username}</span>. Download, library and DLNA settings arrive with later milestones.</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Settings</h1>
+        <p className="mt-1 text-muted">Signed in as <span className="font-medium text-ink">{user.username}</span>. Library and DLNA settings arrive with later milestones.</p>
       </header>
+      <DownloadOptions />
       <Password />
       <ApiKeys />
     </div>

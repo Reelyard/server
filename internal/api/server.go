@@ -13,10 +13,13 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/inluxc/harbor/internal/auth"
 	"github.com/inluxc/harbor/internal/config"
+	"github.com/inluxc/harbor/internal/engine"
+	"github.com/inluxc/harbor/internal/events"
 	"github.com/inluxc/harbor/internal/metadata"
 	"github.com/inluxc/harbor/internal/search"
 	"github.com/inluxc/harbor/internal/store"
@@ -31,10 +34,22 @@ type Server struct {
 	Suppliers *suppliers.Service
 	Meta      *metadata.Service
 	Search    *search.Service
+	Engine    *engine.Engine
+	Bus       *events.Bus
 	Config    *config.Config
 	UI        fs.FS // built web app (index.html + assets); may be empty
 	Log       *slog.Logger
 	started   time.Time
+
+	closeOnce sync.Once
+	closing   chan struct{}
+}
+
+// Shutdown ends long-lived responses (the live event stream) so a graceful
+// HTTP shutdown doesn't wait for them. Register it with
+// http.Server.RegisterOnShutdown; call it only after Handler.
+func (s *Server) Shutdown() {
+	s.closeOnce.Do(func() { close(s.closing) })
 }
 
 // Handler returns the full HTTP handler: API, UI, and middleware.
@@ -43,6 +58,7 @@ func (s *Server) Handler() http.Handler {
 		s.Log = slog.Default()
 	}
 	s.started = time.Now()
+	s.closing = make(chan struct{})
 
 	mux := http.NewServeMux()
 	// Public.
@@ -59,6 +75,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /api/v1/auth/keys/{id}", s.authed(s.deleteKey))
 	mux.Handle("GET /api/v1/system", s.authed(s.system))
 	s.routesMedia(mux)
+	s.routesDownloads(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "no such API endpoint")
 	})

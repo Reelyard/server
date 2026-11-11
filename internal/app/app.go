@@ -14,6 +14,8 @@ import (
 	"github.com/inluxc/harbor/internal/api"
 	"github.com/inluxc/harbor/internal/auth"
 	"github.com/inluxc/harbor/internal/config"
+	"github.com/inluxc/harbor/internal/engine"
+	"github.com/inluxc/harbor/internal/events"
 	"github.com/inluxc/harbor/internal/metadata"
 	"github.com/inluxc/harbor/internal/search"
 	"github.com/inluxc/harbor/internal/store"
@@ -29,6 +31,7 @@ type App struct {
 	UI     fs.FS
 
 	store  *store.Store
+	engine *engine.Engine
 	http   *http.Server
 	cancel context.CancelFunc
 	done   chan struct{}
@@ -50,6 +53,17 @@ func (a *App) Start(ctx context.Context) error {
 	}
 	a.store = st
 
+	bus := events.New()
+	eng, err := engine.New(ctx, engine.Options{
+		Store: st, Bus: bus, Log: a.Log,
+		DataDir: a.Config.DataDir, DownloadDir: a.Config.DownloadDir, ListenPort: a.Config.TorrentPort,
+	})
+	if err != nil {
+		st.Close()
+		return err
+	}
+	a.engine = eng
+
 	client := stremio.New("Harbor/" + version.Version)
 	sup := &suppliers.Service{Store: st, Client: client}
 	srv := &api.Server{
@@ -57,14 +71,18 @@ func (a *App) Start(ctx context.Context) error {
 		Suppliers: sup,
 		Meta:      metadata.New(client),
 		Search:    &search.Service{Suppliers: sup, Client: client},
+		Engine:    eng,
+		Bus:       bus,
 	}
 	a.http = &http.Server{
 		Handler:           srv.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		IdleTimeout:       2 * time.Minute,
 	}
+	a.http.RegisterOnShutdown(srv.Shutdown)
 	ln, err := net.Listen("tcp", a.Config.Listen)
 	if err != nil {
+		eng.Close()
 		st.Close()
 		return fmt.Errorf("listen on %s: %w", a.Config.Listen, err)
 	}
@@ -100,6 +118,11 @@ func (a *App) Stop(timeout time.Duration) error {
 		defer cancel()
 		err = a.http.Shutdown(ctx)
 		<-a.done
+	}
+	if a.engine != nil {
+		if cerr := a.engine.Close(); cerr != nil && err == nil {
+			err = cerr
+		}
 	}
 	if a.store != nil {
 		if cerr := a.store.Close(); err == nil {

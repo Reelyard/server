@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { api, type SystemInfo } from "../api";
+import { rate } from "../format";
+import { useDownloads } from "../useDownloads";
+import { ProgressBar, StateChip } from "./Downloads";
 
 function uptime(sec: number) {
   const d = Math.floor(sec / 86400), h = Math.floor((sec % 86400) / 3600), m = Math.floor((sec % 3600) / 60);
@@ -10,7 +13,7 @@ function uptime(sec: number) {
 const STEPS = [
   { to: "/suppliers", title: "Add a supplier", text: "Paste a Stremio addon manifest URL that returns torrent streams.", milestone: "" },
   { to: "/search", title: "Find a title", text: "Search a movie or series and see which torrents your suppliers have.", milestone: "" },
-  { to: "/titles", title: "Track a title", text: "Pick a quality profile and Harbor fetches it for you.", milestone: "M4" },
+  { to: "/downloads", title: "Download it", text: "Press Download on a stream; follow it live on the Downloads page.", milestone: "" },
 ];
 
 export default function Dashboard() {
@@ -25,9 +28,11 @@ export default function Dashboard() {
     <div className="flex flex-col gap-8">
       <header>
         <p className="eyebrow">Dashboard</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Nothing tracked yet</h1>
-        <p className="mt-1 text-muted">Harbor is running. Downloads and recent imports will appear here.</p>
+        <h1 className="mt-1 text-2xl font-semibold tracking-tight">Harbor</h1>
+        <p className="mt-1 text-muted">Your downloads at a glance. Tracking and imports arrive in later milestones.</p>
       </header>
+
+      <DownloadsWidget />
 
       <section>
         <h2 className="mb-3 font-semibold">Getting started</h2>
@@ -68,5 +73,36 @@ export default function Dashboard() {
         )}
       </section>
     </div>
+  );
+}
+
+function DownloadsWidget() {
+  const { downloads } = useDownloads();
+  if (!downloads || downloads.length === 0) return null;
+  const active = downloads.filter((d) => d.state !== "seeding" && d.state !== "paused");
+  const down = downloads.reduce((a, d) => a + d.downRate, 0);
+  const up = downloads.reduce((a, d) => a + d.upRate, 0);
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="font-semibold">Downloads</h2>
+        <span className="text-sm tabular-nums text-muted">
+          {active.length} active · ↓ {rate(down)} · ↑ {rate(up)} · <Link to="/downloads" className="text-deep hover:underline">See all</Link>
+        </span>
+      </div>
+      <ul className="card divide-y divide-line">
+        {(active.length ? active : downloads).slice(0, 4).map((d) => (
+          <li key={d.id} className="flex flex-col gap-1.5 px-4 py-3">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="min-w-0 truncate font-medium">{d.titleName || d.name}</span>
+              <span className="flex shrink-0 items-center gap-2 tabular-nums text-muted">
+                {Math.floor(d.progress * 100)}% <StateChip state={d.state} />
+              </span>
+            </div>
+            <ProgressBar d={d} />
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

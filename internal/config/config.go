@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"gopkg.in/yaml.v3"
@@ -35,7 +36,10 @@ type Config struct {
 	DownloadDir string `yaml:"download_dir"`
 	// LibraryDir is the media library (Movies/, TV/) read by DLNA/Jellyfin/Plex.
 	LibraryDir string `yaml:"library_dir"`
-	Log        Log    `yaml:"log"`
+	// TorrentPort is where other peers connect (TCP and UDP). Forward it in
+	// your router for better speeds. 0 picks a random free port.
+	TorrentPort int `yaml:"torrent_port"`
+	Log         Log `yaml:"log"`
 
 	// path is the file this config was read from ("" if none).
 	path string
@@ -67,6 +71,7 @@ func Defaults(system bool) Config {
 		DataDir:     data,
 		DownloadDir: filepath.Join(data, "downloads"),
 		LibraryDir:  filepath.Join(data, "library"),
+		TorrentPort: 42069,
 		Log:         Log{Level: "info", Format: "text", File: true},
 	}
 }
@@ -175,6 +180,11 @@ func (c *Config) applyEnv() {
 	set("HARBOR_LIBRARY_DIR", &c.LibraryDir)
 	set("HARBOR_LOG_LEVEL", &c.Log.Level)
 	set("HARBOR_LOG_FORMAT", &c.Log.Format)
+	if v := os.Getenv("HARBOR_TORRENT_PORT"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil {
+			c.TorrentPort = n
+		}
+	}
 	if v := os.Getenv("HARBOR_LOG_FILE"); v != "" {
 		c.Log.File = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
@@ -202,6 +212,9 @@ func (c *Config) normalize() error {
 	}
 	if c.Listen == "" {
 		return errors.New("listen address is empty")
+	}
+	if c.TorrentPort < 0 || c.TorrentPort > 65535 {
+		return fmt.Errorf("torrent_port %d: want 0–65535", c.TorrentPort)
 	}
 	return nil
 }
