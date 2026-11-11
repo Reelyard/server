@@ -45,7 +45,7 @@ export default function Activity() {
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="eyebrow">Activity</p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight">What Harbor did</h1>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">What Reelyard did</h1>
         </div>
         <div className="flex gap-1.5" role="group" aria-label="Show">
           {(["", "problems"] as const).map((f) => (

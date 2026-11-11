@@ -12,15 +12,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/inluxc/harbor/internal/auth"
-	"github.com/inluxc/harbor/internal/config"
-	"github.com/inluxc/harbor/internal/metadata"
-	"github.com/inluxc/harbor/internal/profile"
-	"github.com/inluxc/harbor/internal/search"
-	"github.com/inluxc/harbor/internal/store"
-	"github.com/inluxc/harbor/internal/stremio"
-	"github.com/inluxc/harbor/internal/suppliers"
-	"github.com/inluxc/harbor/internal/tracker"
+	"github.com/reelyard/server/internal/auth"
+	"github.com/reelyard/server/internal/config"
+	"github.com/reelyard/server/internal/metadata"
+	"github.com/reelyard/server/internal/profile"
+	"github.com/reelyard/server/internal/search"
+	"github.com/reelyard/server/internal/store"
+	"github.com/reelyard/server/internal/stremio"
+	"github.com/reelyard/server/internal/suppliers"
+	"github.com/reelyard/server/internal/tracker"
 )
 
 func newTrackingServer(t *testing.T) *client {

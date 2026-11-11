@@ -1,9 +1,9 @@
-// Package config loads Harbor's startup configuration.
+// Package config loads Reelyard's startup configuration.
 //
 // Sources, lowest to highest priority:
 //  1. built-in defaults (per-OS data directory)
 //  2. YAML file (default: <data dir>/config.yaml, or --config)
-//  3. environment variables (HARBOR_*)
+//  3. environment variables (REELYARD_*)
 //
 // Only settings needed before the database is open live here. Everything
 // a user changes day to day (speed limits, schedules, DLNA, ...) is stored
@@ -27,7 +27,7 @@ import (
 // FileName is the config file name inside the data directory.
 const FileName = "config.yaml"
 
-// Config is Harbor's startup configuration.
+// Config is Reelyard's startup configuration.
 type Config struct {
 	// Listen is the HTTP address for the web UI and API.
 	Listen string `yaml:"listen"`
@@ -54,15 +54,27 @@ type Config struct {
 type Log struct {
 	Level  string `yaml:"level"`  // debug | info | warn | error
 	Format string `yaml:"format"` // text | json
-	// File enables a rotating log file at <data dir>/logs/harbor.log.
+	// File enables a rotating log file at <data dir>/logs/reelyard.log.
 	File bool `yaml:"file"`
 }
 
 // Path returns the file the config was loaded from, or "".
 func (c *Config) Path() string { return c.path }
 
-// DBPath is the SQLite database file.
-func (c *Config) DBPath() string { return filepath.Join(c.DataDir, "harbor.db") }
+// DBPath is the SQLite database file. Data folders from before the rename
+// keep their harbor.db.
+func (c *Config) DBPath() string {
+	p := filepath.Join(c.DataDir, "reelyard.db")
+	if legacy := filepath.Join(c.DataDir, "harbor.db"); !exists(p) && exists(legacy) {
+		return legacy
+	}
+	return p
+}
+
+func exists(p string) bool {
+	_, err := os.Stat(p)
+	return err == nil
+}
 
 // LogDir is where rotating log files are written.
 func (c *Config) LogDir() string { return filepath.Join(c.DataDir, "logs") }
@@ -83,30 +95,44 @@ func Defaults(system bool) Config {
 
 // DefaultDataDir returns the per-OS data directory.
 //
-//	Linux:   /var/lib/harbor (system) or $XDG_DATA_HOME/harbor, ~/.local/share/harbor
-//	macOS:   /Library/Application Support/Harbor (system) or ~/Library/Application Support/Harbor
-//	Windows: %ProgramData%\Harbor
+//	Linux:   /var/lib/reelyard (system) or $XDG_DATA_HOME/reelyard, ~/.local/share/reelyard
+//	macOS:   /Library/Application Support/Reelyard (system) or ~/Library/Application Support/Reelyard
+//	Windows: %ProgramData%\Reelyard
+//
+// Installs from before the rename (when Reelyard was called Harbor) keep
+// using their folder: if the new one doesn't exist yet but the old one does,
+// the old one is returned.
 func DefaultDataDir(system bool) string {
+	dir := dataDir(system, "Reelyard", "reelyard")
+	if !exists(dir) {
+		if old := dataDir(system, "Harbor", "harbor"); exists(old) {
+			return old
+		}
+	}
+	return dir
+}
+
+func dataDir(system bool, title, lower string) string {
 	home, _ := os.UserHomeDir()
 	switch runtime.GOOS {
 	case "windows":
 		if pd := os.Getenv("ProgramData"); pd != "" {
-			return filepath.Join(pd, "Harbor")
+			return filepath.Join(pd, title)
 		}
-		return filepath.Join(`C:\ProgramData`, "Harbor")
+		return filepath.Join(`C:\ProgramData`, title)
 	case "darwin":
 		if system {
-			return "/Library/Application Support/Harbor"
+			return filepath.Join("/Library/Application Support", title)
 		}
-		return filepath.Join(home, "Library", "Application Support", "Harbor")
+		return filepath.Join(home, "Library", "Application Support", title)
 	default:
 		if system {
-			return "/var/lib/harbor"
+			return filepath.Join("/var/lib", lower)
 		}
 		if x := os.Getenv("XDG_DATA_HOME"); x != "" {
-			return filepath.Join(x, "harbor")
+			return filepath.Join(x, lower)
 		}
-		return filepath.Join(home, ".local", "share", "harbor")
+		return filepath.Join(home, ".local", "share", lower)
 	}
 }
 
@@ -117,7 +143,7 @@ func Load(path string, system bool) (*Config, error) {
 	cfg := Defaults(system)
 
 	// The data dir can be moved by env before we look for the default file.
-	if v := os.Getenv("HARBOR_DATA_DIR"); v != "" {
+	if v := Getenv("DATA_DIR"); v != "" {
 		cfg = rebase(cfg, v)
 	}
 
@@ -176,22 +202,22 @@ func rebase(c Config, dataDir string) Config {
 
 func (c *Config) applyEnv() {
 	set := func(key string, dst *string) {
-		if v := os.Getenv(key); v != "" {
+		if v := Getenv(key); v != "" {
 			*dst = v
 		}
 	}
-	set("HARBOR_LISTEN", &c.Listen)
-	set("HARBOR_DOWNLOAD_DIR", &c.DownloadDir)
-	set("HARBOR_LIBRARY_DIR", &c.LibraryDir)
-	set("HARBOR_LOG_LEVEL", &c.Log.Level)
-	set("HARBOR_LOG_FORMAT", &c.Log.Format)
-	set("HARBOR_BIND_INTERFACE", &c.BindInterface)
-	if v := os.Getenv("HARBOR_TORRENT_PORT"); v != "" {
+	set("LISTEN", &c.Listen)
+	set("DOWNLOAD_DIR", &c.DownloadDir)
+	set("LIBRARY_DIR", &c.LibraryDir)
+	set("LOG_LEVEL", &c.Log.Level)
+	set("LOG_FORMAT", &c.Log.Format)
+	set("BIND_INTERFACE", &c.BindInterface)
+	if v := Getenv("TORRENT_PORT"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			c.TorrentPort = n
 		}
 	}
-	if v := os.Getenv("HARBOR_LOG_FILE"); v != "" {
+	if v := Getenv("LOG_FILE"); v != "" {
 		c.Log.File = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
 }
@@ -266,16 +292,27 @@ func (c *Config) FilePath() string {
 	return filepath.Join(c.DataDir, FileName)
 }
 
-// EnvOverrides lists the HARBOR_* variables that set the download and
+// EnvOverrides lists the REELYARD_* variables that set the download and
 // library folders (a file change can't move those).
 func EnvOverrides() []string {
 	var out []string
-	for _, k := range []string{"HARBOR_DOWNLOAD_DIR", "HARBOR_LIBRARY_DIR"} {
-		if os.Getenv(k) != "" {
-			out = append(out, k)
+	for _, k := range []string{"DOWNLOAD_DIR", "LIBRARY_DIR"} {
+		for _, prefix := range []string{"REELYARD_", "HARBOR_"} {
+			if os.Getenv(prefix+k) != "" {
+				out = append(out, prefix+k)
+				break
+			}
 		}
 	}
 	return out
+}
+
+// Getenv reads REELYARD_<name>, falling back to the pre-rename HARBOR_<name>.
+func Getenv(name string) string {
+	if v := os.Getenv("REELYARD_" + name); v != "" {
+		return v
+	}
+	return os.Getenv("HARBOR_" + name)
 }
 
 // UpdateFile sets top-level keys in the YAML config file at path, keeping

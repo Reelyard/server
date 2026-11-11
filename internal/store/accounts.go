@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// User is a Harbor account.
+// User is a Reelyard account.
 type User struct {
 	ID           int64     `json:"id"`
 	Username     string    `json:"username"`

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Runs after the .deb/.rpm removes Harbor. Your data in /var/lib/harbor
+# Runs after the .deb/.rpm removes Reelyard. Your data in /var/lib/reelyard
 # (database, downloads, library) is kept; delete it by hand if you want.
 set -e
 if [ -d /run/systemd/system ]; then

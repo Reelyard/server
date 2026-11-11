@@ -1,4 +1,4 @@
-module github.com/inluxc/harbor
+module github.com/reelyard/server
 
 go 1.26.0
 

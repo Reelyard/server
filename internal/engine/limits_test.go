@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/store"
 )
 
 type clock struct {

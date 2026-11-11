@@ -169,7 +169,7 @@ export default function Suppliers() {
         <p className="eyebrow">Suppliers</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Stremio addons</h1>
         <p className="mt-1 max-w-prose text-muted">
-          Harbor asks these addons for torrents and subtitles. Paste an addon's manifest link: the one you would install in Stremio, ending in <code className="font-mono text-sm">/manifest.json</code>.
+          Reelyard asks these addons for torrents and subtitles. Paste an addon's manifest link: the one you would install in Stremio, ending in <code className="font-mono text-sm">/manifest.json</code>.
         </p>
       </header>
 

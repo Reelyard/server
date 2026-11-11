@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/inluxc/harbor/internal/dlna"
-	"github.com/inluxc/harbor/internal/mediaserver"
+	"github.com/reelyard/server/internal/dlna"
+	"github.com/reelyard/server/internal/mediaserver"
 )
 
 func (s *Server) routesPlayback(mux *http.ServeMux) {

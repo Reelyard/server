@@ -40,7 +40,7 @@ export default function Titles() {
         <div>
           <p className="eyebrow">Titles</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">Tracked titles</h1>
-          <p className="mt-1 text-muted">Harbor looks for these by itself and downloads what fits their quality profile.</p>
+          <p className="mt-1 text-muted">Reelyard looks for these by itself and downloads what fits their quality profile.</p>
         </div>
         <div className="flex gap-1.5" role="group" aria-label="Show">
           {FILTERS.map((f) => (

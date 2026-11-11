@@ -16,14 +16,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/inluxc/harbor/internal/engine"
-	"github.com/inluxc/harbor/internal/events"
-	"github.com/inluxc/harbor/internal/lang"
-	"github.com/inluxc/harbor/internal/metadata"
-	"github.com/inluxc/harbor/internal/release"
-	"github.com/inluxc/harbor/internal/store"
-	"github.com/inluxc/harbor/internal/stremio"
-	"github.com/inluxc/harbor/internal/suppliers"
+	"github.com/reelyard/server/internal/engine"
+	"github.com/reelyard/server/internal/events"
+	"github.com/reelyard/server/internal/lang"
+	"github.com/reelyard/server/internal/metadata"
+	"github.com/reelyard/server/internal/release"
+	"github.com/reelyard/server/internal/store"
+	"github.com/reelyard/server/internal/stremio"
+	"github.com/reelyard/server/internal/suppliers"
 )
 
 // Downloads is the part of the engine the importer uses.
@@ -76,7 +76,7 @@ func New(o Options) *Importer {
 }
 
 // Run imports queued downloads until ctx ends. Finished downloads that
-// were never imported (e.g. Harbor stopped mid-import) are queued first.
+// were never imported (e.g. Reelyard stopped mid-import) are queued first.
 func (im *Importer) Run(ctx context.Context) {
 	if ids, err := im.o.Store.PendingImports(ctx); err == nil {
 		for _, id := range ids {
@@ -432,7 +432,7 @@ func writeFileAtomic(dst string, b []byte) error {
 	if err := os.MkdirAll(filepath.Dir(dst), 0o755); err != nil {
 		return err
 	}
-	tmp, err := os.CreateTemp(filepath.Dir(dst), ".harbor-sub-*")
+	tmp, err := os.CreateTemp(filepath.Dir(dst), ".reelyard-sub-*")
 	if err != nil {
 		return err
 	}
@@ -469,7 +469,7 @@ func friendly(err error) string {
 	case errors.Is(err, ErrExists):
 		return "a different file already has this name in the library; move or delete it and import again"
 	case errors.Is(err, fs.ErrPermission):
-		return "Harbor isn't allowed to write to the library folder"
+		return "Reelyard isn't allowed to write to the library folder"
 	}
 	return err.Error()
 }

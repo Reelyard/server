@@ -89,7 +89,7 @@ func (e *Engine) checkNetwork() {
 	case err != nil:
 		e.guard(false, fmt.Sprintf("Paused: %s. Torrents won't use any other connection.", err))
 	case !cur.Equal(e.boundIP):
-		e.guard(false, fmt.Sprintf("Paused: %s now has address %s, but Harbor is bound to %s. Restart Harbor to use the new address.", name, cur, e.boundIP))
+		e.guard(false, fmt.Sprintf("Paused: %s now has address %s, but Reelyard is bound to %s. Restart Reelyard to use the new address.", name, cur, e.boundIP))
 		if e.opts.OnRebind != nil && !e.rebindAsked {
 			e.rebindAsked = true
 			go e.opts.OnRebind()

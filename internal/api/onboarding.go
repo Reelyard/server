@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/inluxc/harbor/internal/config"
-	"github.com/inluxc/harbor/internal/diskfree"
+	"github.com/reelyard/server/internal/config"
+	"github.com/reelyard/server/internal/diskfree"
 )
 
 // The first-run setup: after the account is created, the UI walks through
@@ -70,7 +70,7 @@ func (s *Server) foldersLocked(ctx context.Context) string {
 		return fmt.Sprintf("They are set by %s (for example in Docker), so change them there.", strings.Join(env, " and "))
 	}
 	if dls, err := s.Store.ListDownloads(ctx); err != nil || len(dls) > 0 {
-		return "Harbor already has downloads in these folders. To move them, stop Harbor, move the files, and edit the config file."
+		return "Reelyard already has downloads in these folders. To move them, stop Reelyard, move the files, and edit the config file."
 	}
 	return ""
 }
@@ -96,7 +96,7 @@ type foldersBody struct {
 }
 
 // putFolders saves new folders to the config file. They take effect after
-// a restart, which Harbor does itself when it runs as a service.
+// a restart, which Reelyard does itself when it runs as a service.
 func (s *Server) putFolders(w http.ResponseWriter, r *http.Request) {
 	var b foldersBody
 	if !decode(w, r, &b) {
@@ -152,7 +152,7 @@ func (s *Server) finishOnboarding(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// checkFolder cleans a path, creates it, and checks Harbor can write there.
+// checkFolder cleans a path, creates it, and checks Reelyard can write there.
 func checkFolder(p, what string) (string, error) {
 	p = strings.TrimSpace(p)
 	if strings.HasPrefix(p, "~") {
@@ -167,9 +167,9 @@ func checkFolder(p, what string) (string, error) {
 	if err := os.MkdirAll(p, 0o755); err != nil {
 		return "", fmt.Errorf("Couldn't create the %s folder: %v", what, errors.Unwrap(err))
 	}
-	f, err := os.CreateTemp(p, ".harbor-write-test-*")
+	f, err := os.CreateTemp(p, ".reelyard-write-test-*")
 	if err != nil {
-		return "", fmt.Errorf("Harbor can't write to the %s folder %s. Check its permissions.", what, p)
+		return "", fmt.Errorf("Reelyard can't write to the %s folder %s. Check its permissions.", what, p)
 	}
 	f.Close()
 	os.Remove(f.Name())
@@ -195,7 +195,7 @@ func canHardlink(dl, lib string) bool {
 	if os.MkdirAll(dl, 0o755) != nil || os.MkdirAll(lib, 0o755) != nil {
 		return false
 	}
-	f, err := os.CreateTemp(dl, ".harbor-link-test-*")
+	f, err := os.CreateTemp(dl, ".reelyard-link-test-*")
 	if err != nil {
 		return false
 	}

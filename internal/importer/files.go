@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/inluxc/harbor/internal/lang"
+	"github.com/reelyard/server/internal/lang"
 )
 
 // Placement methods.
@@ -79,7 +79,7 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	defer in.Close()
-	tmp, err := os.CreateTemp(filepath.Dir(dst), ".harbor-copy-*")
+	tmp, err := os.CreateTemp(filepath.Dir(dst), ".reelyard-copy-*")
 	if err != nil {
 		return err
 	}

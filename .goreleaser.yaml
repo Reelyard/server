@@ -3,7 +3,7 @@
 #   goreleaser release --snapshot --clean --skip=docker
 version: 2
 
-project_name: harbor
+project_name: reelyard
 
 before:
   hooks:
@@ -12,9 +12,9 @@ before:
     - go mod tidy -diff
 
 builds:
-  - id: harbor
-    main: ./cmd/harbor
-    binary: harbor
+  - id: reelyard
+    main: ./cmd/reelyard
+    binary: reelyard
     env:
       - CGO_ENABLED=0
     goos: [linux, darwin, windows]
@@ -22,14 +22,14 @@ builds:
     flags: [-trimpath]
     ldflags:
       - -s -w
-      - -X github.com/inluxc/harbor/internal/version.Version={{ .Version }}
-      - -X github.com/inluxc/harbor/internal/version.Commit={{ .ShortCommit }}
-      - -X github.com/inluxc/harbor/internal/version.Date={{ .CommitDate }}
+      - -X github.com/reelyard/server/internal/version.Version={{ .Version }}
+      - -X github.com/reelyard/server/internal/version.Commit={{ .ShortCommit }}
+      - -X github.com/reelyard/server/internal/version.Date={{ .CommitDate }}
     mod_timestamp: "{{ .CommitTimestamp }}"
 
 archives:
-  - id: harbor
-    ids: [harbor]
+  - id: reelyard
+    ids: [reelyard]
     formats: [tar.gz]
     format_overrides:
       - goos: windows
@@ -47,13 +47,13 @@ checksum:
   name_template: checksums.txt
 
 nfpms:
-  - id: harbor
-    ids: [harbor]
-    package_name: harbor
+  - id: reelyard
+    ids: [reelyard]
+    package_name: reelyard
     file_name_template: "{{ .ConventionalFileName }}"
-    vendor: Harbor
-    homepage: https://github.com/inluxc/harbor
-    maintainer: Harbor maintainers <noreply@github.com>
+    vendor: Reelyard
+    homepage: https://github.com/reelyard/server
+    maintainer: Reelyard maintainers <noreply@github.com>
     description: |-
       Tracks movies and series, finds torrents through Stremio addons,
       downloads them into a Jellyfin/Plex-style library with subtitles
@@ -65,11 +65,11 @@ nfpms:
     recommends:
       - ffmpeg
     contents:
-      - src: packaging/linux/harbor.service
-        dst: /usr/lib/systemd/system/harbor.service
+      - src: packaging/linux/reelyard.service
+        dst: /usr/lib/systemd/system/reelyard.service
         file_info:
           mode: 0644
-      - dst: /var/lib/harbor
+      - dst: /var/lib/reelyard
         type: dir
         file_info:
           mode: 0775
@@ -79,13 +79,13 @@ nfpms:
       postremove: packaging/linux/postremove.sh
 
 homebrew_casks:
-  - name: harbor
-    ids: [harbor]
-    homepage: https://github.com/inluxc/harbor
+  - name: reelyard
+    ids: [reelyard]
+    homepage: https://github.com/reelyard/server
     description: Track movies and series, download them into a media library and serve it over DLNA
     license: MIT
     repository:
-      owner: inluxc
+      owner: reelyard
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Casks
@@ -96,20 +96,20 @@ homebrew_casks:
         # The binaries aren't notarized; let macOS run them.
         install_steps: |
           on_macos do
-            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/harbor"]
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/reelyard"]
           end
     caveats: |
-      Start Harbor now and at every login:
-        harbor install --user && harbor start --user
+      Start Reelyard now and at every login:
+        reelyard install --user && reelyard start --user
       Then open http://localhost:8787
       Only download content you have the rights to.
 
 dockers_v2:
-  - id: harbor
-    ids: [harbor]
+  - id: reelyard
+    ids: [reelyard]
     dockerfile: packaging/docker/Dockerfile
     images:
-      - ghcr.io/inluxc/harbor
+      - ghcr.io/reelyard/server
     tags:
       - "{{ .Version }}"
       - "{{ if not .Prerelease }}latest{{ end }}"
@@ -117,8 +117,8 @@ dockers_v2:
       - linux/amd64
       - linux/arm64
     labels:
-      org.opencontainers.image.title: Harbor
-      org.opencontainers.image.source: https://github.com/inluxc/harbor
+      org.opencontainers.image.title: Reelyard
+      org.opencontainers.image.source: https://github.com/reelyard/server
       org.opencontainers.image.version: "{{ .Version }}"
       org.opencontainers.image.revision: "{{ .FullCommit }}"
       org.opencontainers.image.licenses: MIT
@@ -134,5 +134,5 @@ release:
   draft: true
   prerelease: auto
   footer: |
-    **Install:** see [the README](https://github.com/inluxc/harbor#install).
+    **Install:** see [the README](https://github.com/reelyard/server#install).
     Only download content you have the rights to.

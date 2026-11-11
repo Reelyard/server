@@ -20,7 +20,7 @@ const (
 	StateDone        = "done"        // finished sharing; torrent stopped (data may be deleted)
 )
 
-// Download is a torrent (or one file of it) Harbor is fetching.
+// Download is a torrent (or one file of it) Reelyard is fetching.
 type Download struct {
 	ID          int64      `json:"id"`
 	InfoHash    string     `json:"infoHash"`

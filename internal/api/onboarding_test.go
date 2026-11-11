@@ -15,14 +15,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/inluxc/harbor/internal/auth"
-	"github.com/inluxc/harbor/internal/config"
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/auth"
+	"github.com/reelyard/server/internal/config"
+	"github.com/reelyard/server/internal/store"
 )
 
 func TestOnboarding(t *testing.T) {
-	t.Setenv("HARBOR_DOWNLOAD_DIR", "")
-	t.Setenv("HARBOR_LIBRARY_DIR", "")
+	t.Setenv("REELYARD_DOWNLOAD_DIR", "")
+	t.Setenv("REELYARD_LIBRARY_DIR", "")
 	dir := t.TempDir()
 	ctx := context.Background()
 	st, err := store.Open(ctx, filepath.Join(dir, "o.db"))
@@ -86,8 +86,8 @@ func TestOnboarding(t *testing.T) {
 	}
 
 	// Folders set by the environment (Docker) can't be changed here.
-	t.Setenv("HARBOR_LIBRARY_DIR", "/data/library")
-	if code, body := c.do("PUT", "/api/v1/onboarding/folders", enc(newDL, newLib)); code != 409 || !strings.Contains(body["error"].(string), "HARBOR_LIBRARY_DIR") {
+	t.Setenv("REELYARD_LIBRARY_DIR", "/data/library")
+	if code, body := c.do("PUT", "/api/v1/onboarding/folders", enc(newDL, newLib)); code != 409 || !strings.Contains(body["error"].(string), "REELYARD_LIBRARY_DIR") {
 		t.Fatalf("env locked: %d %v", code, body)
 	}
 

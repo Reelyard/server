@@ -7,6 +7,7 @@ import (
 	"image/color"
 	"image/jpeg"
 	"image/png"
+	"math"
 	"net/http"
 	"os"
 	"os/exec"
@@ -18,25 +19,40 @@ import (
 	"github.com/anacrolix/dms/dlna/dms"
 )
 
-// Harbor's mark: a white "H" on the deep blue of the web UI.
+// Reelyard's mark: a white film reel on the deep blue of the web UI.
 var (
-	iconBG = color.RGBA{0x1f, 0x4b, 0x6e, 0xff}
-	iconFG = color.RGBA{0xff, 0xff, 0xff, 0xff}
+	iconBG  = color.RGBA{0x1f, 0x4b, 0x6e, 0xff}
+	iconFG  = color.RGBA{0xff, 0xff, 0xff, 0xff}
+	iconHub = color.RGBA{0xd9, 0x48, 0x1c, 0xff}
 )
 
 func drawIcon(size int) *image.RGBA {
 	img := image.NewRGBA(image.Rect(0, 0, size, size))
-	u := func(f float64) int { return int(f * float64(size)) }
-	for y := 0; y < size; y++ {
-		for x := 0; x < size; x++ {
+	// A film reel on a 32-unit grid, like the web UI's logo.
+	type disc struct{ x, y, r float64 }
+	var holes []disc
+	for _, deg := range []float64{-90, -18, 54, 126, 198} {
+		a := deg * math.Pi / 180
+		holes = append(holes, disc{16 + 5*math.Cos(a), 16 + 5*math.Sin(a), 2.1})
+	}
+	in := func(d disc, x, y float64) bool { return (x-d.x)*(x-d.x)+(y-d.y)*(y-d.y) <= d.r*d.r }
+	for py := 0; py < size; py++ {
+		for px := 0; px < size; px++ {
+			x := (float64(px) + 0.5) * 32 / float64(size)
+			y := (float64(py) + 0.5) * 32 / float64(size)
 			c := iconBG
-			inLeft := x >= u(0.28) && x < u(0.40)
-			inRight := x >= u(0.60) && x < u(0.72)
-			inBar := x >= u(0.28) && x < u(0.72) && y >= u(0.45) && y < u(0.56)
-			if (inLeft || inRight) && y >= u(0.24) && y < u(0.76) || inBar {
+			if in(disc{16, 16, 10}, x, y) {
 				c = iconFG
+				for _, h := range holes {
+					if in(h, x, y) {
+						c = iconBG
+					}
+				}
+				if in(disc{16, 16, 1.7}, x, y) {
+					c = iconHub
+				}
 			}
-			img.SetRGBA(x, y, c)
+			img.SetRGBA(px, py, c)
 		}
 	}
 	return img
@@ -73,7 +89,7 @@ func newThumbs(ffmpeg string) *thumbs {
 	return &thumbs{ffmpeg: ffmpeg, sem: make(chan struct{}, 2), cache: map[string][]byte{}}
 }
 
-// serve answers /icon?path=<video>: a frame from the video, or Harbor's icon.
+// serve answers /icon?path=<video>: a frame from the video, or Reelyard's icon.
 func (t *thumbs) serve(w http.ResponseWriter, r *http.Request, root *os.Root, libraryDir string) {
 	rel := cleanRel(r.URL.Query().Get("path"))
 	var body []byte

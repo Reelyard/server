@@ -273,7 +273,7 @@ export function MediaServers() {
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="font-semibold">Jellyfin, Emby and Plex</h2>
-          <p className="text-sm text-muted">Point your media server at the library folder, then add it here so Harbor asks it to rescan when new files arrive.</p>
+          <p className="text-sm text-muted">Point your media server at the library folder, then add it here so Reelyard asks it to rescan when new files arrive.</p>
         </div>
         {list && list.some((m) => m.enabled) && !editing && (
           <button className="btn-ghost" disabled={busy} onClick={refresh}>Refresh now</button>

@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/inluxc/harbor/internal/profile"
-	"github.com/inluxc/harbor/internal/store"
-	"github.com/inluxc/harbor/internal/tracker"
+	"github.com/reelyard/server/internal/profile"
+	"github.com/reelyard/server/internal/store"
+	"github.com/reelyard/server/internal/tracker"
 )
 
 func (s *Server) routesTracking(mux *http.ServeMux) {

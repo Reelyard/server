@@ -30,7 +30,7 @@ export default function AuthPage({ mode, onDone }: { mode: "setup" | "login"; on
         <div className="mb-6 flex items-center gap-3">
           <Logo className="h-9 w-9" />
           <div>
-            <h1 className="text-xl font-semibold">{setup ? "Welcome to Harbor" : "Sign in to Harbor"}</h1>
+            <h1 className="text-xl font-semibold">{setup ? "Welcome to Reelyard" : "Sign in to Reelyard"}</h1>
             <p className="text-sm text-muted">{setup ? "Create the admin account to get started." : "Your media tracker and downloader."}</p>
           </div>
         </div>

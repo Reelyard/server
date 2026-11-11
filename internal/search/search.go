@@ -12,12 +12,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/inluxc/harbor/internal/release"
-	"github.com/inluxc/harbor/internal/stremio"
-	"github.com/inluxc/harbor/internal/suppliers"
+	"github.com/reelyard/server/internal/release"
+	"github.com/reelyard/server/internal/stremio"
+	"github.com/reelyard/server/internal/suppliers"
 )
 
-// Candidate is one stream Harbor could download.
+// Candidate is one stream Reelyard could download.
 type Candidate struct {
 	Key          string         `json:"key"` // infoHash[:fileIdx]
 	SupplierID   int64          `json:"supplierId"`
@@ -162,7 +162,7 @@ func candidate(sr SupplierResult, st stremio.Stream, typ string, season, episode
 		c.Key = "url:" + st.URL + st.ExternalURL + st.YtID
 	}
 	if !c.Usable {
-		c.Problems = append(c.Problems, "Not a torrent (a debrid or web link), so Harbor can't download it")
+		c.Problems = append(c.Problems, "Not a torrent (a debrid or web link), so Reelyard can't download it")
 	}
 	if typ == "series" && len(ps.Info.Seasons) > 0 && !ps.Info.HasEpisode(season, episode) {
 		c.Problems = append(c.Problems, fmt.Sprintf("The name doesn't look like S%02dE%02d", season, episode))

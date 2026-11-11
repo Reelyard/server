@@ -1,6 +1,6 @@
-# Harbor — Stremio-supplier media tracker & downloader (Go)
+# Reelyard — Stremio-supplier media tracker & downloader (Go)
 
-> Working name: **Harbor**. A single Go binary for Linux, macOS and Windows.
+> Name: **Reelyard** (called Harbor until 2026-11-11; renamed to avoid the CNCF Harbor registry). A single Go binary for Linux, macOS and Windows.
 > It watches movies and TV series, finds torrents through Stremio addons ("suppliers"),
 > downloads them with a built-in torrent engine, puts them in a media library with
 > Jellyfin/Plex naming plus subtitles, and serves that library over DLNA.
@@ -24,7 +24,7 @@
           └──────────────────┬────────────────────────────┘
                              │ REST /api/v1 + SSE (live progress)
 ┌────────────────────────────┴──────────────────────────────────┐
-│ Harbor (Go)                                                   │
+│ Reelyard (Go)                                                   │
 │                                                               │
 │  Scheduler ──► Searcher ──► Stremio addon client ──► suppliers│
 │      │            │                (stream / subtitles)       │
@@ -48,7 +48,7 @@
 
 ### 2.1 Suppliers = Stremio addons
 A supplier is a Stremio addon **manifest URL** (configured addons have their config in the
-path, e.g. `https://host/<config>/manifest.json`). Harbor reads:
+path, e.g. `https://host/<config>/manifest.json`). Reelyard reads:
 
 - `GET {base}/manifest.json` → name, `resources` (`stream`, `subtitles`, `meta`, `catalog`),
   `types` (`movie`, `series`), `idPrefixes` (`tt`). The UI shows what each supplier can do.
@@ -166,8 +166,8 @@ for scripts.
 ## 5. Project layout
 
 ```
-harbor/
-  cmd/harbor/main.go          # CLI: serve | install | uninstall | start | stop | reset-password | version
+reelyard/
+  cmd/reelyard/main.go          # CLI: serve | install | uninstall | start | stop | reset-password | version
   internal/
     config/                   # file/env config, default paths per OS
     store/                    # SQLite access + migrations/
@@ -191,9 +191,9 @@ harbor/
 ```
 
 Default data locations (overridable):
-- Linux: `/var/lib/harbor` (service) or `~/.local/share/harbor`
-- macOS: `~/Library/Application Support/Harbor`
-- Windows: `%ProgramData%\Harbor`
+- Linux: `/var/lib/reelyard` (service) or `~/.local/share/reelyard`
+- macOS: `~/Library/Application Support/Reelyard`
+- Windows: `%ProgramData%\Reelyard`
 
 ## 6. Data model (SQLite)
 
@@ -233,8 +233,8 @@ GET    /api/v1/events?since=        GET  /api/v1/stream  (SSE)
 
 ## 8. Install & distribution
 
-- `harbor install` registers the service (systemd / launchd / Windows Service) and
-  `harbor start` runs it; `harbor serve` runs in the foreground.
+- `reelyard install` registers the service (systemd / launchd / Windows Service) and
+  `reelyard start` runs it; `reelyard serve` runs in the foreground.
 - GoReleaser builds `linux|darwin|windows × amd64|arm64`:
   `.tar.gz`/`.zip`, `.deb`/`.rpm`, Homebrew tap, Windows zip (MSI/winget later),
   Docker image (`ghcr.io/...`) for NAS users.
@@ -262,13 +262,13 @@ Later ideas: quality upgrades (replace 720p with 1080p when found), notification
 
 ## 10. Risks & notes
 
-- **Legal:** Harbor is a neutral tool; only download content you have the rights to.
+- **Legal:** Reelyard is a neutral tool; only download content you have the rights to.
   Torrent traffic is visible to your ISP — the VPN interface binding option is there for that.
 - **Addon formats differ:** release info lives in free text; the parser needs tests built from
   real responses (saved as fixtures) for each supplier you use.
 - **Language detection from names is unreliable:** confirm with `ffprobe` after download when
   available, and treat a mismatch as failed (try the next candidate) if the language is required.
-- **Some configured addons return only debrid URLs** (no `infoHash`); Harbor will show them as
+- **Some configured addons return only debrid URLs** (no `infoHash`); Reelyard will show them as
   "not usable" in the supplier test.
 - **Windows:** long paths (use `\\?\` prefixes), name sanitizing, and file locks while seeding
   (avoided by hardlinks).

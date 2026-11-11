@@ -14,8 +14,8 @@ import (
 
 	"golang.org/x/text/encoding/charmap"
 
-	"github.com/inluxc/harbor/internal/lang"
-	"github.com/inluxc/harbor/internal/stremio"
+	"github.com/reelyard/server/internal/lang"
+	"github.com/reelyard/server/internal/stremio"
 )
 
 // ErrNotSubtitle means downloaded content isn't SRT or WebVTT.

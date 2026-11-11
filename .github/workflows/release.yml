@@ -37,6 +37,6 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Optional: a token that can push to inluxc/homebrew-tap. Without
+          # Optional: a token that can push to reelyard/homebrew-tap. Without
           # it the Homebrew cask is built but not published.
           HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}

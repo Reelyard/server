@@ -1,4 +1,4 @@
-// Package engine runs Harbor's built-in BitTorrent client (anacrolix/torrent)
+// Package engine runs Reelyard's built-in BitTorrent client (anacrolix/torrent)
 // and keeps the downloads table in step with it: queueing, file selection,
 // progress, pause/resume, and resuming after a restart.
 package engine
@@ -24,9 +24,9 @@ import (
 	"github.com/anacrolix/torrent/storage"
 	"golang.org/x/time/rate"
 
-	"github.com/inluxc/harbor/internal/diskfree"
-	"github.com/inluxc/harbor/internal/events"
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/diskfree"
+	"github.com/reelyard/server/internal/events"
+	"github.com/reelyard/server/internal/store"
 )
 
 // DefaultTrackers are well-known public trackers added to every torrent so
@@ -185,7 +185,7 @@ func New(ctx context.Context, o Options) (*Engine, error) {
 	pc, err := storage.NewBoltPieceCompletion(stateDir)
 	if err != nil {
 		if strings.Contains(err.Error(), "timeout") {
-			return nil, fmt.Errorf("the download state in %s is locked: is another Harbor still running with this data folder?", stateDir)
+			return nil, fmt.Errorf("the download state in %s is locked: is another Reelyard still running with this data folder?", stateDir)
 		}
 		return nil, fmt.Errorf("open piece state: %w", err)
 	}
@@ -229,10 +229,10 @@ func New(ctx context.Context, o Options) (*Engine, error) {
 		e.net.Interface = o.BindInterface
 		if ierr != nil {
 			// Bind to loopback: nothing can reach the internet until the
-			// interface is up and Harbor restarts.
+			// interface is up and Reelyard restarts.
 			ip = net.IPv4(127, 0, 0, 1)
 			e.net.OK = false
-			e.net.Message = fmt.Sprintf("Paused: %s. Torrents won't use any other connection; restart Harbor once it's up.", ierr)
+			e.net.Message = fmt.Sprintf("Paused: %s. Torrents won't use any other connection; restart Reelyard once it's up.", ierr)
 		}
 		e.boundIP = ip
 		e.net.Address = ip.String()

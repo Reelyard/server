@@ -7,11 +7,11 @@ import (
 	"strings"
 )
 
-const uiMissing = `<!doctype html><meta charset="utf-8"><title>Harbor</title>
+const uiMissing = `<!doctype html><meta charset="utf-8"><title>Reelyard</title>
 <body style="font-family:system-ui;max-width:40rem;margin:4rem auto;padding:0 1rem;line-height:1.5">
-<h1>Harbor is running</h1>
+<h1>Reelyard is running</h1>
 <p>The web interface was not built into this binary. Build it with <code>make web</code>
-and rebuild Harbor, or use the API at <code>/api/v1</code>.</p></body>`
+and rebuild Reelyard, or use the API at <code>/api/v1</code>.</p></body>`
 
 // uiHandler serves the single-page app: real files when they exist,
 // index.html for every other path so client-side routes work on reload.

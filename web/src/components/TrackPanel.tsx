@@ -92,7 +92,7 @@ export default function TrackPanel({
         <>
           <p className="text-sm">
             <span className="font-medium">Track this {type === "movie" ? "movie" : "series"}</span>
-            <span className="text-muted"> and Harbor will download {type === "movie" ? "it" : "episodes"} by itself when a release fits the profile.</span>
+            <span className="text-muted"> and Reelyard will download {type === "movie" ? "it" : "episodes"} by itself when a release fits the profile.</span>
           </p>
           <div className="flex flex-wrap items-center gap-2">
             {profileSelect}
@@ -111,7 +111,7 @@ export default function TrackPanel({
           <p className="text-sm">
             <span className="rounded-full bg-ok-soft px-2 py-0.5 text-xs text-ok">Tracked</span>{" "}
             {type === "movie"
-              ? tracked.imported ? "In your library." : tracked.downloading ? "Downloading." : "Harbor keeps looking for a release that fits."
+              ? tracked.imported ? "In your library." : tracked.downloading ? "Downloading." : "Reelyard keeps looking for a release that fits."
               : `${tracked.imported} in library · ${tracked.downloading} downloading · ${tracked.wanted} wanted · ${tracked.unaired} not aired yet`}
           </p>
           <div className="flex flex-wrap items-center gap-2">

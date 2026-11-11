@@ -100,7 +100,7 @@ function ApiKeys() {
       </div>
       {secret && (
         <div className="flex flex-col gap-2 rounded-lg bg-ok-soft p-3 text-sm">
-          <span className="text-ok">New key created. Copy it now: Harbor won't show it again.</span>
+          <span className="text-ok">New key created. Copy it now: Reelyard won't show it again.</span>
           <div className="flex flex-wrap items-center gap-2">
             <code className="min-w-0 flex-1 rounded bg-surface px-2 py-1 font-mono break-all select-all">{secret}</code>
             <button type="button" className="btn-ghost py-1" onClick={copy}>{copied ? "Copied" : "Copy"}</button>
@@ -214,7 +214,7 @@ function DownloadOptions() {
       )}
       <div className="rounded-lg bg-bg px-3 py-2 text-sm">
         {!net?.interface ? (
-          <>Torrents use any network connection. To send them only through your VPN, set <code className="font-mono">bind_interface</code> (e.g. <code className="font-mono">wg0</code>) in the config file and restart Harbor.</>
+          <>Torrents use any network connection. To send them only through your VPN, set <code className="font-mono">bind_interface</code> (e.g. <code className="font-mono">wg0</code>) in the config file and restart Reelyard.</>
         ) : net.ok ? (
           <span className="text-ok">Torrents only use <b>{net.interface}</b> ({net.address}). If it goes down, they pause.</span>
         ) : (
@@ -266,7 +266,7 @@ function LibraryOptions() {
       </div>
       <div className="flex flex-col gap-2">
         <span className="label">Subtitle languages</span>
-        <p className="text-xs text-muted">Harbor saves a subtitle file for each of these unless the video already has one built in. Uses your subtitle suppliers (e.g. OpenSubtitles).</p>
+        <p className="text-xs text-muted">Reelyard saves a subtitle file for each of these unless the video already has one built in. Uses your subtitle suppliers (e.g. OpenSubtitles).</p>
         <div className="flex flex-wrap items-center gap-1.5">
           {langs?.length === 0 && <span className="text-sm text-muted">None: subtitles are not downloaded.</span>}
           {langs?.map((l, i) => (
@@ -322,7 +322,7 @@ function Blocklist() {
     <section className="card flex flex-col gap-3 p-5">
       <div>
         <h2 className="font-semibold">Blocked releases</h2>
-        <p className="text-sm text-muted">Releases Harbor won't grab again for a title: they failed, stalled, were removed, or had the wrong audio language.</p>
+        <p className="text-sm text-muted">Releases Reelyard won't grab again for a title: they failed, stalled, were removed, or had the wrong audio language.</p>
       </div>
       {list && list.length === 0 && <p className="text-sm text-muted">Nothing blocked.</p>}
       {list && list.length > 0 && (

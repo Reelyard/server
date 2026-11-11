@@ -1,19 +1,19 @@
-Harbor for Linux
+Reelyard for Linux
 ================
 
-Prefer the .deb or .rpm package: it sets up a "harbor" user and a systemd
+Prefer the .deb or .rpm package: it sets up a "reelyard" user and a systemd
 service for you. With this archive:
 
 Try it:
-    ./harbor serve
+    ./reelyard serve
 Then open http://localhost:8787 to create your account.
 
 Run it as a service:
-    sudo install -m 0755 harbor /usr/local/bin/harbor
-    sudo harbor install && sudo harbor start            # system service
-    # or, without root:  harbor install --user && harbor start --user
+    sudo install -m 0755 reelyard /usr/local/bin/reelyard
+    sudo reelyard install && sudo reelyard start            # system service
+    # or, without root:  reelyard install --user && reelyard start --user
 
 Install ffmpeg as well (language checks, thumbnails, TV transcoding).
-Other commands: harbor status | stop | restart | uninstall | reset-password | version
+Other commands: reelyard status | stop | restart | uninstall | reset-password | version
 
 Only download content you have the rights to.

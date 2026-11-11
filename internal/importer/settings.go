@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/inluxc/harbor/internal/lang"
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/lang"
+	"github.com/reelyard/server/internal/store"
 )
 
 const settingsKey = "library"

@@ -7,7 +7,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/store"
 )
 
 const settingsKey = "dlna"
@@ -26,8 +26,8 @@ type Settings struct {
 	Transcode bool `json:"transcode"`
 }
 
-// DefaultSettings: on, named "Harbor", on minidlna's usual port.
-var DefaultSettings = Settings{Enabled: true, Name: "Harbor", Port: 8200, Interfaces: []string{}}
+// DefaultSettings: on, named "Reelyard", on minidlna's usual port.
+var DefaultSettings = Settings{Enabled: true, Name: "Reelyard", Port: 8200, Interfaces: []string{}}
 
 // Validate checks the settings.
 func (s Settings) Validate() error {

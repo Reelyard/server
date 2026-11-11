@@ -10,13 +10,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/inluxc/harbor/internal/stremio"
+	"github.com/reelyard/server/internal/stremio"
 )
 
 // DefaultCatalogBase is Cinemeta, which serves Stremio's addon catalogs.
 const DefaultCatalogBase = "https://v3-cinemeta.strem.io"
 
-// CatalogEntry is an addon from Stremio's catalog that Harbor could use.
+// CatalogEntry is an addon from Stremio's catalog that Reelyard could use.
 type CatalogEntry struct {
 	Name                  string   `json:"name"`
 	Description           string   `json:"description,omitempty"`
@@ -117,7 +117,7 @@ func (s *Service) fetchCatalog(ctx context.Context) ([]CatalogEntry, error) {
 	return entries, nil
 }
 
-// catalogEntry keeps addons Harbor can use: reachable over the network,
+// catalogEntry keeps addons Reelyard can use: reachable over the network,
 // using the current protocol, and serving streams or subtitles for movies
 // or series by IMDb id.
 func catalogEntry(d stremio.AddonDescriptor) (CatalogEntry, bool) {

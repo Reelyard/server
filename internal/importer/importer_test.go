@@ -13,11 +13,11 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/inluxc/harbor/internal/engine"
-	"github.com/inluxc/harbor/internal/metadata"
-	"github.com/inluxc/harbor/internal/store"
-	"github.com/inluxc/harbor/internal/stremio"
-	"github.com/inluxc/harbor/internal/suppliers"
+	"github.com/reelyard/server/internal/engine"
+	"github.com/reelyard/server/internal/metadata"
+	"github.com/reelyard/server/internal/store"
+	"github.com/reelyard/server/internal/stremio"
+	"github.com/reelyard/server/internal/suppliers"
 )
 
 type fakeDownloads struct {
