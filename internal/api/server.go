@@ -2,6 +2,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -53,6 +54,7 @@ type Server struct {
 
 	closeOnce sync.Once
 	closing   chan struct{}
+	links     *auth.StreamSigner
 }
 
 // Shutdown ends long-lived responses (the live event stream) so a graceful
@@ -69,6 +71,13 @@ func (s *Server) Handler() http.Handler {
 	}
 	s.started = time.Now()
 	s.closing = make(chan struct{})
+	signer, err := auth.NewStreamSigner(context.Background(), s.Store)
+	if err != nil {
+		// Signed links then fail closed: every check rejects them.
+		s.Log.Error("stream links unavailable", "err", err)
+		signer = &auth.StreamSigner{}
+	}
+	s.links = signer
 
 	mux := http.NewServeMux()
 	// Public.
@@ -90,6 +99,7 @@ func (s *Server) Handler() http.Handler {
 	s.routesTracking(mux)
 	s.routesPlayback(mux)
 	s.routesOnboarding(mux)
+	s.routesClients(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "no such API endpoint")
 	})
@@ -97,12 +107,25 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("/", uiHandler(s.UI))
 
 	// Blocks cross-site POST/PUT/DELETE from browsers (CSRF); requests
-	// without browser fetch metadata (curl, scripts) pass.
+	// without browser fetch metadata (curl, scripts) pass. Requests that carry
+	// their own credential in a header (apps, scripts) can't be forged by
+	// another site, so they skip it, and so do the cookie-free pairing calls.
 	cop := http.NewCrossOriginProtection()
+	for _, p := range pairingRoutes {
+		cop.AddInsecureBypassPattern(p)
+	}
 	cop.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "cross-origin request blocked")
 	}))
-	return s.recoverer(s.logRequests(securityHeaders(cop.Handler(mux))))
+	protected := cop.Handler(mux)
+	csrf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if auth.HeaderCredentials(r) {
+			mux.ServeHTTP(w, r)
+			return
+		}
+		protected.ServeHTTP(w, r)
+	})
+	return s.recoverer(s.logRequests(securityHeaders(cors(csrf))))
 }
 
 // ---- middleware ----

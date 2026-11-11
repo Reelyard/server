@@ -239,6 +239,28 @@ Everything the UI does goes through `/api/v1`. Scripts can use an API key from
 curl -H "X-Api-Key: hbr_..." http://localhost:8787/api/v1/system
 ```
 
+`Authorization: Bearer hbr_...` works too.
+
+### Apps and devices
+
+Harbor's apps for TVs, phones and computers ([Reelyard/clients](https://github.com/Reelyard/clients))
+sign in by pairing code instead of a password:
+
+1. The app calls `POST /api/v1/devices/pair` with `{"name": "Living room TV", "platform": "tizen"}`
+   and shows the `code` it gets back (e.g. `K7Q-4MD`).
+2. You enter that code under **Settings → Devices**.
+3. The app, polling `POST /api/v1/devices/pair/token` with its `pollSecret`, gets its own token
+   (`hbd_...`) and sends it as `Authorization: Bearer hbd_...`.
+
+Codes work for 10 minutes. **Settings → Devices** lists every device and signs any of them out.
+
+To play a file, an app asks `POST /api/v1/library/{id}/play` for a link to `/api/v1/play/{id}`
+that works for 8 hours without any header, so any video player can open it and seek.
+`GET /api/v1/library/titles` lists the library by movie and series;
+`GET /api/v1/library/titles/{imdbId}` gives a title's seasons, episodes and files.
+Apps on another origin (Samsung and LG TV apps) can call the API: it answers CORS requests
+that carry a token, never with cookies.
+
 ## Development
 
 ```sh
