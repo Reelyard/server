@@ -2,13 +2,33 @@
 
 Harbor tracks the movies and TV series you want, finds torrents for them through
 Stremio addons ("suppliers"), downloads them with a built-in torrent engine, and puts
-them in a media library with Jellyfin/Plex naming and subtitles. It will also serve the
-library over DLNA. One binary for Linux, macOS and Windows.
+them in a media library with Jellyfin/Plex naming and subtitles. It also serves the
+library to TVs over DLNA. One binary for Linux, macOS and Windows.
 
-> Status: **M5 — sharing rules and safety**. Suppliers, search, the built-in torrent engine,
+> Status: **M6 — DLNA and media servers**. Suppliers, search, the built-in torrent engine,
 > importing into a Jellyfin/Plex-style library with subtitles, quality profiles, automatic
-> tracking, sharing limits, stall detection, disk-space checks and VPN binding work. DLNA and
-> packaging arrive next; see [PLAN.md](PLAN.md).
+> tracking, sharing limits, stall detection, disk-space checks, VPN binding, the DLNA server
+> and Jellyfin/Emby/Plex refresh work. Packaging arrives next; see [PLAN.md](PLAN.md).
+
+## Watching on a TV (DLNA)
+
+Harbor has its own DLNA server, on by default. TVs, game consoles and players like VLC on
+your network list it as **Harbor** (rename it in **Settings → DLNA server**) and play straight
+from the library, with seeking. Subtitles saved next to a video are offered with it, in your
+subtitle-language order (Samsung TVs get them too). Thumbnails need `ffmpeg`, durations
+`ffprobe`. Turn on converted versions there for TVs that can't play a file (needs `ffmpeg`).
+
+- It uses TCP port **8200** and SSDP (UDP 1900, multicast); allow both in your firewall.
+- Only devices on private networks (192.168.x, 10.x, 172.16–31.x, link-local) can connect.
+- It isn't announced on your VPN interface or, unless you choose them, on Docker/VM bridges.
+
+## Jellyfin, Emby and Plex
+
+Point your media server's Movies and Shows libraries at `library/Movies` and `library/TV`.
+In **Settings → Jellyfin, Emby and Plex**, add the server's address and an API key (Jellyfin,
+Emby) or `X-Plex-Token` (Plex); **Test connection** checks both. Harbor then asks it to rescan
+about 30 seconds after new files arrive (several imports close together share one rescan).
+Keys are stored in Harbor's database and never sent back to the browser.
 
 ## Sharing, stalls and disk space
 

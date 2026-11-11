@@ -18,9 +18,11 @@ import (
 
 	"github.com/inluxc/harbor/internal/auth"
 	"github.com/inluxc/harbor/internal/config"
+	"github.com/inluxc/harbor/internal/dlna"
 	"github.com/inluxc/harbor/internal/engine"
 	"github.com/inluxc/harbor/internal/events"
 	"github.com/inluxc/harbor/internal/importer"
+	"github.com/inluxc/harbor/internal/mediaserver"
 	"github.com/inluxc/harbor/internal/metadata"
 	"github.com/inluxc/harbor/internal/search"
 	"github.com/inluxc/harbor/internal/store"
@@ -31,19 +33,21 @@ import (
 
 // Server holds the API's dependencies.
 type Server struct {
-	Store     *store.Store
-	Auth      *auth.Service
-	Suppliers *suppliers.Service
-	Meta      *metadata.Service
-	Search    *search.Service
-	Engine    *engine.Engine
-	Importer  *importer.Importer
-	Tracker   *tracker.Tracker
-	Bus       *events.Bus
-	Config    *config.Config
-	UI        fs.FS // built web app (index.html + assets); may be empty
-	Log       *slog.Logger
-	started   time.Time
+	Store        *store.Store
+	Auth         *auth.Service
+	Suppliers    *suppliers.Service
+	Meta         *metadata.Service
+	Search       *search.Service
+	Engine       *engine.Engine
+	Importer     *importer.Importer
+	Tracker      *tracker.Tracker
+	DLNA         *dlna.Server
+	MediaServers *mediaserver.Service
+	Bus          *events.Bus
+	Config       *config.Config
+	UI           fs.FS // built web app (index.html + assets); may be empty
+	Log          *slog.Logger
+	started      time.Time
 
 	closeOnce sync.Once
 	closing   chan struct{}
@@ -82,6 +86,7 @@ func (s *Server) Handler() http.Handler {
 	s.routesDownloads(mux)
 	s.routesLibrary(mux)
 	s.routesTracking(mux)
+	s.routesPlayback(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "no such API endpoint")
 	})

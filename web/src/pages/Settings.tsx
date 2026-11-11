@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type APIKey, type BlockedRelease, type DownloadSettings, type Language, type NetworkStatus, type User } from "../api";
+import { DlnaOptions, MediaServers } from "../components/Playback";
 
 function fmt(d?: string) {
   return d ? new Date(d).toLocaleString() : "never";
@@ -348,9 +349,11 @@ export default function Settings({ user }: { user: User }) {
       <header>
         <p className="eyebrow">Settings</p>
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Settings</h1>
-        <p className="mt-1 text-muted">Signed in as <span className="font-medium text-ink">{user.username}</span>. DLNA settings arrive with a later milestone.</p>
+        <p className="mt-1 text-muted">Signed in as <span className="font-medium text-ink">{user.username}</span>.</p>
       </header>
       <LibraryOptions />
+      <DlnaOptions />
+      <MediaServers />
       <DownloadOptions />
       <Blocklist />
       <Password />
