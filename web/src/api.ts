@@ -126,6 +126,8 @@ export type Download = {
   uploaded: number;
   addedAt: string;
   completedAt?: string;
+  importState?: "" | "importing" | "imported" | "failed" | "skipped";
+  importError?: string;
   progress: number;
   downRate: number;
   upRate: number;
@@ -144,6 +146,29 @@ export type NewDownload = {
   titleId?: string;
   titleName?: string;
 };
+
+export type SubtitleFile = { id: number; mediaFileId: number; lang: string; path: string; source: string; createdAt: string };
+export type MediaFile = {
+  id: number;
+  downloadId?: number;
+  titleType: string;
+  titleId: string;
+  titleName: string;
+  path: string;
+  size: number;
+  method: "hardlink" | "copy";
+  resolution?: string;
+  videoCodec?: string;
+  durationSec?: number;
+  audioLangs: string[];
+  embeddedSubs: string[];
+  importedAt: string;
+  subtitles: SubtitleFile[];
+};
+export type SubtitleResult = { lang: string; status: "embedded" | "present" | "saved" | "none" | "failed"; path?: string; source?: string; error?: string };
+export type Activity = { id: number; time: string; level: "info" | "warn" | "error"; kind: string; titleId?: string; message: string };
+export type LibrarySettings = { subtitleLangs: string[] };
+export type Language = { code: string; name: string };
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -207,6 +232,14 @@ export const api = {
   removeDownload: (id: number, deleteData: boolean) => request<void>("DELETE", `/downloads/${id}${deleteData ? "?deleteData=true" : ""}`),
   downloadSettings: () => request<{ settings: DownloadSettings; port: number }>("GET", "/settings/downloads"),
   saveDownloadSettings: (s: DownloadSettings) => request<{ settings: DownloadSettings; port: number }>("PUT", "/settings/downloads", s),
+
+  importDownload: (id: number) => request<{ queued: boolean }>("POST", `/downloads/${id}/import`),
+  library: (title = "") => request<{ files: MediaFile[]; libraryDir: string }>("GET", `/library${title ? `?title=${encodeURIComponent(title)}` : ""}`),
+  fetchSubtitles: (id: number) => request<{ results: SubtitleResult[]; file: MediaFile }>("POST", `/library/${id}/subtitles`),
+  activity: (limit = 200) => request<{ activity: Activity[] }>("GET", `/activity?limit=${limit}`).then((r) => r.activity),
+  librarySettings: () => request<{ settings: LibrarySettings; libraryDir: string }>("GET", "/settings/library"),
+  saveLibrarySettings: (s: LibrarySettings) => request<{ settings: LibrarySettings; libraryDir: string }>("PUT", "/settings/library", s),
+  languages: () => request<{ languages: Language[] }>("GET", "/languages").then((r) => r.languages),
 
   streams: (type: string, id: string) => request<StreamSearch>("GET", `/streams/${type}/${id}`),
 };

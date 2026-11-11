@@ -16,6 +16,7 @@ import (
 	"github.com/inluxc/harbor/internal/config"
 	"github.com/inluxc/harbor/internal/engine"
 	"github.com/inluxc/harbor/internal/events"
+	"github.com/inluxc/harbor/internal/importer"
 	"github.com/inluxc/harbor/internal/metadata"
 	"github.com/inluxc/harbor/internal/search"
 	"github.com/inluxc/harbor/internal/store"
@@ -66,10 +67,17 @@ func (a *App) Start(ctx context.Context) error {
 
 	client := stremio.New("Harbor/" + version.Version)
 	sup := &suppliers.Service{Store: st, Client: client}
+	meta := metadata.New(client)
+	imp := importer.New(importer.Options{
+		Store: st, Downloads: eng, Meta: meta, Suppliers: sup, Client: client, Bus: bus, Log: a.Log,
+		LibraryDir: a.Config.LibraryDir, DownloadDir: a.Config.DownloadDir,
+	})
+	eng.OnComplete(imp.Enqueue)
 	srv := &api.Server{
 		Store: st, Auth: auth.New(st), Config: a.Config, UI: a.UI, Log: a.Log,
 		Suppliers: sup,
-		Meta:      metadata.New(client),
+		Meta:      meta,
+		Importer:  imp,
 		Search:    &search.Service{Suppliers: sup, Client: client},
 		Engine:    eng,
 		Bus:       bus,
@@ -98,6 +106,7 @@ func (a *App) Start(ctx context.Context) error {
 		}
 	}()
 	go a.housekeeping(runCtx)
+	go imp.Run(runCtx)
 
 	a.Log.Info("harbor started", "version", version.Version, "listen", a.addr.String(),
 		"data", a.Config.DataDir, "downloads", a.Config.DownloadDir, "library", a.Config.LibraryDir)

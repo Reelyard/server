@@ -38,17 +38,19 @@ type Download struct {
 	AddedAt     time.Time  `json:"addedAt"`
 	CompletedAt *time.Time `json:"completedAt,omitempty"`
 	UpdatedAt   time.Time  `json:"updatedAt"`
+	ImportState string     `json:"importState,omitempty"`
+	ImportError string     `json:"importError,omitempty"`
 }
 
 const downloadCols = `id, info_hash, file_idx, name, file_path, sources, title_type, title_id, title_name,
-	state, error, size, done_bytes, uploaded, added_at, completed_at, updated_at`
+	state, error, size, done_bytes, uploaded, added_at, completed_at, updated_at, import_state, import_error`
 
 func scanDownload(row scanner) (*Download, error) {
 	var d Download
 	var sources, added, updated string
 	var completed sql.NullString
 	if err := row.Scan(&d.ID, &d.InfoHash, &d.FileIdx, &d.Name, &d.FilePath, &sources, &d.TitleType, &d.TitleID, &d.TitleName,
-		&d.State, &d.Error, &d.Size, &d.DoneBytes, &d.Uploaded, &added, &completed, &updated); err != nil {
+		&d.State, &d.Error, &d.Size, &d.DoneBytes, &d.Uploaded, &added, &completed, &updated, &d.ImportState, &d.ImportError); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}

@@ -5,9 +5,9 @@ Stremio addons ("suppliers"), downloads them with a built-in torrent engine, and
 them in a media library with Jellyfin/Plex naming and subtitles. It will also serve the
 library over DLNA. One binary for Linux, macOS and Windows.
 
-> Status: **M2 — downloads**. Suppliers, title search, stream search and the built-in torrent
-> engine work. Importing into the library, automatic tracking, seeding rules and DLNA arrive in
-> later milestones; see [PLAN.md](PLAN.md).
+> Status: **M3 — library**. Suppliers, search, the built-in torrent engine, and importing into a
+> Jellyfin/Plex-style library with subtitles work. Automatic tracking, seeding rules and DLNA
+> arrive in later milestones; see [PLAN.md](PLAN.md).
 
 Only download content you have the rights to.
 
@@ -75,7 +75,19 @@ Environment variables override the file: `HARBOR_LISTEN`, `HARBOR_DATA_DIR`,
 `HARBOR_DOWNLOAD_DIR`, `HARBOR_LIBRARY_DIR`, `HARBOR_TORRENT_PORT`, `HARBOR_LOG_LEVEL`,
 `HARBOR_LOG_FORMAT`, `HARBOR_LOG_FILE`.
 
-Downloads land in `<download_dir>/<info hash>/…`. Speed limits and how many downloads run at
+Downloads land in `<download_dir>/<info hash>/…`. When one finishes, Harbor links it into the
+library (a hardlink when both folders are on the same disk, so no extra space is used; a copy
+otherwise):
+
+```
+Movies/Night of the Living Dead (1968)/Night of the Living Dead (1968) - 720p.mp4
+Movies/Night of the Living Dead (1968)/Night of the Living Dead (1968) - 720p.en.srt
+TV/Breaking Bad (2008)/Season 01/Breaking Bad (2008) - S01E02 - Cat's in the Bag - 1080p.mkv
+```
+
+Subtitles come from your subtitle suppliers (e.g. OpenSubtitles) for the languages chosen in
+**Settings → Library**. If `ffprobe` (from FFmpeg) is installed, Harbor uses it to read the real
+resolution and to skip languages already built into the video. Speed limits and how many downloads run at
 once are set in **Settings → Downloads**.
 
 ## Forgot the password?
