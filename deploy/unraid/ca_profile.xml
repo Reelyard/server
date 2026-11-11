@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<Maintainer>
+  <Profile>Reelyard: a media tracker and downloader that fills your Jellyfin/Plex library from Stremio addons and serves it to TVs over DLNA.</Profile>
+  <Icon>https://raw.githubusercontent.com/reelyard/server/main/deploy/icon.png</Icon>
+  <WebPage>https://github.com/reelyard/server</WebPage>
+</Maintainer>

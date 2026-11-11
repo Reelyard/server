@@ -1,0 +1,26 @@
+# METABEGIN
+# X-Env-Layer-Name: reelyard
+# X-Env-Layer-Version: 1.0.0
+# X-Env-Layer-Category: app
+# X-Env-Layer-Desc: Reelyard appliance: ffmpeg, reelyard.local over mDNS,
+#  cloud-init for Raspberry Pi Imager settings, and the Reelyard service
+#  enabled at boot.
+# METAEND
+---
+mmdebstrap:
+  packages:
+    - ffmpeg
+    - avahi-daemon
+    - libnss-mdns
+    - cloud-init
+  customize-hooks:
+    # Install the arm64 .deb the workflow put in pkgs/ ($SRCROOT is this
+    # deploy/rpi folder). Its postinstall creates the reelyard user; it
+    # can't start services inside the image build, so enable the unit for
+    # first boot.
+    - |
+      set -eu
+      cp "$SRCROOT/pkgs/reelyard.deb" "$1/tmp/reelyard.deb"
+      chroot "$1" apt-get install -y --no-install-recommends /tmp/reelyard.deb
+      rm -f "$1/tmp/reelyard.deb"
+      chroot "$1" systemctl enable reelyard.service avahi-daemon.service

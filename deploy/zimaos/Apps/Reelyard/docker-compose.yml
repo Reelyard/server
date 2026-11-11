@@ -1,0 +1,98 @@
+name: reelyard
+services:
+  reelyard:
+    image: ghcr.io/reelyard/server:0.1.0
+    container_name: reelyard
+    environment:
+      PUID: $PUID
+      PGID: $PGID
+      TZ: $TZ
+      UMASK: "002"
+      REELYARD_DOWNLOAD_DIR: /DATA/Downloads/Reelyard
+      REELYARD_LIBRARY_DIR: /DATA/Media
+    deploy:
+      resources:
+        reservations:
+          memory: "128M"
+    # Host networking lets TVs on your network find Reelyard's DLNA server.
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /DATA/AppData/$AppID/config
+        target: /config
+      - type: bind
+        source: /DATA
+        target: /DATA
+    x-casaos:
+      envs:
+        - container: PUID
+          description:
+            en_US: Run Reelyard as this user id (owner of downloaded files).
+        - container: PGID
+          description:
+            en_US: Run Reelyard as this group id.
+        - container: TZ
+          description:
+            en_US: Time zone.
+        - container: UMASK
+          description:
+            en_US: Permissions for new files (002 lets your group edit them).
+        - container: REELYARD_DOWNLOAD_DIR
+          description:
+            en_US: Where downloads are kept while they are shared.
+        - container: REELYARD_LIBRARY_DIR
+          description:
+            en_US: Media library (Movies/ and TV/ are created inside).
+      volumes:
+        - container: /config
+          description:
+            en_US: Reelyard's database, settings and logs.
+        - container: /DATA
+          description:
+            en_US: ZimaOS data folder, holding downloads and the media library.
+x-casaos:
+  id: io.github.reelyard.server
+  main: reelyard
+  index: /
+  port_map: "8787"
+  scheme: http
+  icon: icon.svg
+  title:
+    en_US: Reelyard
+  tagline:
+    en_US: Track movies and series, download them with subtitles, watch on your TV
+  description:
+    en_US: |
+      **Your movies and series, delivered.** Reelyard tracks the movies and TV series you want, finds releases through Stremio addons, downloads them with its built-in torrent engine and adds them to your media library with Jellyfin/Plex-friendly names and subtitles in your languages.
+
+      **Quality profiles** decide screen size, file size and audio and subtitle languages. New episodes are fetched as they air.
+
+      **Watch anywhere.** Reelyard's own DLNA server shows the library on smart TVs and game consoles, and it can ask Jellyfin, Emby or Plex to rescan when new files arrive.
+
+      Only download content you have the rights to.
+  author: Reelyard
+  developer: Reelyard
+  category: Media
+  architectures:
+    - amd64
+    - arm64
+  tips:
+    before_install:
+      en_US: |
+        Open Reelyard after installing: the first visit creates your account.
+
+        | Name | Path |
+        | ---- | ---- |
+        | Library | `/DATA/Media` (`Movies/`, `TV/`) |
+        | Downloads | `/DATA/Downloads/Reelyard` |
+
+        Point Jellyfin or Plex at `/DATA/Media`, or open **Reelyard** in your TV's media menu (DLNA).
+  version: "0.1.0"
+  update_at: "2026-11-11"
+  release_notes:
+    en_US: First release.
+  website: "https://github.com/reelyard/server"
+  repo: "https://github.com/reelyard/server"
+  support: "https://github.com/reelyard/server/issues"
+  docs: "https://github.com/reelyard/server#readme"

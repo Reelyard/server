@@ -1,0 +1,51 @@
+name: ZimaOS store
+
+# Builds the ZimaOS/CasaOS app store in deploy/zimaos with ZimaOS's own build
+# action: checked on PRs that touch it, published to GitHub Pages
+# (gh-pages branch, folder zimaos/) on release tags.
+#
+# Users add the store in ZimaOS with:
+#   https://reelyard.github.io/server/zimaos/
+
+on:
+  pull_request:
+    paths: ["deploy/zimaos/**", ".github/workflows/zimaos-store.yml"]
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write # publish to the gh-pages branch
+
+env:
+  BASE_URL: https://reelyard.github.io/server/zimaos
+
+jobs:
+  store:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build store
+        uses: IceWhaleTech/build-appstore-action@v1
+        with:
+          source: deploy/zimaos
+          output: dist
+          base-url: ${{ env.BASE_URL }}
+          report-json: out/report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zimaos-store
+          path: |
+            dist
+            out/report.json
+          if-no-files-found: warn
+      - name: Publish to GitHub Pages
+        if: github.event_name != 'pull_request'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./dist
+          destination_dir: zimaos
+          keep_files: true

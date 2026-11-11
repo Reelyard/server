@@ -108,6 +108,8 @@ dockers_v2:
   - id: reelyard
     ids: [reelyard]
     dockerfile: packaging/docker/Dockerfile
+    extra_files:
+      - packaging/docker/entrypoint.sh
     images:
       - ghcr.io/reelyard/server
     tags:

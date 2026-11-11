@@ -80,6 +80,7 @@ func TestStartWithInterfaceDown(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer e.Close()
+	time.Sleep(100 * time.Millisecond) // several guard ticks: the hint must survive them
 	n := e.Network()
 	if n.OK || n.Address != "127.0.0.1" || !strings.Contains(n.Message, "restart Reelyard") {
 		t.Fatalf("network with interface down: %+v", n)
