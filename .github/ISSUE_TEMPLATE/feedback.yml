@@ -1,0 +1,15 @@
+name: Idea or feedback
+description: Something confusing, missing, or that could be better.
+labels: [feedback]
+body:
+  - type: textarea
+    id: feedback
+    attributes:
+      label: What would you change?
+    validations:
+      required: true
+  - type: input
+    id: install
+    attributes:
+      label: How do you run Reelyard? (optional)
+      placeholder: ZimaOS / Raspberry Pi / Windows ...
