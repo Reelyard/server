@@ -35,6 +35,7 @@ func fakeAddons(t *testing.T) *httptest.Server {
 		"/cinemeta/catalog/movie/top/search=night%20of%20the%20living%20dead.json":  "cinemeta-search.json",
 		"/cinemeta/catalog/series/top/search=night%20of%20the%20living%20dead.json": "",
 		"/cinemeta/meta/series/tt0903747.json":                                      "cinemeta-meta-series.json",
+		"/cinemeta/meta/movie/tt0063350.json":                                       "cinemeta-meta-movie.json",
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		file, ok := routes[r.URL.EscapedPath()]

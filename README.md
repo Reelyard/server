@@ -5,9 +5,26 @@ Stremio addons ("suppliers"), downloads them with a built-in torrent engine, and
 them in a media library with Jellyfin/Plex naming and subtitles. It will also serve the
 library over DLNA. One binary for Linux, macOS and Windows.
 
-> Status: **M3 — library**. Suppliers, search, the built-in torrent engine, and importing into a
-> Jellyfin/Plex-style library with subtitles work. Automatic tracking, seeding rules and DLNA
-> arrive in later milestones; see [PLAN.md](PLAN.md).
+> Status: **M4 — automatic tracking**. Suppliers, search, the built-in torrent engine, importing
+> into a Jellyfin/Plex-style library with subtitles, quality profiles and automatic tracking work.
+> Seeding rules, VPN binding and DLNA arrive in later milestones; see [PLAN.md](PLAN.md).
+
+## Tracking titles
+
+Open a movie or series and press **Track**. Harbor then looks for it by itself (every minute
+for new work, backing off from 15 minutes to a day when nothing fits), picks the best release
+for the title's **quality profile**, downloads it, and imports it. Series follow new episodes
+as they air; choose all episodes, only new ones, or none.
+
+A profile sets the screen sizes allowed (best first), file-size limits for movies and
+episodes, preferred or required audio languages, subtitle languages, words to avoid or
+prefer, and the minimum number of seeders. Three profiles are created on first start
+(*HD 1080p*, *4K*, *Small*); edit them under **Quality profiles**. On a tracked title's page
+every stream shows whether it fits the profile, and why not.
+
+If a download is removed, fails, or turns out to have the wrong audio language (checked with
+ffprobe when the profile requires one), that release is put on a blocklist for that title
+and Harbor picks the next best.
 
 Only download content you have the rights to.
 

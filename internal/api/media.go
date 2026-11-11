@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/inluxc/harbor/internal/profile"
+	"github.com/inluxc/harbor/internal/search"
 	"github.com/inluxc/harbor/internal/store"
 	"github.com/inluxc/harbor/internal/stremio"
 	"github.com/inluxc/harbor/internal/suppliers"
@@ -201,13 +203,31 @@ func (s *Server) streams(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "type must be movie or series")
 		return
 	}
-	res, err := s.Search.Streams(r.Context(), typ, r.PathValue("id"))
+	id := r.PathValue("id")
+	res, err := s.Search.Streams(r.Context(), typ, id)
 	if err != nil {
 		if strings.Contains(err.Error(), "id") || strings.Contains(err.Error(), "type") {
 			writeError(w, http.StatusBadRequest, err.Error())
 			return
 		}
 		s.internal(w, "stream search", err)
+		return
+	}
+	// With ?profile=ID, judge every candidate against that profile and
+	// order them as the tracker would.
+	if pid, perr := strconv.ParseInt(r.URL.Query().Get("profile"), 10, 64); perr == nil && pid > 0 {
+		prof, err := s.Store.GetProfile(r.Context(), pid)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "no such profile")
+			return
+		}
+		_, season, episode, _ := search.ParseID(typ, id)
+		blocked, _ := s.Store.BlockedFor(r.Context(), id)
+		ranked := profile.Rank(prof, res.Candidates, profile.Context{Episode: typ == "series", Season: season, Number: episode, Blocked: blocked})
+		writeJSON(w, http.StatusOK, map[string]any{
+			"type": res.Type, "id": res.ID, "season": res.Season, "episode": res.Episode,
+			"candidates": ranked, "suppliers": res.Suppliers, "profile": prof.Name, "summary": profile.Summary(ranked),
+		})
 		return
 	}
 	writeJSON(w, http.StatusOK, res)

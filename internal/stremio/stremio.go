@@ -351,6 +351,7 @@ type Meta struct {
 	Genres      []string `json:"genres,omitempty"`
 	IMDbRating  string   `json:"imdbRating,omitempty"`
 	Status      string   `json:"status,omitempty"`
+	Released    string   `json:"released,omitempty"`
 	Videos      []Video  `json:"videos,omitempty"`
 }
 

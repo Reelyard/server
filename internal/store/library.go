@@ -15,7 +15,8 @@ const (
 	ImportImporting = "importing"
 	ImportImported  = "imported"
 	ImportFailed    = "failed"
-	ImportSkipped   = "skipped" // nothing to import into (no title attached)
+	ImportSkipped   = "skipped"  // nothing to import into (no title attached)
+	ImportRejected  = "rejected" // the file doesn't fit its profile (e.g. audio language)
 )
 
 // SetImportState records the import outcome of a download.
