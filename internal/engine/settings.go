@@ -19,10 +19,19 @@ type Settings struct {
 	MaxActive         int `json:"maxActive"`         // downloads running at once (seeding not counted); 0 = no limit
 	DownloadLimitKBps int `json:"downloadLimitKBps"` // 0 = unlimited
 	UploadLimitKBps   int `json:"uploadLimitKBps"`   // 0 = unlimited
+	// Sharing limits for downloads not covered by a tracked title's
+	// profile. Sharing stops at whichever comes first; 0 = no limit.
+	SeedRatio float64 `json:"seedRatio"`
+	SeedHours int     `json:"seedHours"`
+	// StallMinutes fails a download that makes no progress for this long
+	// (0 = never). Tracked titles then try another release.
+	StallMinutes int `json:"stallMinutes"`
+	// MinFreeGB keeps this much disk space free in the download folder.
+	MinFreeGB int `json:"minFreeGB"`
 }
 
 // DefaultSettings are used until changed.
-var DefaultSettings = Settings{MaxActive: 3}
+var DefaultSettings = Settings{MaxActive: 3, SeedRatio: 1, SeedHours: 48, StallMinutes: 30, MinFreeGB: 2}
 
 // Validate checks ranges.
 func (s Settings) Validate() error {
@@ -31,6 +40,12 @@ func (s Settings) Validate() error {
 	}
 	if s.DownloadLimitKBps < 0 || s.UploadLimitKBps < 0 {
 		return errors.New("speed limits can't be negative")
+	}
+	if s.SeedRatio < 0 || s.SeedHours < 0 || s.StallMinutes < 0 || s.MinFreeGB < 0 {
+		return errors.New("sharing limits, stall time and free space can't be negative")
+	}
+	if s.StallMinutes > 0 && s.StallMinutes < 5 {
+		return errors.New("give stalled downloads at least 5 minutes")
 	}
 	return nil
 }

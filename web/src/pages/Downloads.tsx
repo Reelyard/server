@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { api, type Download } from "../api";
+import { api, type Download, type NetworkStatus } from "../api";
 import { bytes, duration, rate } from "../format";
 import { useDownloads } from "../useDownloads";
 
@@ -11,6 +11,7 @@ const STATE: Record<Download["state"], { label: string; cls: string }> = {
   paused: { label: "Paused", cls: "bg-bg text-muted" },
   seeding: { label: "Done · sharing", cls: "bg-ok-soft text-ok" },
   failed: { label: "Failed", cls: "bg-bad-soft text-bad" },
+  done: { label: "Finished", cls: "bg-ok-soft text-ok" },
 };
 
 export function StateChip({ state }: { state: Download["state"] }) {
@@ -20,7 +21,7 @@ export function StateChip({ state }: { state: Download["state"] }) {
 
 export function ProgressBar({ d }: { d: Download }) {
   const pct = Math.min(100, Math.round(d.progress * 1000) / 10);
-  const color = d.state === "seeding" ? "bg-ok" : d.state === "failed" ? "bg-bad" : d.state === "paused" || d.state === "queued" ? "bg-muted" : "bg-deep";
+  const color = d.state === "seeding" || d.state === "done" ? "bg-ok" : d.state === "failed" ? "bg-bad" : d.state === "paused" || d.state === "queued" ? "bg-muted" : "bg-deep";
   return (
     <div className="h-2 overflow-hidden rounded-full bg-bg" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label={`${pct}%`}>
       <div className={`h-full ${color} transition-[width] duration-700`} style={{ width: `${pct}%` }} />
@@ -80,12 +81,13 @@ function Row({ d }: { d: Download }) {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted tabular-nums">
         <span>{bytes(d.doneBytes)} of {d.size ? bytes(d.size) : "?"} · {Math.floor(d.progress * 100)}%</span>
         {d.state === "downloading" && <span>{d.eta >= 0 ? `${duration(d.eta)} left` : "waiting for speed"}</span>}
-        {d.state === "seeding" && <span>Shared {bytes(d.uploaded)} · ratio {d.ratio.toFixed(2)}</span>}
+        {(d.state === "seeding" || d.state === "done") && <span>Shared {bytes(d.uploaded)} · ratio {d.ratio.toFixed(2)}</span>}
+        {d.state === "done" && <span>{d.dataRemoved ? "Download copy deleted; the library file stays" : "Stopped sharing; file kept in the download folder"}</span>}
         {d.error && <span className="text-bad">{d.error}</span>}
         <ImportStatus d={d} />
         {error && <span role="alert" className="text-bad">{error}</span>}
         <span className="ml-auto flex items-center gap-2">
-          {running ? (
+          {d.state === "done" ? null : running ? (
             <button className="btn-ghost py-1" disabled={busy} onClick={() => act(() => api.pauseDownload(d.id))}>{d.state === "seeding" ? "Stop sharing" : "Pause"}</button>
           ) : (
             <button className="btn-ghost py-1" disabled={busy} onClick={() => act(() => api.resumeDownload(d.id))}>{d.state === "failed" ? "Retry" : "Resume"}</button>
@@ -111,7 +113,7 @@ function Row({ d }: { d: Download }) {
 function ImportStatus({ d }: { d: Download }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const finished = d.state === "seeding" || (d.state === "paused" && d.size > 0 && d.doneBytes >= d.size);
+  const finished = d.state === "seeding" || d.state === "done" || (d.state === "paused" && d.size > 0 && d.doneBytes >= d.size);
   if (!finished) return null;
 
   async function again() {
@@ -156,8 +158,16 @@ function episodeOf(id: string) {
 
 export default function Downloads() {
   const { downloads, error } = useDownloads();
-  const active = downloads?.filter((d) => d.state !== "seeding") ?? [];
-  const done = downloads?.filter((d) => d.state === "seeding") ?? [];
+  const active = downloads?.filter((d) => d.state !== "seeding" && d.state !== "done") ?? [];
+  const done = downloads?.filter((d) => d.state === "seeding" || d.state === "done") ?? [];
+  const [net, setNet] = useState<NetworkStatus | null>(null);
+  const [free, setFree] = useState(-1);
+  useEffect(() => {
+    const load = () => api.downloads().then((r) => (setNet(r.network), setFree(r.free))).catch(() => {});
+    load();
+    const t = window.setInterval(load, 15000);
+    return () => window.clearInterval(t);
+  }, []);
   const down = downloads?.reduce((a, d) => a + d.downRate, 0) ?? 0;
   const up = downloads?.reduce((a, d) => a + d.upRate, 0) ?? 0;
 
@@ -168,8 +178,13 @@ export default function Downloads() {
           <p className="eyebrow">Downloads</p>
           <h1 className="mt-1 text-2xl font-semibold tracking-tight">Downloads</h1>
         </div>
-        <p className="text-sm tabular-nums text-muted">↓ {rate(down)} · ↑ {rate(up)}</p>
+        <p className="text-sm tabular-nums text-muted">
+          ↓ {rate(down)} · ↑ {rate(up)}
+          {free >= 0 && ` · ${bytes(free)} free`}
+          {net?.interface && net.ok && ` · via ${net.interface} (${net.address})`}
+        </p>
       </header>
+      {net && !net.ok && <p role="alert" className="rounded-lg bg-bad-soft px-3 py-2 text-sm text-bad">{net.message}</p>}
       {error && <p role="alert" className="rounded-lg bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p>}
       {!downloads && !error && <p className="text-muted">Loading…</p>}
       {downloads && downloads.length === 0 && (
@@ -186,7 +201,9 @@ export default function Downloads() {
       {done.length > 0 && (
         <section className="flex flex-col gap-2">
           <h2 className="font-semibold">Finished</h2>
-          <p className="text-sm text-muted">Finished files keep being shared with other peers. Automatic stop rules arrive in M5; until then, stop or remove them here.</p>
+          <p className="text-sm text-muted">
+            Finished files are shared until the profile's ratio or time limit (or the one in Settings → Downloads), then sharing stops. Once a file is in your library, its download copy is deleted.
+          </p>
           <ul className="card divide-y divide-line">{done.map((d) => <Row key={d.id} d={d} />)}</ul>
         </section>
       )}

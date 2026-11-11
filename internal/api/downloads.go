@@ -35,7 +35,7 @@ func (s *Server) downloadErr(w http.ResponseWriter, what string, err error) {
 }
 
 func (s *Server) listDownloads(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"downloads": s.Engine.List(), "port": s.Engine.Port()})
+	writeJSON(w, http.StatusOK, map[string]any{"downloads": s.Engine.List(), "port": s.Engine.Port(), "network": s.Engine.Network(), "free": s.freeBytes()})
 }
 
 func (s *Server) addDownload(w http.ResponseWriter, r *http.Request) {
@@ -106,7 +106,15 @@ func (s *Server) removeDownload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getDownloadSettings(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]any{"settings": s.Engine.Settings(), "port": s.Engine.Port()})
+	writeJSON(w, http.StatusOK, map[string]any{"settings": s.Engine.Settings(), "port": s.Engine.Port(), "network": s.Engine.Network(), "free": s.freeBytes()})
+}
+
+func (s *Server) freeBytes() int64 {
+	n, err := s.Engine.FreeBytes()
+	if err != nil {
+		return -1
+	}
+	return int64(n)
 }
 
 func (s *Server) putDownloadSettings(w http.ResponseWriter, r *http.Request) {
@@ -122,7 +130,7 @@ func (s *Server) putDownloadSettings(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, "save download settings", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"settings": s.Engine.Settings(), "port": s.Engine.Port()})
+	writeJSON(w, http.StatusOK, map[string]any{"settings": s.Engine.Settings(), "port": s.Engine.Port(), "network": s.Engine.Network(), "free": s.freeBytes()})
 }
 
 // stream sends live events as Server-Sent Events.

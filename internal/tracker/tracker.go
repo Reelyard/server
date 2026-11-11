@@ -29,6 +29,7 @@ type Downloads interface {
 	Get(id int64) (*engine.Status, error)
 	Find(infoHash string, fileIdx int) (*engine.Status, bool)
 	Remove(ctx context.Context, id int64, deleteData bool) error
+	RoomFor(need int64) error
 }
 
 // Streams finds candidates for a movie or episode.
@@ -353,6 +354,17 @@ func (t *Tracker) searchItem(ctx context.Context, it *store.Item) error {
 	if best.FileIdx != nil {
 		idx = *best.FileIdx
 	}
+	// Season packs report the whole torrent; only the one file is fetched.
+	if size := best.Stream.Size; size > 0 && !best.Stream.Info.SeasonPack {
+		if err := t.o.Downloads.RoomFor(size); err != nil {
+			wait := time.Hour
+			note := capitalize(err.Error()) + fmt.Sprintf("; will try again in %s", human(wait))
+			if !strings.HasPrefix(it.Note, "Not enough free disk space") {
+				t.activity(ctx, "error", it.ItemID, fmt.Sprintf("Can't grab %s: %s", label, err))
+			}
+			return t.o.Store.UpdateItem(ctx, it.ID, store.ItemUpdate{NextSearchAt: ptr(stamp(now.Add(wait))), LastSearchAt: ptr(stamp(now)), Note: &note})
+		}
+	}
 	var d *engine.Status
 	if existing, ok := t.o.Downloads.Find(best.InfoHash, idx); ok {
 		d = existing
@@ -537,3 +549,22 @@ func firstNonEmpty(vals ...string) string {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+func capitalize(s string) string {
+	if s == "" {
+		return s
+	}
+	return strings.ToUpper(s[:1]) + s[1:]
+}
+
+// Limits returns the sharing limits of the profile of a tracked download.
+func (t *Tracker) Limits(d store.Download) (float64, int, bool) {
+	if d.TitleID == "" {
+		return 0, 0, false
+	}
+	p, ok := t.ProfileFor(context.Background(), d.TitleID)
+	if !ok {
+		return 0, 0, false
+	}
+	return p.SeedRatio, p.SeedHours, true
+}

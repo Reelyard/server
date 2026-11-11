@@ -5,9 +5,27 @@ Stremio addons ("suppliers"), downloads them with a built-in torrent engine, and
 them in a media library with Jellyfin/Plex naming and subtitles. It will also serve the
 library over DLNA. One binary for Linux, macOS and Windows.
 
-> Status: **M4 — automatic tracking**. Suppliers, search, the built-in torrent engine, importing
-> into a Jellyfin/Plex-style library with subtitles, quality profiles and automatic tracking work.
-> Seeding rules, VPN binding and DLNA arrive in later milestones; see [PLAN.md](PLAN.md).
+> Status: **M5 — sharing rules and safety**. Suppliers, search, the built-in torrent engine,
+> importing into a Jellyfin/Plex-style library with subtitles, quality profiles, automatic
+> tracking, sharing limits, stall detection, disk-space checks and VPN binding work. DLNA and
+> packaging arrive next; see [PLAN.md](PLAN.md).
+
+## Sharing, stalls and disk space
+
+Finished downloads keep sharing until the title's profile ratio or time limit (for downloads
+you started by hand: **Settings → Downloads**), whichever comes first. Then sharing stops,
+and if the file is in your library its download copy is deleted; the library file stays
+(it's a hardlink or a copy). Downloads that make no progress for 30 minutes (adjustable) fail;
+tracked titles then try another release. Downloads that wouldn't fit on disk, keeping 2 GB free
+(adjustable), are refused.
+
+## Using a VPN
+
+Set `bind_interface` to your VPN's network interface (`wg0`, `tun0`, …) and restart Harbor.
+Every torrent connection — peers, DHT, trackers — is then bound to that interface's address,
+so torrent traffic can't leave by any other route. If the interface goes down, torrents pause
+and the Downloads page says so; they resume when it's back. If the VPN comes back with a
+different address, Harbor (when running as a service) restarts itself to use it.
 
 ## Tracking titles
 
@@ -82,6 +100,7 @@ data_dir: /srv/harbor
 download_dir: /srv/harbor/downloads
 library_dir: /srv/media
 torrent_port: 42069   # peers connect here (TCP+UDP); forward it in your router
+bind_interface: wg0   # optional: torrents only use this interface (e.g. your VPN)
 log:
   level: info     # debug | info | warn | error
   format: text    # text | json
@@ -89,7 +108,7 @@ log:
 ```
 
 Environment variables override the file: `HARBOR_LISTEN`, `HARBOR_DATA_DIR`,
-`HARBOR_DOWNLOAD_DIR`, `HARBOR_LIBRARY_DIR`, `HARBOR_TORRENT_PORT`, `HARBOR_LOG_LEVEL`,
+`HARBOR_DOWNLOAD_DIR`, `HARBOR_LIBRARY_DIR`, `HARBOR_TORRENT_PORT`, `HARBOR_BIND_INTERFACE`, `HARBOR_LOG_LEVEL`,
 `HARBOR_LOG_FORMAT`, `HARBOR_LOG_FILE`.
 
 Downloads land in `<download_dir>/<info hash>/…`. When one finishes, Harbor links it into the

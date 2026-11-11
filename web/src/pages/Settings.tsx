@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { api, type APIKey, type DownloadSettings, type Language, type User } from "../api";
+import { api, type APIKey, type BlockedRelease, type DownloadSettings, type Language, type NetworkStatus, type User } from "../api";
 
 function fmt(d?: string) {
   return d ? new Date(d).toLocaleString() : "never";
@@ -135,11 +135,13 @@ function ApiKeys() {
 function DownloadOptions() {
   const [s, setS] = useState<DownloadSettings | null>(null);
   const [port, setPort] = useState(0);
+  const [net, setNet] = useState<NetworkStatus | null>(null);
+  const [free, setFree] = useState(-1);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api.downloadSettings().then((r) => (setS(r.settings), setPort(r.port))).catch((e) => setMsg({ ok: false, text: e.message }));
+    api.downloadSettings().then((r) => (setS(r.settings), setPort(r.port), setNet(r.network), setFree(r.free))).catch((e) => setMsg({ ok: false, text: e.message }));
   }, []);
 
   async function save(e: FormEvent) {
@@ -186,8 +188,38 @@ function DownloadOptions() {
             <input id="ul-limit" type="number" min={0} className="input" value={s.uploadLimitKBps} onChange={num("uploadLimitKBps")} />
             <p className="mt-1 text-xs text-muted">0 = unlimited.</p>
           </div>
+          <div>
+            <label className="label" htmlFor="seed-ratio">Stop sharing at ratio</label>
+            <input id="seed-ratio" type="number" min={0} step={0.1} className="input" value={s.seedRatio}
+              onChange={(e) => setS({ ...s, seedRatio: Math.max(0, Number(e.target.value) || 0) })} />
+            <p className="mt-1 text-xs text-muted">Uploaded ÷ size. 0 = no ratio limit.</p>
+          </div>
+          <div>
+            <label className="label" htmlFor="seed-hours">…or after hours</label>
+            <input id="seed-hours" type="number" min={0} className="input" value={s.seedHours} onChange={num("seedHours")} />
+            <p className="mt-1 text-xs text-muted">Whichever comes first. Tracked titles use their profile's limits.</p>
+          </div>
+          <div>
+            <label className="label" htmlFor="stall">Give up on stalled downloads after (minutes)</label>
+            <input id="stall" type="number" min={0} className="input" value={s.stallMinutes} onChange={num("stallMinutes")} />
+            <p className="mt-1 text-xs text-muted">No progress this long fails it; tracked titles try another release. 0 = never.</p>
+          </div>
+          <div>
+            <label className="label" htmlFor="min-free">Keep free on disk (GB)</label>
+            <input id="min-free" type="number" min={0} className="input" value={s.minFreeGB} onChange={num("minFreeGB")} />
+            <p className="mt-1 text-xs text-muted">{free >= 0 ? `${(free / 2 ** 30).toFixed(1)} GB free now in the download folder.` : "Downloads that wouldn't fit are refused."}</p>
+          </div>
         </div>
       )}
+      <div className="rounded-lg bg-bg px-3 py-2 text-sm">
+        {!net?.interface ? (
+          <>Torrents use any network connection. To send them only through your VPN, set <code className="font-mono">bind_interface</code> (e.g. <code className="font-mono">wg0</code>) in the config file and restart Harbor.</>
+        ) : net.ok ? (
+          <span className="text-ok">Torrents only use <b>{net.interface}</b> ({net.address}). If it goes down, they pause.</span>
+        ) : (
+          <span className="text-bad">{net.message}</span>
+        )}
+      </div>
       {msg && <p role="status" className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-ok-soft text-ok" : "bg-bad-soft text-bad"}`}>{msg.text}</p>}
       <div><button className="btn-primary" disabled={busy || !s}>Save download settings</button></div>
     </form>
@@ -267,6 +299,49 @@ function LibraryOptions() {
   );
 }
 
+function Blocklist() {
+  const [list, setList] = useState<BlockedRelease[] | null>(null);
+  const [error, setError] = useState("");
+  const load = () => api.blocklist().then(setList).catch((e) => setError(e.message));
+  useEffect(() => {
+    load();
+  }, []);
+
+  async function unblock(b: BlockedRelease) {
+    setError("");
+    try {
+      await api.unblock(b);
+      load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't unblock.");
+    }
+  }
+
+  return (
+    <section className="card flex flex-col gap-3 p-5">
+      <div>
+        <h2 className="font-semibold">Blocked releases</h2>
+        <p className="text-sm text-muted">Releases Harbor won't grab again for a title: they failed, stalled, were removed, or had the wrong audio language.</p>
+      </div>
+      {list && list.length === 0 && <p className="text-sm text-muted">Nothing blocked.</p>}
+      {list && list.length > 0 && (
+        <ul className="divide-y divide-line rounded-lg border border-line">
+          {list.map((b) => (
+            <li key={b.infoHash + b.fileIdx + b.itemId} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
+              <span className="min-w-0 flex-1">
+                <span className="block font-mono text-xs break-all">{b.name || b.infoHash}</span>
+                <span className="text-xs text-muted">{b.itemId} · {b.reason} · {new Date(b.createdAt).toLocaleDateString()}</span>
+              </span>
+              <button className="btn-ghost py-1" onClick={() => unblock(b)}>Unblock</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {error && <p role="alert" className="text-sm text-bad">{error}</p>}
+    </section>
+  );
+}
+
 export default function Settings({ user }: { user: User }) {
   return (
     <div className="flex flex-col gap-6">
@@ -277,6 +352,7 @@ export default function Settings({ user }: { user: User }) {
       </header>
       <LibraryOptions />
       <DownloadOptions />
+      <Blocklist />
       <Password />
       <ApiKeys />
     </div>
