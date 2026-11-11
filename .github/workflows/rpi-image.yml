@@ -85,8 +85,10 @@ jobs:
 
       - name: Compress
         run: |
-          img=$(find /tmp/rpi-image-gen/work -name 'reelyard-${{ matrix.board }}.img' -print -quit)
-          test -n "$img" || { echo "image not found"; find /tmp/rpi-image-gen/work -name '*.img'; exit 1; }
+          # rpi-image-gen writes it to work/image-<name>/<name>.img. (Don't
+          # search all of work/: the root-owned chroot makes find fail.)
+          img=/tmp/rpi-image-gen/work/image-reelyard-${{ matrix.board }}/reelyard-${{ matrix.board }}.img
+          test -f "$img" || { echo "image not found"; ls -l /tmp/rpi-image-gen/work/image-* || true; exit 1; }
           mkdir -p out
           xz -T0 -6 -c "$img" > "out/reelyard-${{ matrix.board }}.img.xz"
           (cd out && sha256sum "reelyard-${{ matrix.board }}.img.xz" > "reelyard-${{ matrix.board }}.img.xz.sha256")
