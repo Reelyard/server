@@ -17,6 +17,7 @@ const (
 	StatePaused      = "paused"      // stopped by the user
 	StateSeeding     = "seeding"     // wanted data complete, still sharing
 	StateFailed      = "failed"      // gave up; see Error
+	StateDone        = "done"        // finished sharing; torrent stopped (data may be deleted)
 )
 
 // Download is a torrent (or one file of it) Harbor is fetching.
@@ -39,18 +40,19 @@ type Download struct {
 	CompletedAt *time.Time `json:"completedAt,omitempty"`
 	UpdatedAt   time.Time  `json:"updatedAt"`
 	ImportState string     `json:"importState,omitempty"`
+	DataRemoved bool       `json:"dataRemoved,omitempty"`
 	ImportError string     `json:"importError,omitempty"`
 }
 
 const downloadCols = `id, info_hash, file_idx, name, file_path, sources, title_type, title_id, title_name,
-	state, error, size, done_bytes, uploaded, added_at, completed_at, updated_at, import_state, import_error`
+	state, error, size, done_bytes, uploaded, added_at, completed_at, updated_at, import_state, import_error, data_removed`
 
 func scanDownload(row scanner) (*Download, error) {
 	var d Download
 	var sources, added, updated string
 	var completed sql.NullString
 	if err := row.Scan(&d.ID, &d.InfoHash, &d.FileIdx, &d.Name, &d.FilePath, &sources, &d.TitleType, &d.TitleID, &d.TitleName,
-		&d.State, &d.Error, &d.Size, &d.DoneBytes, &d.Uploaded, &added, &completed, &updated, &d.ImportState, &d.ImportError); err != nil {
+		&d.State, &d.Error, &d.Size, &d.DoneBytes, &d.Uploaded, &added, &completed, &updated, &d.ImportState, &d.ImportError, &d.DataRemoved); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -120,14 +122,15 @@ func (s *Store) ListDownloads(ctx context.Context) ([]Download, error) {
 
 // DownloadUpdate holds the fields the engine writes back.
 type DownloadUpdate struct {
-	State     *string
-	Error     *string
-	Name      *string
-	FilePath  *string
-	Size      *int64
-	DoneBytes *int64
-	Uploaded  *int64
-	Completed bool // set completed_at now (only if not set yet)
+	State       *string
+	Error       *string
+	Name        *string
+	FilePath    *string
+	Size        *int64
+	DoneBytes   *int64
+	Uploaded    *int64
+	Completed   bool // set completed_at now (only if not set yet)
+	DataRemoved *bool
 }
 
 // UpdateDownload applies an update.
@@ -154,6 +157,9 @@ func (s *Store) UpdateDownload(ctx context.Context, id int64, u DownloadUpdate) 
 	}
 	if u.Uploaded != nil {
 		add("uploaded", *u.Uploaded)
+	}
+	if u.DataRemoved != nil {
+		add("data_removed", *u.DataRemoved)
 	}
 	if u.Completed {
 		sets = append(sets, "completed_at = COALESCE(completed_at, ?)")

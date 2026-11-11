@@ -147,7 +147,14 @@ func cmdServe(args []string) error {
 		return a.Stop(15 * time.Second)
 	}
 
-	// Under systemd / launchd / Windows Service Control Manager.
+	// Under systemd / launchd / Windows Service Control Manager: when the
+	// bound VPN interface gets a new address, stop cleanly and exit with an
+	// error so the service manager starts Harbor again on the new address.
+	a.OnRebind = func() {
+		log.Warn("bound network interface changed address; restarting Harbor")
+		_ = a.Stop(15 * time.Second)
+		os.Exit(3)
+	}
 	s, err := service.New(&program{cfg: cfg, app: a}, serviceConfig(cfg.Path(), false))
 	if err != nil {
 		return err

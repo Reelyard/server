@@ -39,7 +39,11 @@ type Config struct {
 	// TorrentPort is where other peers connect (TCP and UDP). Forward it in
 	// your router for better speeds. 0 picks a random free port.
 	TorrentPort int `yaml:"torrent_port"`
-	Log         Log `yaml:"log"`
+	// BindInterface sends all torrent traffic through this network
+	// interface only (e.g. your VPN's "wg0" or "tun0"). If it goes down,
+	// torrents pause instead of using another connection.
+	BindInterface string `yaml:"bind_interface,omitempty"`
+	Log           Log    `yaml:"log"`
 
 	// path is the file this config was read from ("" if none).
 	path string
@@ -180,6 +184,7 @@ func (c *Config) applyEnv() {
 	set("HARBOR_LIBRARY_DIR", &c.LibraryDir)
 	set("HARBOR_LOG_LEVEL", &c.Log.Level)
 	set("HARBOR_LOG_FORMAT", &c.Log.Format)
+	set("HARBOR_BIND_INTERFACE", &c.BindInterface)
 	if v := os.Getenv("HARBOR_TORRENT_PORT"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
 			c.TorrentPort = n

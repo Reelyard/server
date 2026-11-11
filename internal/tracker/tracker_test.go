@@ -48,9 +48,10 @@ func (f *fakeStreams) Streams(_ context.Context, typ, id string) (*search.Result
 // fakeDownloads keeps downloads in memory but, like the engine, also
 // creates the database row items point at.
 type fakeDownloads struct {
-	mu sync.Mutex
-	st *store.Store
-	d  map[int64]*engine.Status
+	full bool
+	mu   sync.Mutex
+	st   *store.Store
+	d    map[int64]*engine.Status
 }
 
 func (f *fakeDownloads) Add(ctx context.Context, r engine.AddRequest) (*engine.Status, error) {
@@ -99,6 +100,13 @@ func (f *fakeDownloads) Remove(ctx context.Context, id int64, _ bool) error {
 	defer f.mu.Unlock()
 	delete(f.d, id)
 	return f.st.DeleteDownload(ctx, id)
+}
+
+func (f *fakeDownloads) RoomFor(need int64) error {
+	if f.full {
+		return engine.ErrNoSpace
+	}
+	return nil
 }
 
 func (f *fakeDownloads) set(id int64, fn func(*engine.Status)) {
@@ -243,6 +251,26 @@ func TestMovieFlowAndRemovedDownload(t *testing.T) {
 		t.Fatal("removed release not blocked")
 	}
 	_ = ti
+}
+
+func TestNoSpaceWaits(t *testing.T) {
+	ctx := context.Background()
+	tr, st, fd, _ := setup(t)
+	fd.full = true
+	if _, err := tr.Track(ctx, TrackRequest{IMDbID: "tt0063350", Type: "movie", ProfileID: 1}); err != nil {
+		t.Fatal(err)
+	}
+	tr.Pass(ctx)
+	it, _ := st.ItemByItemID(ctx, "tt0063350")
+	if it.State != store.ItemMissing || !strings.Contains(it.Note, "Not enough free disk space") || it.NextSearchAt == "" {
+		t.Fatalf("item with a full disk: %+v", it)
+	}
+	if bl, _ := st.BlockedFor(ctx, "tt0063350"); len(bl) != 0 {
+		t.Fatal("a full disk blocklisted a release")
+	}
+	if r, h, ok := tr.Limits(store.Download{TitleID: "tt0063350"}); !ok || r != 1 || h != 48 {
+		t.Fatalf("Limits = %v %v %v", r, h, ok)
+	}
 }
 
 func TestMonitoredRules(t *testing.T) {

@@ -122,7 +122,7 @@ export type Download = {
   titleType?: string;
   titleId?: string;
   titleName?: string;
-  state: "queued" | "metadata" | "downloading" | "paused" | "seeding" | "failed";
+  state: "queued" | "metadata" | "downloading" | "paused" | "seeding" | "failed" | "done";
   error?: string;
   size: number;
   doneBytes: number;
@@ -131,6 +131,7 @@ export type Download = {
   completedAt?: string;
   importState?: "" | "importing" | "imported" | "failed" | "skipped";
   importError?: string;
+  dataRemoved?: boolean;
   progress: number;
   downRate: number;
   upRate: number;
@@ -139,7 +140,17 @@ export type Download = {
   eta: number;
   ratio: number;
 };
-export type DownloadSettings = { maxActive: number; downloadLimitKBps: number; uploadLimitKBps: number };
+export type DownloadSettings = {
+  maxActive: number;
+  downloadLimitKBps: number;
+  uploadLimitKBps: number;
+  seedRatio: number;
+  seedHours: number;
+  stallMinutes: number;
+  minFreeGB: number;
+};
+export type NetworkStatus = { interface?: string; address?: string; ok: boolean; message?: string };
+export type BlockedRelease = { infoHash: string; fileIdx: number; itemId: string; name: string; reason: string; createdAt: string };
 export type NewDownload = {
   infoHash: string;
   fileIdx?: number;
@@ -280,13 +291,16 @@ export const api = {
   searchTitles: (q: string, type = "") =>
     request<{ results: MetaResult[] }>("GET", `/metadata/search?q=${encodeURIComponent(q)}${type ? `&type=${type}` : ""}`).then((r) => r.results),
   meta: (type: string, id: string) => request<{ meta: Meta }>("GET", `/metadata/${type}/${encodeURIComponent(id)}`).then((r) => r.meta),
-  downloads: () => request<{ downloads: Download[]; port: number }>("GET", "/downloads"),
+  downloads: () => request<{ downloads: Download[]; port: number; network: NetworkStatus; free: number }>("GET", "/downloads"),
   addDownload: (d: NewDownload) => request<{ download: Download }>("POST", "/downloads", d).then((r) => r.download),
   pauseDownload: (id: number) => request<{ download: Download }>("POST", `/downloads/${id}/pause`),
   resumeDownload: (id: number) => request<{ download: Download }>("POST", `/downloads/${id}/resume`),
   removeDownload: (id: number, deleteData: boolean) => request<void>("DELETE", `/downloads/${id}${deleteData ? "?deleteData=true" : ""}`),
-  downloadSettings: () => request<{ settings: DownloadSettings; port: number }>("GET", "/settings/downloads"),
-  saveDownloadSettings: (s: DownloadSettings) => request<{ settings: DownloadSettings; port: number }>("PUT", "/settings/downloads", s),
+  downloadSettings: () => request<{ settings: DownloadSettings; port: number; network: NetworkStatus; free: number }>("GET", "/settings/downloads"),
+  saveDownloadSettings: (s: DownloadSettings) =>
+    request<{ settings: DownloadSettings; port: number; network: NetworkStatus; free: number }>("PUT", "/settings/downloads", s),
+  blocklist: () => request<{ blocklist: BlockedRelease[] }>("GET", "/blocklist").then((r) => r.blocklist),
+  unblock: (b: BlockedRelease) => request<void>("DELETE", "/blocklist", { infoHash: b.infoHash, fileIdx: b.fileIdx, itemId: b.itemId }),
 
   importDownload: (id: number) => request<{ queued: boolean }>("POST", `/downloads/${id}/import`),
   library: (title = "") => request<{ files: MediaFile[]; libraryDir: string }>("GET", `/library${title ? `?title=${encodeURIComponent(title)}` : ""}`),

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"os"
 	"path/filepath"
 	"sort"
@@ -23,6 +24,7 @@ import (
 	"github.com/anacrolix/torrent/storage"
 	"golang.org/x/time/rate"
 
+	"github.com/inluxc/harbor/internal/diskfree"
 	"github.com/inluxc/harbor/internal/events"
 	"github.com/inluxc/harbor/internal/store"
 )
@@ -50,6 +52,21 @@ type Options struct {
 	NoDHT             bool
 	NoDefaultTrackers bool
 	Tick              time.Duration // status interval (default 1s)
+	// LimitsFor returns the sharing limits for a download (from its tracked
+	// title's profile). ok=false falls back to the global settings.
+	LimitsFor func(d store.Download) (ratio float64, hours int, ok bool)
+	// FreeSpace reports free bytes in the download folder (tests override).
+	FreeSpace func(path string) (uint64, error)
+	// Now is the clock (tests override).
+	Now func() time.Time
+	// BindInterface binds all torrent traffic to this interface's IPv4
+	// address (e.g. a VPN's "wg0" or "tun0"). Empty = no binding.
+	BindInterface string
+	// InterfaceAddr looks up the interface address (tests override).
+	InterfaceAddr func(name string) (net.IP, error)
+	// OnRebind is called once when the bound interface gets a different
+	// address (the app restarts itself when running as a service).
+	OnRebind func()
 }
 
 // Errors.
@@ -83,6 +100,12 @@ type job struct {
 	peers    int
 	seeds    int
 	dirty    bool
+
+	lastDone     int64     // DoneBytes at the last progress
+	lastProgress time.Time // when DoneBytes last grew (or the job started)
+	limRatio     float64   // cached sharing limits
+	limHours     int
+	limAt        time.Time
 }
 
 // Engine owns the torrent client.
@@ -103,6 +126,21 @@ type Engine struct {
 	done   chan struct{}
 
 	onComplete func(id int64)
+
+	boundIP     net.IP
+	net         NetworkStatus
+	rebindAsked bool
+}
+
+// SetLimitsFor sets where per-download sharing limits come from (the
+// tracked title's profile).
+func (e *Engine) SetLimitsFor(fn func(d store.Download) (float64, int, bool)) {
+	e.mu.Lock()
+	e.opts.LimitsFor = fn
+	for _, j := range e.jobs {
+		j.limAt = time.Time{}
+	}
+	e.mu.Unlock()
 }
 
 // OnComplete sets a function called (without locks held by the caller's
@@ -128,6 +166,15 @@ func New(ctx context.Context, o Options) (*Engine, error) {
 	}
 	if o.Tick == 0 {
 		o.Tick = time.Second
+	}
+	if o.FreeSpace == nil {
+		o.FreeSpace = diskfree.Free
+	}
+	if o.Now == nil {
+		o.Now = time.Now
+	}
+	if o.InterfaceAddr == nil {
+		o.InterfaceAddr = InterfaceIPv4
 	}
 	stateDir := filepath.Join(o.DataDir, "torrent")
 	for _, d := range []string{stateDir, filepath.Join(stateDir, "meta"), o.DownloadDir} {
@@ -176,6 +223,21 @@ func New(ctx context.Context, o Options) (*Engine, error) {
 	if o.Log.Enabled(ctx, slog.LevelDebug) {
 		cfg.Slogger = o.Log.With("component", "torrent")
 	}
+	e.net = NetworkStatus{OK: true}
+	if o.BindInterface != "" {
+		ip, ierr := o.InterfaceAddr(o.BindInterface)
+		e.net.Interface = o.BindInterface
+		if ierr != nil {
+			// Bind to loopback: nothing can reach the internet until the
+			// interface is up and Harbor restarts.
+			ip = net.IPv4(127, 0, 0, 1)
+			e.net.OK = false
+			e.net.Message = fmt.Sprintf("Paused: %s. Torrents won't use any other connection; restart Harbor once it's up.", ierr)
+		}
+		e.boundIP = ip
+		e.net.Address = ip.String()
+		bindConfig(cfg, ip)
+	}
 	cl, err := torrent.NewClient(cfg)
 	if err != nil {
 		e.stor.Close()
@@ -192,7 +254,10 @@ func New(ctx context.Context, o Options) (*Engine, error) {
 	e.cancel = cancel
 	e.done = make(chan struct{})
 	go e.loop(runCtx)
-	o.Log.Info("torrent engine started", "port", cl.LocalPort(), "downloads", o.DownloadDir)
+	o.Log.Info("torrent engine started", "port", cl.LocalPort(), "downloads", o.DownloadDir, "bind", e.net.Address)
+	if !e.net.OK {
+		o.Log.Warn("network guard: paused", "reason", e.net.Message)
+	}
 	return e, nil
 }
 
@@ -342,6 +407,8 @@ func (e *Engine) start(j *job) error {
 		t.AddTrackers(tiers)
 	}
 	j.t = t
+	e.applyGuard(t)
+	j.lastProgress, j.lastDone = e.opts.Now(), j.d.DoneBytes
 	stats := t.Stats()
 	j.lastRead = stats.BytesReadUsefulData.Int64()
 	j.lastUp = stats.BytesWrittenData.Int64()
@@ -378,6 +445,13 @@ func (e *Engine) onInfo(j *job) {
 			j.d.FilePath = filepath.Join(j.d.InfoHash, info.BestName())
 			j.d.Size = t.Length()
 			j.dirty = true
+		}
+	}
+	if j.d.State != store.StateSeeding {
+		if err := e.roomFor(j.d.Size - j.d.DoneBytes); err != nil {
+			e.stopJob(j)
+			e.setState(j, store.StateFailed, err.Error())
+			return
 		}
 	}
 	if _, err := os.Stat(e.metaPath(j.d.InfoHash)); err != nil {
@@ -546,6 +620,147 @@ func (e *Engine) Find(infoHash string, fileIdx int) (*Status, bool) {
 	return nil, false
 }
 
+// ---- limits, stalls, disk space ----
+
+// FreeBytes returns free space in the download folder.
+func (e *Engine) FreeBytes() (uint64, error) { return e.opts.FreeSpace(e.opts.DownloadDir) }
+
+// ErrNoSpace means a download wouldn't fit on disk.
+var ErrNoSpace = errors.New("not enough free disk space")
+
+// RoomFor checks that need more bytes fit in the download folder while
+// keeping the configured space free.
+func (e *Engine) RoomFor(need int64) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.roomFor(need)
+}
+
+func (e *Engine) roomFor(need int64) error {
+	if need <= 0 {
+		return nil
+	}
+	free, err := e.opts.FreeSpace(e.opts.DownloadDir)
+	if err != nil {
+		return nil // can't tell; don't block
+	}
+	keep := uint64(e.settings.MinFreeGB) << 30
+	if uint64(need)+keep > free {
+		return fmt.Errorf("%w: %s free, needs %s plus %d GB kept free", ErrNoSpace, gb(int64(free)), gb(need), e.settings.MinFreeGB)
+	}
+	return nil
+}
+
+func gb(n int64) string {
+	if n >= 1<<30 {
+		return fmt.Sprintf("%.1f GB", float64(n)/(1<<30))
+	}
+	return fmt.Sprintf("%d MB", n>>20)
+}
+
+// checkStall fails a download that hasn't progressed for StallMinutes.
+// Caller holds e.mu.
+func (e *Engine) checkStall(j *job) {
+	if j.d.State != store.StateDownloading && j.d.State != store.StateMetadata {
+		return
+	}
+	now := e.opts.Now()
+	if !e.net.OK {
+		j.lastProgress = now // paused by the network guard, not stalled
+		return
+	}
+	if j.d.DoneBytes > j.lastDone {
+		j.lastDone, j.lastProgress = j.d.DoneBytes, now
+		return
+	}
+	limit := time.Duration(e.settings.StallMinutes) * time.Minute
+	if limit <= 0 || now.Sub(j.lastProgress) < limit {
+		return
+	}
+	msg := fmt.Sprintf("Stalled: no progress for %d minutes", e.settings.StallMinutes)
+	if j.d.State == store.StateMetadata {
+		msg = fmt.Sprintf("Stalled: no peers had this torrent for %d minutes", e.settings.StallMinutes)
+	} else if j.peers == 0 {
+		msg += " (no peers)"
+	}
+	e.stopJob(j)
+	e.setState(j, store.StateFailed, msg)
+	e.opts.Log.Info("download stalled", "id", j.d.ID, "name", j.d.Name)
+	e.activity("warn", j.d.TitleID, displayName(j.d)+": "+msg)
+}
+
+// limits returns the sharing limits for j, cached for a few minutes.
+func (e *Engine) limits(j *job) (float64, int) {
+	now := e.opts.Now()
+	if !j.limAt.IsZero() && now.Sub(j.limAt) < 5*time.Minute {
+		return j.limRatio, j.limHours
+	}
+	ratio, hours := e.settings.SeedRatio, e.settings.SeedHours
+	if e.opts.LimitsFor != nil {
+		if r, h, ok := e.opts.LimitsFor(j.d); ok {
+			ratio, hours = r, h
+		}
+	}
+	j.limRatio, j.limHours, j.limAt = ratio, hours, now
+	return ratio, hours
+}
+
+// checkSharing stops seeding once a limit is reached, and deletes the
+// download copy when the file is safely in the library. Caller holds e.mu.
+func (e *Engine) checkSharing(j *job) {
+	if j.d.State != store.StateSeeding || j.d.CompletedAt == nil || j.d.Size <= 0 {
+		return
+	}
+	// Never stop before the import is settled: the library copy may still
+	// need the downloaded file.
+	if j.d.ImportState == "" || j.d.ImportState == store.ImportImporting {
+		return
+	}
+	ratio, hours := e.limits(j)
+	got := float64(j.d.Uploaded) / float64(j.d.Size)
+	seeded := e.opts.Now().Sub(*j.d.CompletedAt)
+	var why string
+	switch {
+	case ratio > 0 && got >= ratio:
+		why = fmt.Sprintf("ratio %.2f reached", got)
+	case hours > 0 && seeded >= time.Duration(hours)*time.Hour:
+		why = fmt.Sprintf("shared for %d hours", hours)
+	default:
+		return
+	}
+	e.stopJob(j)
+	e.setState(j, store.StateDone, "")
+	msg := "Stopped sharing " + displayName(j.d) + " (" + why + ")"
+	if j.d.ImportState == store.ImportImported {
+		if err := e.removeData(j); err != nil {
+			e.opts.Log.Warn("delete download copy", "id", j.d.ID, "err", err)
+		} else {
+			j.d.DataRemoved, j.dirty = true, true
+			msg += "; deleted the download copy, the library file stays"
+		}
+	} else {
+		msg += "; the file stays in the download folder"
+	}
+	e.opts.Log.Info("sharing stopped", "id", j.d.ID, "why", why)
+	e.activity("info", j.d.TitleID, msg)
+}
+
+// removeData deletes j's files from the download folder (only j's file
+// when other downloads share the torrent). Caller holds e.mu.
+func (e *Engine) removeData(j *job) error {
+	others := 0
+	for _, o := range e.jobs {
+		if o != j && o.d.InfoHash == j.d.InfoHash && !o.d.DataRemoved {
+			others++
+		}
+	}
+	target := filepath.Join(e.opts.DownloadDir, j.d.InfoHash)
+	if others > 0 && j.d.FilePath != "" {
+		target = filepath.Join(e.opts.DownloadDir, j.d.FilePath)
+	}
+	return e.removeInside(target)
+}
+
 // SetImport records the library import state of a download, in memory and
 // in the database.
 func (e *Engine) SetImport(ctx context.Context, id int64, state, msg string) error {
@@ -617,6 +832,9 @@ func (e *Engine) loop(ctx context.Context) {
 	defer t.Stop()
 	for {
 		e.mu.Lock()
+		if e.ticks%10 == 0 {
+			e.checkNetwork()
+		}
 		e.schedule()
 		e.refresh(e.opts.Tick.Seconds())
 		e.ticks++
@@ -671,6 +889,9 @@ func (e *Engine) refresh(dt float64) {
 		}
 		if j.d.State == store.StateMetadata && j.t.Info() != nil {
 			e.onInfo(j)
+			if j.t == nil {
+				continue // onInfo stopped it (no disk space, bad file index)
+			}
 		}
 		e.updateProgress(j)
 		s := j.t.Stats()
@@ -682,15 +903,22 @@ func (e *Engine) refresh(dt float64) {
 		if total := j.baseUp + up; total != j.d.Uploaded {
 			j.d.Uploaded = total
 		}
+		e.checkStall(j)
+		if j.t == nil {
+			continue
+		}
 		if j.d.State == store.StateDownloading && j.d.Size > 0 && j.d.DoneBytes >= j.d.Size {
 			e.setState(j, store.StateSeeding, "")
-			j.d.CompletedAt = ptr(time.Now().UTC())
+			j.d.CompletedAt = ptr(e.opts.Now().UTC())
 			e.opts.Log.Info("download complete", "id", j.d.ID, "name", j.d.Name)
 			e.activity("info", j.d.TitleID, "Finished downloading "+displayName(j.d))
 			if fn := e.onComplete; fn != nil {
 				id := j.d.ID
 				go fn(id)
 			}
+		}
+		if e.ticks%30 == 0 {
+			e.checkSharing(j)
 		}
 	}
 }
@@ -748,7 +976,7 @@ func (e *Engine) persistAll(ctx context.Context, full bool) {
 func (e *Engine) persist(ctx context.Context, j *job) {
 	u := store.DownloadUpdate{
 		State: &j.d.State, Error: &j.d.Error, FilePath: &j.d.FilePath, Size: &j.d.Size,
-		DoneBytes: &j.d.DoneBytes, Uploaded: &j.d.Uploaded, Completed: j.d.CompletedAt != nil,
+		DoneBytes: &j.d.DoneBytes, Uploaded: &j.d.Uploaded, Completed: j.d.CompletedAt != nil, DataRemoved: &j.d.DataRemoved,
 	}
 	if err := e.opts.Store.UpdateDownload(ctx, j.d.ID, u); err != nil && !errors.Is(err, store.ErrNotFound) {
 		e.opts.Log.Warn("save download", "id", j.d.ID, "err", err)

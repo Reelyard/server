@@ -32,6 +32,9 @@ type App struct {
 	Config *config.Config
 	Log    *slog.Logger
 	UI     fs.FS
+	// OnRebind runs when the bound network interface changes address
+	// (set by the service runner to restart Harbor).
+	OnRebind func()
 
 	store  *store.Store
 	engine *engine.Engine
@@ -60,6 +63,7 @@ func (a *App) Start(ctx context.Context) error {
 	eng, err := engine.New(ctx, engine.Options{
 		Store: st, Bus: bus, Log: a.Log,
 		DataDir: a.Config.DataDir, DownloadDir: a.Config.DownloadDir, ListenPort: a.Config.TorrentPort,
+		BindInterface: a.Config.BindInterface, OnRebind: a.OnRebind,
 	})
 	if err != nil {
 		st.Close()
@@ -77,6 +81,7 @@ func (a *App) Start(ctx context.Context) error {
 		return fmt.Errorf("create default profiles: %w", err)
 	}
 	trk := tracker.New(tracker.Options{Store: st, Meta: meta, Search: srch, Downloads: eng, Bus: bus, Log: a.Log})
+	eng.SetLimitsFor(trk.Limits)
 	imp := importer.New(importer.Options{
 		Store: st, Downloads: eng, Meta: meta, Suppliers: sup, Client: client, Bus: bus, Log: a.Log,
 		LibraryDir: a.Config.LibraryDir, DownloadDir: a.Config.DownloadDir,
