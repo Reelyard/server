@@ -14,9 +14,11 @@ import (
 	"github.com/inluxc/harbor/internal/api"
 	"github.com/inluxc/harbor/internal/auth"
 	"github.com/inluxc/harbor/internal/config"
+	"github.com/inluxc/harbor/internal/dlna"
 	"github.com/inluxc/harbor/internal/engine"
 	"github.com/inluxc/harbor/internal/events"
 	"github.com/inluxc/harbor/internal/importer"
+	"github.com/inluxc/harbor/internal/mediaserver"
 	"github.com/inluxc/harbor/internal/metadata"
 	"github.com/inluxc/harbor/internal/profile"
 	"github.com/inluxc/harbor/internal/search"
@@ -38,6 +40,7 @@ type App struct {
 
 	store  *store.Store
 	engine *engine.Engine
+	dlna   *dlna.Server
 	http   *http.Server
 	cancel context.CancelFunc
 	done   chan struct{}
@@ -82,21 +85,29 @@ func (a *App) Start(ctx context.Context) error {
 	}
 	trk := tracker.New(tracker.Options{Store: st, Meta: meta, Search: srch, Downloads: eng, Bus: bus, Log: a.Log})
 	eng.SetLimitsFor(trk.Limits)
+	media := mediaserver.New(ctx, mediaserver.Options{Store: st, Log: a.Log})
 	imp := importer.New(importer.Options{
 		Store: st, Downloads: eng, Meta: meta, Suppliers: sup, Client: client, Bus: bus, Log: a.Log,
 		LibraryDir: a.Config.LibraryDir, DownloadDir: a.Config.DownloadDir,
 		SubtitleLangsFor: trk.SubtitleLangs, CheckAudio: trk.CheckAudio, AfterImport: trk.Kick,
+		OnImported: media.Kick,
+	})
+	a.dlna = dlna.New(ctx, dlna.Options{
+		Store: st, LibraryDir: a.Config.LibraryDir, Log: a.Log, ExcludeInterface: a.Config.BindInterface,
+		SubtitleLangs: func() []string { return importer.LoadSettings(context.Background(), st).SubtitleLangs },
 	})
 	eng.OnComplete(imp.Enqueue)
 	srv := &api.Server{
 		Store: st, Auth: auth.New(st), Config: a.Config, UI: a.UI, Log: a.Log,
-		Suppliers: sup,
-		Meta:      meta,
-		Importer:  imp,
-		Tracker:   trk,
-		Search:    srch,
-		Engine:    eng,
-		Bus:       bus,
+		Suppliers:    sup,
+		Meta:         meta,
+		Importer:     imp,
+		Tracker:      trk,
+		Search:       srch,
+		Engine:       eng,
+		Bus:          bus,
+		DLNA:         a.dlna,
+		MediaServers: media,
 	}
 	a.http = &http.Server{
 		Handler:           srv.Handler(),
@@ -121,6 +132,7 @@ func (a *App) Start(ctx context.Context) error {
 			a.Log.Error("http server stopped", "err", err)
 		}
 	}()
+	a.dlna.Start()
 	go a.housekeeping(runCtx)
 	go imp.Run(runCtx)
 	go trk.Run(runCtx)
@@ -144,6 +156,9 @@ func (a *App) Stop(timeout time.Duration) error {
 		defer cancel()
 		err = a.http.Shutdown(ctx)
 		<-a.done
+	}
+	if a.dlna != nil {
+		a.dlna.Close()
 	}
 	if a.engine != nil {
 		if cerr := a.engine.Close(); cerr != nil && err == nil {

@@ -51,6 +51,8 @@ type Options struct {
 	CheckAudio       func(ctx context.Context, itemID string, audio []string) error
 	// AfterImport runs after each import attempt (e.g. to wake the tracker).
 	AfterImport func()
+	// OnImported runs after a successful import (e.g. to refresh Jellyfin).
+	OnImported func()
 }
 
 // Importer runs imports one at a time from a queue.
@@ -91,6 +93,8 @@ func (im *Importer) Run(ctx context.Context) {
 			im.mu.Unlock()
 			if err := im.Import(ctx, id); err != nil && ctx.Err() == nil {
 				im.o.Log.Warn("import failed", "download", id, "err", err)
+			} else if err == nil && im.o.OnImported != nil {
+				im.o.OnImported()
 			}
 			if im.o.AfterImport != nil {
 				im.o.AfterImport()

@@ -242,6 +242,23 @@ export class ApiError extends Error {
   }
 }
 
+export type DlnaSettings = { enabled: boolean; name: string; port: number; interfaces: string[]; transcode: boolean };
+export type DlnaStatus = { running: boolean; addresses: string[]; error?: string; ffmpeg: boolean; ffprobe: boolean };
+export type NetInterface = { name: string; addrs: string[]; virtual: boolean };
+export type DlnaState = { settings: DlnaSettings; status: DlnaStatus; interfaces: NetInterface[] };
+export type MediaServerKind = "jellyfin" | "emby" | "plex";
+export type MediaServer = {
+  id: string;
+  kind: MediaServerKind;
+  name: string;
+  url: string;
+  hasToken: boolean;
+  enabled: boolean;
+  lastAt?: string;
+  lastError?: string;
+};
+export type MediaServerInput = { id?: string; kind: MediaServerKind; name: string; url: string; token: string; enabled: boolean };
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch("/api/v1" + path, {
     method,
@@ -299,6 +316,14 @@ export const api = {
   downloadSettings: () => request<{ settings: DownloadSettings; port: number; network: NetworkStatus; free: number }>("GET", "/settings/downloads"),
   saveDownloadSettings: (s: DownloadSettings) =>
     request<{ settings: DownloadSettings; port: number; network: NetworkStatus; free: number }>("PUT", "/settings/downloads", s),
+  dlna: () => request<DlnaState>("GET", "/settings/dlna"),
+  saveDlna: (s: DlnaSettings) => request<DlnaState>("PUT", "/settings/dlna", s),
+  mediaServers: () => request<MediaServer[]>("GET", "/mediaservers"),
+  saveMediaServer: (m: MediaServerInput) =>
+    m.id ? request<MediaServer>("PUT", `/mediaservers/${m.id}`, m) : request<MediaServer>("POST", "/mediaservers", m),
+  deleteMediaServer: (id: string) => request<void>("DELETE", `/mediaservers/${id}`),
+  testMediaServer: (m: MediaServerInput) => request<{ ok: boolean; error?: string }>("POST", "/mediaservers/test", m),
+  refreshMediaServers: () => request<MediaServer[]>("POST", "/mediaservers/refresh"),
   blocklist: () => request<{ blocklist: BlockedRelease[] }>("GET", "/blocklist").then((r) => r.blocklist),
   unblock: (b: BlockedRelease) => request<void>("DELETE", "/blocklist", { infoHash: b.infoHash, fileIdx: b.fileIdx, itemId: b.itemId }),
 

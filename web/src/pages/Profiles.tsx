@@ -126,7 +126,7 @@ function Editor({ start, resolutions, langs, onDone }: { start: Partial<Profile>
         </div>
         {sizeField("seedHours", "…or after hours")}
       </div>
-      <p className="-mt-3 text-xs text-muted">Sharing limits take effect in M5.</p>
+      <p className="-mt-3 text-xs text-muted">Sharing stops at whichever limit comes first. The download copy is then deleted; the library file stays.</p>
       {error && <p role="alert" className="rounded-lg bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p>}
       <div className="flex gap-2">
         <button className="btn-primary" disabled={busy}>{p.id ? "Save profile" : "Create profile"}</button>
