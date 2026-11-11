@@ -56,22 +56,24 @@ func (s *Store) PendingImports(ctx context.Context) ([]int64, error) {
 
 // MediaFile is a video placed in the library.
 type MediaFile struct {
-	ID           int64          `json:"id"`
-	DownloadID   *int64         `json:"downloadId,omitempty"`
-	TitleType    string         `json:"titleType"`
-	TitleID      string         `json:"titleId"`
-	TitleName    string         `json:"titleName"`
-	Path         string         `json:"path"`
-	Size         int64          `json:"size"`
-	Method       string         `json:"method"`
-	Resolution   string         `json:"resolution,omitempty"`
-	VideoCodec   string         `json:"videoCodec,omitempty"`
-	DurationSec  int            `json:"durationSec,omitempty"`
-	AudioLangs   []string       `json:"audioLangs"`
-	EmbeddedSubs []string       `json:"embeddedSubs"`
-	OSHash       string         `json:"osHash,omitempty"`
-	ImportedAt   time.Time      `json:"importedAt"`
-	Subtitles    []SubtitleFile `json:"subtitles"`
+	ID           int64    `json:"id"`
+	DownloadID   *int64   `json:"downloadId,omitempty"`
+	TitleType    string   `json:"titleType"`
+	TitleID      string   `json:"titleId"`
+	TitleName    string   `json:"titleName"`
+	Path         string   `json:"path"`
+	Size         int64    `json:"size"`
+	Method       string   `json:"method"`
+	Resolution   string   `json:"resolution,omitempty"`
+	VideoCodec   string   `json:"videoCodec,omitempty"`
+	DurationSec  int      `json:"durationSec,omitempty"`
+	AudioLangs   []string `json:"audioLangs"`
+	EmbeddedSubs []string `json:"embeddedSubs"`
+	// AudioCodecs is null until the file has been checked with ffprobe.
+	AudioCodecs []string       `json:"audioCodecs"`
+	OSHash      string         `json:"osHash,omitempty"`
+	ImportedAt  time.Time      `json:"importedAt"`
+	Subtitles   []SubtitleFile `json:"subtitles"`
 }
 
 // SubtitleFile is a subtitle saved next to a media file.
@@ -86,14 +88,14 @@ type SubtitleFile struct {
 }
 
 const mediaCols = `id, download_id, title_type, title_id, title_name, path, size, method, resolution, video_codec,
-	duration_sec, audio_langs, embedded_subs, os_hash, imported_at`
+	duration_sec, audio_langs, embedded_subs, os_hash, imported_at, audio_codecs`
 
 func scanMedia(row scanner) (*MediaFile, error) {
 	var m MediaFile
 	var dl sql.NullInt64
-	var audio, subs, imported string
+	var audio, subs, imported, codecs string
 	if err := row.Scan(&m.ID, &dl, &m.TitleType, &m.TitleID, &m.TitleName, &m.Path, &m.Size, &m.Method, &m.Resolution,
-		&m.VideoCodec, &m.DurationSec, &audio, &subs, &m.OSHash, &imported); err != nil {
+		&m.VideoCodec, &m.DurationSec, &audio, &subs, &m.OSHash, &imported, &codecs); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -110,6 +112,10 @@ func scanMedia(row scanner) (*MediaFile, error) {
 	if m.EmbeddedSubs == nil {
 		m.EmbeddedSubs = []string{}
 	}
+	if codecs != "" {
+		m.AudioCodecs = []string{}
+		_ = json.Unmarshal([]byte(codecs), &m.AudioCodecs)
+	}
 	m.ImportedAt = parseTime(imported)
 	m.Subtitles = []SubtitleFile{}
 	return &m, nil
@@ -123,19 +129,40 @@ func jsonList(v []string) string {
 	return string(b)
 }
 
+// codecList stores a codec list, with nil (not checked) as ”.
+func codecList(v []string) string {
+	if v == nil {
+		return ""
+	}
+	return jsonList(v)
+}
+
+// SetMediaProbe records what ffprobe found in a file imported before Reelyard
+// kept audio codecs. An empty video codec or zero duration keeps what was stored.
+func (s *Store) SetMediaProbe(ctx context.Context, id int64, videoCodec string, audioCodecs []string, durationSec int) error {
+	if audioCodecs == nil {
+		audioCodecs = []string{}
+	}
+	_, err := s.DB.ExecContext(ctx, `UPDATE media_files SET audio_codecs = ?,
+		video_codec = CASE WHEN ? != '' THEN ? ELSE video_codec END,
+		duration_sec = CASE WHEN ? > 0 THEN ? ELSE duration_sec END WHERE id = ?`,
+		jsonList(audioCodecs), videoCodec, videoCodec, durationSec, durationSec, id)
+	return err
+}
+
 // UpsertMediaFile stores a media file, replacing a row with the same path.
 func (s *Store) UpsertMediaFile(ctx context.Context, m *MediaFile) (*MediaFile, error) {
 	_, err := s.DB.ExecContext(ctx,
 		`INSERT INTO media_files (download_id, title_type, title_id, title_name, path, size, method, resolution, video_codec,
-			duration_sec, audio_langs, embedded_subs, os_hash, imported_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			duration_sec, audio_langs, embedded_subs, os_hash, imported_at, audio_codecs)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		 ON CONFLICT(path) DO UPDATE SET download_id = excluded.download_id, title_type = excluded.title_type,
 			title_id = excluded.title_id, title_name = excluded.title_name, size = excluded.size, method = excluded.method,
 			resolution = excluded.resolution, video_codec = excluded.video_codec, duration_sec = excluded.duration_sec,
 			audio_langs = excluded.audio_langs, embedded_subs = excluded.embedded_subs, os_hash = excluded.os_hash,
-			imported_at = excluded.imported_at`,
+			imported_at = excluded.imported_at, audio_codecs = excluded.audio_codecs`,
 		m.DownloadID, m.TitleType, m.TitleID, m.TitleName, m.Path, m.Size, m.Method, m.Resolution, m.VideoCodec,
-		m.DurationSec, jsonList(m.AudioLangs), jsonList(m.EmbeddedSubs), m.OSHash, now())
+		m.DurationSec, jsonList(m.AudioLangs), jsonList(m.EmbeddedSubs), m.OSHash, now(), codecList(m.AudioCodecs))
 	if err != nil {
 		return nil, err
 	}
@@ -292,4 +319,21 @@ func (s *Store) ListActivity(ctx context.Context, limit int) ([]Activity, error)
 		out = append(out, a)
 	}
 	return out, rows.Err()
+}
+
+// GetSubtitleFile returns one saved subtitle.
+func (s *Store) GetSubtitleFile(ctx context.Context, id int64) (*SubtitleFile, error) {
+	var sf SubtitleFile
+	var created string
+	err := s.DB.QueryRowContext(ctx,
+		`SELECT id, media_file_id, lang, path, source, source_id, created_at FROM subtitle_files WHERE id = ?`, id).
+		Scan(&sf.ID, &sf.MediaFileID, &sf.Lang, &sf.Path, &sf.Source, &sf.SourceID, &created)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	sf.CreatedAt = parseTime(created)
+	return &sf, nil
 }

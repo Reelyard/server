@@ -3,6 +3,8 @@ package api
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -10,6 +12,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"runtime"
 	"runtime/debug"
 	"strconv"
@@ -55,6 +58,40 @@ type Server struct {
 	closeOnce sync.Once
 	closing   chan struct{}
 	links     *auth.StreamSigner
+	id        string
+}
+
+// APIVersion goes up when the API changes in a way apps must know about.
+const APIVersion = 1
+
+// ID identifies this Reelyard install, so an app knows it is the same
+// server when its address changes. Valid after Handler.
+func (s *Server) ID() string { return s.id }
+
+// Name is what apps show for this server.
+func (s *Server) Name() string {
+	h, err := os.Hostname()
+	if err != nil || h == "" {
+		return "Reelyard"
+	}
+	if i := strings.IndexByte(h, '.'); i > 0 {
+		h = h[:i]
+	}
+	return "Reelyard on " + h
+}
+
+const serverIDKey = "server_id"
+
+func (s *Server) loadID(ctx context.Context) {
+	if err := s.Store.GetSetting(ctx, serverIDKey, &s.id); err == nil && s.id != "" {
+		return
+	}
+	b := make([]byte, 8)
+	_, _ = rand.Read(b)
+	s.id = hex.EncodeToString(b)
+	if err := s.Store.SetSetting(ctx, serverIDKey, s.id); err != nil {
+		s.Log.Error("save server id", "err", err)
+	}
 }
 
 // Shutdown ends long-lived responses (the live event stream) so a graceful
@@ -78,6 +115,7 @@ func (s *Server) Handler() http.Handler {
 		signer = &auth.StreamSigner{}
 	}
 	s.links = signer
+	s.loadID(context.Background())
 
 	mux := http.NewServeMux()
 	// Public.
@@ -242,7 +280,9 @@ func remoteIP(r *http.Request) string {
 // ---- handlers ----
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "version": version.Version})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status": "ok", "version": version.Version, "apiVersion": APIVersion, "id": s.id, "name": s.Name(),
+	})
 }
 
 func (s *Server) setupStatus(w http.ResponseWriter, r *http.Request) {

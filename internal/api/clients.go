@@ -1,6 +1,7 @@
 package api
 
 import (
+	_ "embed"
 	"errors"
 	"net/http"
 	"os"
@@ -32,7 +33,17 @@ func (s *Server) routesClients(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/play/{id}", s.serveLibraryFile) // signed link or signed in
 	mux.Handle("GET /api/v1/library/titles", s.authed(s.libraryTitles))
 	mux.Handle("GET /api/v1/library/titles/{imdb}", s.authed(s.libraryTitle))
+	s.routesWatch(mux)
+	mux.HandleFunc("GET /api/v1/openapi.yaml", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/yaml; charset=utf-8")
+		_, _ = w.Write(openAPI)
+	})
 }
+
+// openAPI describes the endpoints apps use.
+//
+//go:embed openapi.yaml
+var openAPI []byte
 
 // ---- CORS ----
 
@@ -167,10 +178,18 @@ var videoTypes = map[string]string{
 	".wmv": "video/x-ms-wmv", ".mpg": "video/mpeg", ".mpeg": "video/mpeg",
 }
 
-// playLink returns a signed link a player can open without headers.
+// playLink returns a signed link a player can open without headers, with
+// subtitles, where to resume, and (when the app says what it can play)
+// whether the file will play.
 func (s *Server) playLink(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
+		return
+	}
+	var body struct {
+		Supports *Supports `json:"supports"`
+	}
+	if r.ContentLength != 0 && !decode(w, r, &body) {
 		return
 	}
 	mf, err := s.Store.GetMediaFile(r.Context(), id)
@@ -186,11 +205,24 @@ func (s *Server) playLink(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusGone, "this file is missing from the library folder")
 		return
 	}
+	if body.Supports != nil {
+		s.probeIfNeeded(r.Context(), mf)
+	}
+	playable, problems := playability(mf, body.Supports)
+	var resume *store.Progress
+	if p, err := s.Store.GetProgress(r.Context(), auth.UserFrom(r.Context()).ID, mf.TitleID); err == nil && !p.Watched && p.PositionSec > 0 {
+		resume = p
+	}
 	q, exp := s.links.Sign(id)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"url":         "/api/v1/play/" + strconv.FormatInt(id, 10) + "?" + q,
 		"expiresAt":   exp.UTC(),
 		"contentType": contentType(mf.Path),
+		"container":   containerOf(mf.Path),
+		"playable":    playable,
+		"problems":    problems,
+		"subtitles":   s.subtitleLinks(mf),
+		"resume":      resume,
 		"file":        mf,
 	})
 }
@@ -253,16 +285,18 @@ func (s *Server) serveLibraryFile(w http.ResponseWriter, r *http.Request) {
 
 // LibraryTitle is a movie or series with files in the library.
 type LibraryTitle struct {
-	IMDbID         string    `json:"imdbId"`
-	Type           string    `json:"type"`
-	Name           string    `json:"name"`
-	Year           int       `json:"year,omitempty"`
-	Poster         string    `json:"poster,omitempty"`
-	Tracked        bool      `json:"tracked"`
-	Files          int       `json:"files"`
-	Episodes       int       `json:"episodes,omitempty"`
-	Seasons        []int     `json:"seasons,omitempty"`
-	LastImportedAt time.Time `json:"lastImportedAt"`
+	IMDbID string `json:"imdbId"`
+	Type   string `json:"type"`
+	Name   string `json:"name"`
+	Year   int    `json:"year,omitempty"`
+	Poster string `json:"poster,omitempty"`
+	// Art links to the poster, background and logo through Reelyard.
+	Art            map[string]string `json:"art,omitempty"`
+	Tracked        bool              `json:"tracked"`
+	Files          int               `json:"files"`
+	Episodes       int               `json:"episodes,omitempty"`
+	Seasons        []int             `json:"seasons,omitempty"`
+	LastImportedAt time.Time         `json:"lastImportedAt"`
 }
 
 // LibraryEpisode is one episode with its files.
@@ -273,6 +307,8 @@ type LibraryEpisode struct {
 	Name    string             `json:"name,omitempty"`
 	AirDate string             `json:"airDate,omitempty"`
 	Files   []*store.MediaFile `json:"files"`
+	// Progress is where the signed-in user is in this episode.
+	Progress *store.Progress `json:"progress,omitempty"`
 }
 
 // LibrarySeason groups episodes.
@@ -361,7 +397,11 @@ func (s *Server) libraryTitles(w http.ResponseWriter, r *http.Request) {
 		s.internal(w, "list titles", err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"titles": groupLibrary(files, tracked)})
+	titles := groupLibrary(files, tracked)
+	for _, t := range titles {
+		t.Art = s.artURLs(t.IMDbID)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"titles": titles})
 }
 
 func (s *Server) libraryTitle(w http.ResponseWriter, r *http.Request) {
@@ -385,6 +425,16 @@ func (s *Server) libraryTitle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	title := groupLibrary(files, tracked)[0]
+	title.Art = s.artURLs(imdb)
+	progress := map[string]*store.Progress{}
+	ps, err := s.Store.ListProgress(r.Context(), auth.UserFrom(r.Context()).ID, imdb, 0)
+	if err != nil {
+		s.internal(w, "list progress", err)
+		return
+	}
+	for _, p := range ps {
+		progress[p.ItemID] = p
+	}
 
 	// Episode names and air dates come from the tracked title, when there is one.
 	names := map[string]store.Item{}
@@ -410,7 +460,7 @@ func (s *Server) libraryTitle(w http.ResponseWriter, r *http.Request) {
 		e := byEp[f.TitleID]
 		if e == nil {
 			it := names[f.TitleID]
-			e = &LibraryEpisode{Season: se, Episode: ep, ItemID: f.TitleID, Name: it.Name, AirDate: it.AirDate}
+			e = &LibraryEpisode{Season: se, Episode: ep, ItemID: f.TitleID, Name: it.Name, AirDate: it.AirDate, Progress: progress[f.TitleID]}
 			byEp[f.TitleID] = e
 			if bySeason[se] == nil {
 				bySeason[se] = &LibrarySeason{Season: se}
@@ -425,5 +475,5 @@ func (s *Server) libraryTitle(w http.ResponseWriter, r *http.Request) {
 		seasons = append(seasons, sn)
 	}
 	sort.Slice(seasons, func(i, j int) bool { return seasons[i].Season < seasons[j].Season })
-	writeJSON(w, http.StatusOK, map[string]any{"title": title, "files": movieFiles, "seasons": seasons})
+	writeJSON(w, http.StatusOK, map[string]any{"title": title, "files": movieFiles, "seasons": seasons, "progress": progress[imdb]})
 }

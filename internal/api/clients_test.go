@@ -25,7 +25,7 @@ type clientsEnv struct {
 	app *client // no cookies: a device
 }
 
-func newClientsServer(t *testing.T) *clientsEnv {
+func newClientsServer(t *testing.T, opts ...func(*Server)) *clientsEnv {
 	t.Helper()
 	dir := t.TempDir()
 	st, err := store.Open(context.Background(), filepath.Join(dir, "api.db"))
@@ -40,6 +40,9 @@ func newClientsServer(t *testing.T) *clientsEnv {
 		t.Fatal(err)
 	}
 	s := &Server{Store: st, Auth: auth.New(st), Config: &cfg, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	for _, o := range opts {
+		o(s)
+	}
 	srv := httptest.NewServer(s.Handler())
 	t.Cleanup(srv.Close)
 	jar, _ := cookiejar.New(nil)
