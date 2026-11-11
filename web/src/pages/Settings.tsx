@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { api, type APIKey, type BlockedRelease, type DownloadSettings, type Language, type NetworkStatus, type User } from "../api";
+import { api, type APIKey, type BlockedRelease, type Device, type DownloadSettings, type Language, type NetworkStatus, type User } from "../api";
 import { DlnaOptions, MediaServers } from "../components/Playback";
 
 function fmt(d?: string) {
@@ -128,6 +128,104 @@ function ApiKeys() {
         </div>
         <button className="btn-primary" disabled={!name.trim()}>Create key</button>
       </form>
+      {error && <p role="alert" className="rounded-lg bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p>}
+    </section>
+  );
+}
+
+const platformNames: Record<string, string> = {
+  tizen: "Samsung TV",
+  webos: "LG TV",
+  androidtv: "Android TV",
+  android: "Android",
+  ios: "iPhone or iPad",
+  macos: "Mac",
+  windows: "Windows",
+  linux: "Linux",
+  web: "Browser",
+};
+
+function Devices() {
+  const [devices, setDevices] = useState<Device[] | null>(null);
+  const [code, setCode] = useState("");
+  const [error, setError] = useState("");
+  const [approved, setApproved] = useState("");
+
+  const reload = () => api.devices().then(setDevices).catch((e) => setError(e.message));
+  useEffect(() => {
+    reload();
+    // A device waiting for its code to be entered appears without a reload.
+    const t = window.setInterval(reload, 5000);
+    return () => window.clearInterval(t);
+  }, []);
+
+  async function approve(e: FormEvent) {
+    e.preventDefault();
+    setError("");
+    setApproved("");
+    try {
+      const d = await api.approveDevice(code);
+      setApproved(d.name);
+      setCode("");
+      reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't approve the device.");
+    }
+  }
+
+  async function remove(d: Device) {
+    setError("");
+    try {
+      await api.removeDevice(d.id);
+      reload();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Couldn't remove the device.");
+    }
+  }
+
+  const status = (d: Device) =>
+    d.paired ? `Signed in · last used ${fmt(d.lastUsedAt)}` : d.approvedAt ? "Approved, finishing sign-in…" : "Waiting for its code";
+
+  return (
+    <section className="card flex flex-col gap-4 p-5">
+      <div>
+        <h2 className="font-semibold">Devices</h2>
+        <p className="text-sm text-muted">
+          TVs, phones and computers running the Harbor app. To add one, open the app on it and enter the code it shows here.
+        </p>
+      </div>
+      <form onSubmit={approve} className="flex flex-wrap items-end gap-2">
+        <div className="min-w-0 flex-1">
+          <label className="label" htmlFor="device-code">Code shown on the device</label>
+          <input
+            id="device-code"
+            className="input font-mono uppercase tracking-widest"
+            placeholder="K7Q-4MD"
+            autoComplete="off"
+            spellCheck={false}
+            maxLength={9}
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+          />
+        </div>
+        <button className="btn-primary" disabled={code.replace(/[^a-z0-9]/gi, "").length !== 6}>Approve</button>
+      </form>
+      {approved && <p className="rounded-lg bg-ok-soft px-3 py-2 text-sm text-ok">Approved {approved}. It signs in within a few seconds.</p>}
+      {devices && devices.length > 0 && (
+        <ul className="divide-y divide-line rounded-lg border border-line">
+          {devices.map((d) => (
+            <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
+              <span className="min-w-0">
+                <span className="font-medium">{d.name}</span>
+                {d.platform && <span className="text-muted"> · {platformNames[d.platform] ?? d.platform}</span>}
+                <span className="block text-xs text-muted">{status(d)}</span>
+              </span>
+              <button className="btn-danger py-1" onClick={() => remove(d)}>{d.paired ? "Sign out" : d.approvedAt ? "Remove" : "Turn down"}</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {devices && devices.length === 0 && <p className="text-sm text-muted">No devices yet.</p>}
       {error && <p role="alert" className="rounded-lg bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p>}
     </section>
   );
@@ -356,6 +454,7 @@ export default function Settings({ user }: { user: User }) {
       <MediaServers />
       <DownloadOptions />
       <Blocklist />
+      <Devices />
       <Password />
       <ApiKeys />
     </div>
