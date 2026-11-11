@@ -14,6 +14,13 @@ mmdebstrap:
     - libnss-mdns
     - cloud-init
   customize-hooks:
-    # The package's postinstall can't start services inside the image
-    # build; enable it so it starts on first boot.
-    - chroot $1 systemctl enable reelyard.service avahi-daemon.service
+    # Install the arm64 .deb the workflow put in pkgs/ ($SRCROOT is this
+    # deploy/rpi folder). Its postinstall creates the reelyard user; it
+    # can't start services inside the image build, so enable the unit for
+    # first boot.
+    - |
+      set -eu
+      cp "$SRCROOT/pkgs/reelyard.deb" "$1/tmp/reelyard.deb"
+      chroot "$1" apt-get install -y --no-install-recommends /tmp/reelyard.deb
+      rm -f "$1/tmp/reelyard.deb"
+      chroot "$1" systemctl enable reelyard.service avahi-daemon.service

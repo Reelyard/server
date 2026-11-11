@@ -14,7 +14,3 @@ image:
 
 layer:
   app: reelyard
-
-packages:
-  # The arm64 .deb from the release, copied here by the workflow.
-  - pkgs/reelyard.deb

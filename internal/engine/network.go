@@ -86,6 +86,9 @@ func (e *Engine) checkNetwork() {
 	}
 	cur, err := e.opts.InterfaceAddr(name)
 	switch {
+	case err != nil && e.boundIP.IsLoopback():
+		// Started while it was down: only a restart binds to it.
+		e.guard(false, fmt.Sprintf("Paused: %s. Torrents won't use any other connection; restart Reelyard once it's up.", err))
 	case err != nil:
 		e.guard(false, fmt.Sprintf("Paused: %s. Torrents won't use any other connection.", err))
 	case !cur.Equal(e.boundIP):
