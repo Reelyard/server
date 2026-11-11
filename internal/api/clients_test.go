@@ -13,9 +13,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/inluxc/harbor/internal/auth"
-	"github.com/inluxc/harbor/internal/config"
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/auth"
+	"github.com/reelyard/server/internal/config"
+	"github.com/reelyard/server/internal/store"
 )
 
 type clientsEnv struct {
@@ -272,7 +272,7 @@ func TestStreamLinks(t *testing.T) {
 		t.Fatalf("whole file: %d %d", resp.StatusCode, resp.ContentLength)
 	}
 	// Tampered or moved to another file: refused.
-	if resp, _ := get(t, e.srv.URL+url[:len(url)-1]+"0"); resp.StatusCode != 403 {
+	if resp, _ := get(t, e.srv.URL+tamper(url)); resp.StatusCode != 403 {
 		t.Fatalf("bad signature: %d", resp.StatusCode)
 	}
 	other := e.addFile("movie", "tt0000002", "Other", "Movies/Other/Other.mp4", 10)
@@ -347,4 +347,13 @@ func TestLibraryByTitle(t *testing.T) {
 	if code, _ := e.do("GET", "/api/v1/library/titles/nope", ""); code != 400 {
 		t.Fatalf("bad id: %d", code)
 	}
+}
+
+// tamper changes the link's last character (its signature) to a different one.
+func tamper(url string) string {
+	last := "0"
+	if strings.HasSuffix(url, "0") {
+		last = "1"
+	}
+	return url[:len(url)-1] + last
 }

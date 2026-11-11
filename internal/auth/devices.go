@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/store"
 )
 
 const (

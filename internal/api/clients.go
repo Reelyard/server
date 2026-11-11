@@ -10,11 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/inluxc/harbor/internal/auth"
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/auth"
+	"github.com/reelyard/server/internal/store"
 )
 
-// Endpoints for Harbor's apps (TVs, phones, desktop): pairing, playback, and
+// Endpoints for Reelyard's apps (TVs, phones, desktop): pairing, playback, and
 // the library by title. See the Reelyard/clients repository.
 
 // Public pairing endpoints use no cookie, so cross-site requests to them are
@@ -38,7 +38,7 @@ func (s *Server) routesClients(mux *http.ServeMux) {
 
 // cors lets apps on other origins (Tizen and webOS web apps, the dev loop)
 // call the API with a header credential. It never allows credentials, so a
-// browser won't send Harbor's session cookie on these requests.
+// browser won't send Reelyard's session cookie on these requests.
 func cors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Origin") == "" || !strings.HasPrefix(r.URL.Path, "/api/") {
