@@ -1,0 +1,4 @@
+#!/bin/sh
+# Runs the local CI (make ci) before every push. Enable with `make hooks`;
+# skip once with `git push --no-verify`.
+exec make --no-print-directory ci

@@ -275,6 +275,8 @@ that carry a token, never with cookies.
 go run ./cmd/reelyard serve      # API on :8787
 cd web && npm run dev          # UI on :5173 with hot reload, /api proxied to :8787
 make test vet
+make ci                        # the CI checks locally: web build, gofmt/vet, tests, smoke test
+make hooks                     # run `make ci` before every git push (skip with --no-verify)
 make cross                     # all six OS/arch binaries into dist/
 ```
 
