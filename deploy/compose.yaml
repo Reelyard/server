@@ -1,0 +1,34 @@
+# Reelyard with Docker Compose: works on most NAS systems (TrueNAS SCALE,
+# Synology Container Manager, QNAP Container Station, OpenMediaVault, Unraid
+# with the Compose plugin) and plain Docker hosts.
+#
+#   docker compose up -d      then open http://<this machine>:8787
+#
+# Change the two paths on the left of the ":" under volumes, and PUID/PGID
+# to the user that should own your media files (`id <user>` shows them).
+name: reelyard
+services:
+  reelyard:
+    image: ghcr.io/reelyard/server:latest
+    container_name: reelyard
+    restart: unless-stopped
+    # Host networking lets TVs find the DLNA server (discovery uses
+    # multicast). Without DLNA, remove this line and uncomment "ports".
+    network_mode: host
+    # ports:
+    #   - "8787:8787"        # web UI
+    #   - "42069:42069"      # torrents
+    #   - "42069:42069/udp"
+    environment:
+      PUID: "1000"
+      PGID: "1000"
+      UMASK: "002"
+      TZ: Etc/UTC            # your time zone, e.g. America/New_York
+      # Optional: send torrent traffic only through your VPN interface.
+      # REELYARD_BIND_INTERFACE: wg0
+    volumes:
+      # Reelyard's database, settings and logs.
+      - ./config:/config
+      # Downloads and library live together under /data so finished files
+      # are hardlinked into the library instead of copied.
+      - /srv/media:/data
