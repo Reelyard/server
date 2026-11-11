@@ -11,12 +11,12 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/inluxc/harbor/internal/lang"
-	"github.com/inluxc/harbor/internal/search"
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/lang"
+	"github.com/reelyard/server/internal/search"
+	"github.com/reelyard/server/internal/store"
 )
 
-// Resolutions Harbor knows, best first.
+// Resolutions Reelyard knows, best first.
 var Resolutions = []string{"2160p", "1080p", "720p", "576p", "480p"}
 
 // DefaultBlocked keeps out releases nobody wants by default.

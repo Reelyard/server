@@ -17,8 +17,13 @@ export function Logo({ className = "h-7 w-7" }: { className?: string }) {
   return (
     <svg viewBox="0 0 32 32" className={className} aria-hidden="true">
       <rect width="32" height="32" rx="7" fill="var(--hb-deep)" />
-      <path d="M16 6v16M9 15c0 5 3 8 7 8s7-3 7-8" stroke="var(--hb-surface)" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-      <circle cx="16" cy="7" r="2.5" fill="var(--hb-accent)" />
+      <circle cx="16" cy="16" r="10" fill="var(--hb-surface)" />
+      <circle cx="16.00" cy="11.00" r="2.1" fill="var(--hb-deep)" />
+      <circle cx="20.76" cy="14.45" r="2.1" fill="var(--hb-deep)" />
+      <circle cx="18.94" cy="20.05" r="2.1" fill="var(--hb-deep)" />
+      <circle cx="13.06" cy="20.05" r="2.1" fill="var(--hb-deep)" />
+      <circle cx="11.24" cy="14.45" r="2.1" fill="var(--hb-deep)" />
+      <circle cx="16" cy="16" r="1.7" fill="var(--hb-accent)" />
     </svg>
   );
 }
@@ -40,7 +45,7 @@ export default function Layout({ user, onSignOut }: { user: User; onSignOut: () 
         <div className="flex items-center justify-between gap-3 px-4 py-3 md:px-5 md:py-5">
           <div className="flex items-center gap-2.5">
             <Logo />
-            <span className="text-lg font-semibold tracking-tight">Harbor</span>
+            <span className="text-lg font-semibold tracking-tight">Reelyard</span>
           </div>
           <button className="btn-ghost px-3 py-1.5 md:hidden" aria-expanded={open} aria-controls="nav" onClick={() => setOpen((o) => !o)}>
             Menu

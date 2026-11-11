@@ -1,5 +1,5 @@
 // Package mediaserver asks Jellyfin, Emby or Plex to rescan their libraries
-// after Harbor adds files, so new titles show up without waiting for the
+// after Reelyard adds files, so new titles show up without waiting for the
 // media server's own schedule.
 package mediaserver
 
@@ -18,7 +18,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/store"
 )
 
 const settingsKey = "media_servers"
@@ -273,10 +273,10 @@ func (s *Service) call(ctx context.Context, t Target, method, path string) error
 	switch t.Kind {
 	case Plex:
 		req.Header.Set("X-Plex-Token", t.Token)
-		req.Header.Set("X-Plex-Client-Identifier", "harbor")
-		req.Header.Set("X-Plex-Product", "Harbor")
+		req.Header.Set("X-Plex-Client-Identifier", "reelyard")
+		req.Header.Set("X-Plex-Product", "Reelyard")
 	case Jellyfin:
-		req.Header.Set("Authorization", fmt.Sprintf(`MediaBrowser Client="Harbor", Device="Harbor", DeviceId="harbor", Version="1", Token="%s"`, t.Token))
+		req.Header.Set("Authorization", fmt.Sprintf(`MediaBrowser Client="Reelyard", Device="Reelyard", DeviceId="reelyard", Version="1", Token="%s"`, t.Token))
 	case Emby:
 		req.Header.Set("X-Emby-Token", t.Token)
 	default:

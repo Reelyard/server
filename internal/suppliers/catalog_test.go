@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/inluxc/harbor/internal/store"
-	"github.com/inluxc/harbor/internal/stremio"
+	"github.com/reelyard/server/internal/store"
+	"github.com/reelyard/server/internal/stremio"
 )
 
 func TestCatalog(t *testing.T) {

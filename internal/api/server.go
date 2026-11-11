@@ -1,4 +1,4 @@
-// Package api serves Harbor's REST API (/api/v1) and the embedded web UI.
+// Package api serves Reelyard's REST API (/api/v1) and the embedded web UI.
 package api
 
 import (
@@ -16,19 +16,19 @@ import (
 	"sync"
 	"time"
 
-	"github.com/inluxc/harbor/internal/auth"
-	"github.com/inluxc/harbor/internal/config"
-	"github.com/inluxc/harbor/internal/dlna"
-	"github.com/inluxc/harbor/internal/engine"
-	"github.com/inluxc/harbor/internal/events"
-	"github.com/inluxc/harbor/internal/importer"
-	"github.com/inluxc/harbor/internal/mediaserver"
-	"github.com/inluxc/harbor/internal/metadata"
-	"github.com/inluxc/harbor/internal/search"
-	"github.com/inluxc/harbor/internal/store"
-	"github.com/inluxc/harbor/internal/suppliers"
-	"github.com/inluxc/harbor/internal/tracker"
-	"github.com/inluxc/harbor/internal/version"
+	"github.com/reelyard/server/internal/auth"
+	"github.com/reelyard/server/internal/config"
+	"github.com/reelyard/server/internal/dlna"
+	"github.com/reelyard/server/internal/engine"
+	"github.com/reelyard/server/internal/events"
+	"github.com/reelyard/server/internal/importer"
+	"github.com/reelyard/server/internal/mediaserver"
+	"github.com/reelyard/server/internal/metadata"
+	"github.com/reelyard/server/internal/search"
+	"github.com/reelyard/server/internal/store"
+	"github.com/reelyard/server/internal/suppliers"
+	"github.com/reelyard/server/internal/tracker"
+	"github.com/reelyard/server/internal/version"
 )
 
 // Server holds the API's dependencies.
@@ -46,7 +46,7 @@ type Server struct {
 	Bus          *events.Bus
 	Config       *config.Config
 	UI           fs.FS // built web app (index.html + assets); may be empty
-	// Restart restarts Harbor (set when it runs as a service); nil otherwise.
+	// Restart restarts Reelyard (set when it runs as a service); nil otherwise.
 	Restart func()
 	Log     *slog.Logger
 	started time.Time

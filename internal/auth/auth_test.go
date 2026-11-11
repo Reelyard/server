@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/store"
 )
 
 func newTest(t *testing.T) (*Service, *store.User) {

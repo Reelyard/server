@@ -14,13 +14,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/inluxc/harbor/internal/engine"
-	"github.com/inluxc/harbor/internal/metadata"
-	"github.com/inluxc/harbor/internal/profile"
-	"github.com/inluxc/harbor/internal/release"
-	"github.com/inluxc/harbor/internal/search"
-	"github.com/inluxc/harbor/internal/store"
-	"github.com/inluxc/harbor/internal/stremio"
+	"github.com/reelyard/server/internal/engine"
+	"github.com/reelyard/server/internal/metadata"
+	"github.com/reelyard/server/internal/profile"
+	"github.com/reelyard/server/internal/release"
+	"github.com/reelyard/server/internal/search"
+	"github.com/reelyard/server/internal/store"
+	"github.com/reelyard/server/internal/stremio"
 )
 
 // fakeStreams answers from the captured Torrentio fixtures.

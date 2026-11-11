@@ -1,5 +1,5 @@
 // Package store owns the SQLite database: opening it, migrating it, and
-// the small typed queries the rest of Harbor uses.
+// the small typed queries the rest of Reelyard uses.
 package store
 
 import (

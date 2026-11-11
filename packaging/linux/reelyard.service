@@ -1,23 +1,23 @@
 [Unit]
-Description=Harbor media tracker
-Documentation=https://github.com/inluxc/harbor
+Description=Reelyard media tracker
+Documentation=https://github.com/reelyard/server
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=harbor
-Group=harbor
-ExecStart=/usr/bin/harbor serve --system
+User=reelyard
+Group=reelyard
+ExecStart=/usr/bin/reelyard serve --system
 # Exit code 3 asks for a restart (e.g. after the VPN address changed).
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
 UMask=0002
 
-# Hardening. Harbor writes only to its data dir unless you point the
+# Hardening. Reelyard writes only to its data dir unless you point the
 # download/library folders elsewhere: then add them here with
-#   systemctl edit harbor  →  [Service] ReadWritePaths=/srv/media
+#   systemctl edit reelyard  →  [Service] ReadWritePaths=/srv/media
 NoNewPrivileges=true
 ProtectSystem=full
 ProtectHome=read-only

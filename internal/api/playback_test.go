@@ -11,11 +11,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/inluxc/harbor/internal/auth"
-	"github.com/inluxc/harbor/internal/config"
-	"github.com/inluxc/harbor/internal/dlna"
-	"github.com/inluxc/harbor/internal/mediaserver"
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/auth"
+	"github.com/reelyard/server/internal/config"
+	"github.com/reelyard/server/internal/dlna"
+	"github.com/reelyard/server/internal/mediaserver"
+	"github.com/reelyard/server/internal/store"
 )
 
 func TestPlaybackAPI(t *testing.T) {
@@ -54,7 +54,7 @@ func TestPlaybackAPI(t *testing.T) {
 	}
 
 	code, body := c.do("GET", "/api/v1/settings/dlna", "")
-	if code != 200 || body["settings"].(map[string]any)["name"] != "Harbor" || body["settings"].(map[string]any)["port"] != 8200.0 {
+	if code != 200 || body["settings"].(map[string]any)["name"] != "Reelyard" || body["settings"].(map[string]any)["port"] != 8200.0 {
 		t.Fatalf("dlna defaults: %d %v", code, body)
 	}
 	if code, _ := c.do("PUT", "/api/v1/settings/dlna", `{"enabled":false,"name":"","port":8200}`); code != 400 {

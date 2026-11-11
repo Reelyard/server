@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/store"
 )
 
 // fakeIfc is an interface whose address the test controls.
@@ -41,12 +41,12 @@ func TestBoundDownloadAndGuard(t *testing.T) {
 	var rebinds atomic.Int32
 	e, err := New(ctx, Options{Store: st, Log: testLog(), DataDir: filepath.Join(base, "d"), DownloadDir: filepath.Join(base, "dl"),
 		NoDHT: true, NoDefaultTrackers: true, Tick: 20 * time.Millisecond,
-		BindInterface: "harbor0", InterfaceAddr: ifc.addr, OnRebind: func() { rebinds.Add(1) }})
+		BindInterface: "reelyard0", InterfaceAddr: ifc.addr, OnRebind: func() { rebinds.Add(1) }})
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer e.Close()
-	if n := e.Network(); !n.OK || n.Address != "127.0.0.1" || n.Interface != "harbor0" {
+	if n := e.Network(); !n.OK || n.Address != "127.0.0.1" || n.Interface != "reelyard0" {
 		t.Fatalf("network: %+v", n)
 	}
 	// Downloads work through the bound address.
@@ -61,7 +61,7 @@ func TestBoundDownloadAndGuard(t *testing.T) {
 	waitNet(t, e, true, "")
 	// Different address: paused and a restart requested once.
 	ifc.set(net.IPv4(127, 0, 0, 2).To4())
-	waitNet(t, e, false, "Restart Harbor")
+	waitNet(t, e, false, "Restart Reelyard")
 	time.Sleep(100 * time.Millisecond)
 	if rebinds.Load() != 1 {
 		t.Fatalf("OnRebind called %d times", rebinds.Load())
@@ -81,7 +81,7 @@ func TestStartWithInterfaceDown(t *testing.T) {
 	}
 	defer e.Close()
 	n := e.Network()
-	if n.OK || n.Address != "127.0.0.1" || !strings.Contains(n.Message, "restart Harbor") {
+	if n.OK || n.Address != "127.0.0.1" || !strings.Contains(n.Message, "restart Reelyard") {
 		t.Fatalf("network with interface down: %+v", n)
 	}
 }

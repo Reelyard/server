@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/inluxc/harbor/internal/stremio"
+	"github.com/reelyard/server/internal/stremio"
 )
 
 // DefaultBase is Cinemeta.
@@ -71,7 +71,7 @@ func (s *Service) Search(ctx context.Context, query, typ string) ([]Result, erro
 			}
 			for _, m := range metas {
 				if !strings.HasPrefix(m.ID, "tt") {
-					continue // Harbor's suppliers work with IMDb ids
+					continue // Reelyard's suppliers work with IMDb ids
 				}
 				parts[i].res = append(parts[i].res, Result{ID: m.ID, Type: t, Name: m.Name, Year: m.ReleaseInfo, Poster: m.Poster})
 			}

@@ -1,10 +1,10 @@
 // Package dlna serves the library to TVs and players on the local network
 // as a DLNA/UPnP media server (built on github.com/anacrolix/dms).
 //
-// dms does the discovery (SSDP) and the content directory. Harbor puts a
+// dms does the discovery (SSDP) and the content directory. Reelyard puts a
 // small HTTP front in front of it that:
 //   - only answers devices on local networks,
-//   - serves subtitles: Harbor saves them as "Movie (1999).en.srt", while
+//   - serves subtitles: Reelyard saves them as "Movie (1999).en.srt", while
 //     dms only looks for "Movie (1999).srt" (and relative to the working
 //     directory), so the front picks the right file in the preferred
 //     language order,
@@ -32,7 +32,7 @@ import (
 
 	"github.com/anacrolix/dms/dlna/dms"
 
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/store"
 )
 
 // Options configure the server.
@@ -99,7 +99,7 @@ func New(ctx context.Context, opts Options) *Server {
 }
 
 // Start serves with the saved settings. A failure (port in use, no
-// network) is kept in Status rather than stopping Harbor.
+// network) is kept in Status rather than stopping Reelyard.
 func (s *Server) Start() {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -39,15 +39,15 @@ function Folders({ info, onNext, onReload }: { info: Onboarding; onNext: () => v
     try {
       const r = await api.saveFolders(dl, lib);
       if (r.restarting) {
-        setMsg({ ok: true, text: "Saved. Harbor is restarting to use the new folders…" });
+        setMsg({ ok: true, text: "Saved. Reelyard is restarting to use the new folders…" });
         if (await waitForRestart()) {
           await onReload();
           onNext();
         } else {
-          setMsg({ ok: false, text: "Harbor hasn't come back yet. Reload this page in a moment." });
+          setMsg({ ok: false, text: "Reelyard hasn't come back yet. Reload this page in a moment." });
         }
       } else if (r.changed) {
-        setMsg({ ok: true, text: "Saved. Restart Harbor to use the new folders; you can carry on meanwhile." });
+        setMsg({ ok: true, text: "Saved. Restart Reelyard to use the new folders; you can carry on meanwhile." });
       } else {
         onNext();
       }
@@ -89,7 +89,7 @@ function Folders({ info, onNext, onReload }: { info: Onboarding; onNext: () => v
         </p>
       )}
       {!locked && !info.canRestart && changed && !saved && (
-        <p className="text-xs text-muted">New folders are saved to {info.configFile} and used after you restart Harbor.</p>
+        <p className="text-xs text-muted">New folders are saved to {info.configFile} and used after you restart Reelyard.</p>
       )}
       {msg && <p role="status" className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-ok-soft text-ok" : "bg-bad-soft text-bad"}`}>{msg.text}</p>}
       <div className="flex gap-2">
@@ -137,7 +137,7 @@ function Suppliers({ onNext }: { onNext: () => void }) {
       <div>
         <h2 className="text-lg font-semibold">Add suppliers</h2>
         <p className="text-sm text-muted">
-          Suppliers are Stremio addons. Harbor asks them for torrents of the titles you track, and for subtitles. You need at least one that
+          Suppliers are Stremio addons. Reelyard asks them for torrents of the titles you track, and for subtitles. You need at least one that
           gives torrent streams; one for subtitles is a good idea.
         </p>
       </div>
@@ -169,8 +169,8 @@ function Suppliers({ onNext }: { onNext: () => void }) {
       <p className="text-sm text-muted">
         {hasStreams
           ? hasSubs
-            ? "You're set: Harbor can find torrents and subtitles."
-            : "Harbor can find torrents. Add a subtitle addon too if you want subtitles."
+            ? "You're set: Reelyard can find torrents and subtitles."
+            : "Reelyard can find torrents. Add a subtitle addon too if you want subtitles."
           : "No torrent supplier yet. You can add one later in Suppliers."}
       </p>
       <div className="flex gap-2">
@@ -184,13 +184,13 @@ function Ready({ onFinish }: { onFinish: (to: string) => void }) {
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h2 className="text-lg font-semibold">Harbor is ready</h2>
+        <h2 className="text-lg font-semibold">Reelyard is ready</h2>
         <p className="text-sm text-muted">A few things to know:</p>
       </div>
       <ul className="flex flex-col gap-3 text-sm">
-        <li><b>Track a title:</b> search for a movie or series and press <b>Track</b>. Harbor finds a release that fits its quality profile, downloads it, and adds it to the library with subtitles.</li>
+        <li><b>Track a title:</b> search for a movie or series and press <b>Track</b>. Reelyard finds a release that fits its quality profile, downloads it, and adds it to the library with subtitles.</li>
         <li><b>Quality profiles</b> set screen size, file size and languages. Three come ready; change them in Quality profiles.</li>
-        <li><b>Watch on your TV:</b> Harbor's DLNA server shows up as <b>Harbor</b> in your TV's media menu, or point Jellyfin or Plex at the library folder (Settings).</li>
+        <li><b>Watch on your TV:</b> Reelyard's DLNA server shows up as <b>Reelyard</b> in your TV's media menu, or point Jellyfin or Plex at the library folder (Settings).</li>
         <li><b>Privacy:</b> torrent traffic is visible to your internet provider. To use only your VPN, set <code className="font-mono">bind_interface</code> in the config file.</li>
       </ul>
       <p className="text-sm text-muted">Only download content you have the rights to.</p>
@@ -229,7 +229,7 @@ export default function Welcome({ onFinished }: { onFinished: (to: string) => vo
             <Logo className="h-9 w-9" />
             <div>
               <p className="eyebrow">Setup</p>
-              <h1 className="text-xl font-semibold">Welcome to Harbor</h1>
+              <h1 className="text-xl font-semibold">Welcome to Reelyard</h1>
             </div>
           </div>
           <button className="text-sm text-muted underline hover:text-ink" onClick={() => finish("/")}>Skip setup</button>

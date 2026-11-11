@@ -37,20 +37,20 @@ export default function App() {
         setPhase({ kind: "login" });
       }
     } catch {
-      setPhase({ kind: "error", message: "Harbor's server isn't answering. Check that it is running, then reload." });
+      setPhase({ kind: "error", message: "Reelyard's server isn't answering. Check that it is running, then reload." });
     }
   }, []);
 
   useEffect(() => {
     load();
     const onSignedOut = () => setPhase((p) => (p.kind === "ready" ? { kind: "login" } : p));
-    window.addEventListener("harbor:signed-out", onSignedOut);
-    return () => window.removeEventListener("harbor:signed-out", onSignedOut);
+    window.addEventListener("reelyard:signed-out", onSignedOut);
+    return () => window.removeEventListener("reelyard:signed-out", onSignedOut);
   }, [load]);
 
   switch (phase.kind) {
     case "loading":
-      return <div className="grid h-full place-items-center text-muted">Loading Harbor…</div>;
+      return <div className="grid h-full place-items-center text-muted">Loading Reelyard…</div>;
     case "error":
       return (
         <div className="grid h-full place-items-center p-6">
@@ -65,7 +65,7 @@ export default function App() {
     case "login":
       return <AuthPage mode="login" onDone={(user) => setPhase({ kind: "ready", user })} />;
     case "ready":
-      if (welcome === null) return <div className="grid h-full place-items-center text-muted">Loading Harbor…</div>;
+      if (welcome === null) return <div className="grid h-full place-items-center text-muted">Loading Reelyard…</div>;
       if (welcome) return <Welcome onFinished={(to) => (setWelcome(false), navigate(to))} />;
       return (
         <Routes>

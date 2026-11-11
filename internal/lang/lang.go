@@ -1,5 +1,5 @@
 // Package lang normalizes language identifiers from the different places
-// Harbor meets them — ISO 639-2 codes from subtitle addons (eng, pob),
+// Reelyard meets them — ISO 639-2 codes from subtitle addons (eng, pob),
 // flag emojis in addon descriptions (🇬🇧), and words in release names
 // (ENG, PT-BR, LATINO) — into one short form: ISO 639-1 ("en"), plus
 // "pt-BR" and "es-419" where the variant matters to viewers.
@@ -59,7 +59,7 @@ var iso2 = map[string]Lang{
 }
 
 // Normalize turns a code from any source (en, eng, pob, pt-br, PT_BR,
-// es-MX…) into Harbor's form. It returns "" when unknown.
+// es-MX…) into Reelyard's form. It returns "" when unknown.
 func Normalize(code string) Lang {
 	c := strings.ToLower(strings.TrimSpace(code))
 	c = strings.ReplaceAll(c, "_", "-")

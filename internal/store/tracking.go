@@ -296,7 +296,7 @@ const (
 	ItemImported    = "imported"
 )
 
-// Item is a movie or episode Harbor wants.
+// Item is a movie or episode Reelyard wants.
 type Item struct {
 	ID           int64  `json:"id"`
 	TitleID      int64  `json:"titleId"`

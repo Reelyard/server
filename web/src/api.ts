@@ -1,4 +1,4 @@
-// Thin client for Harbor's /api/v1.
+// Thin client for Reelyard's /api/v1.
 
 export type User = { id: number; username: string; createdAt: string };
 export type APIKey = { id: number; name: string; prefix: string; createdAt: string; lastUsedAt?: string };
@@ -288,7 +288,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   }
   if (!res.ok) {
     const msg = (data as { error?: string } | null)?.error ?? `Request failed (${res.status})`;
-    if (res.status === 401) window.dispatchEvent(new Event("harbor:signed-out"));
+    if (res.status === 401) window.dispatchEvent(new Event("reelyard:signed-out"));
     throw new ApiError(res.status, msg);
   }
   return data as T;

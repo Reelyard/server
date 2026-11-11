@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/inluxc/harbor/internal/release"
-	"github.com/inluxc/harbor/internal/search"
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/release"
+	"github.com/reelyard/server/internal/search"
+	"github.com/reelyard/server/internal/store"
 )
 
 func cand(name string, seeders int, sizeMB int64) search.Candidate {

@@ -1,4 +1,4 @@
-// Command harbor tracks movies and series from Stremio addon suppliers,
+// Command reelyard tracks movies and series from Stremio addon suppliers,
 // downloads them, and serves the library.
 package main
 
@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -19,23 +20,23 @@ import (
 	"github.com/kardianos/service"
 	"golang.org/x/term"
 
-	"github.com/inluxc/harbor/internal/app"
-	"github.com/inluxc/harbor/internal/auth"
-	"github.com/inluxc/harbor/internal/config"
-	"github.com/inluxc/harbor/internal/logging"
-	"github.com/inluxc/harbor/internal/store"
-	"github.com/inluxc/harbor/internal/version"
-	"github.com/inluxc/harbor/web"
+	"github.com/reelyard/server/internal/app"
+	"github.com/reelyard/server/internal/auth"
+	"github.com/reelyard/server/internal/config"
+	"github.com/reelyard/server/internal/logging"
+	"github.com/reelyard/server/internal/store"
+	"github.com/reelyard/server/internal/version"
+	"github.com/reelyard/server/web"
 )
 
-const usage = `Harbor — media tracker and downloader
+const usage = `Reelyard — media tracker and downloader
 
 Usage:
-  harbor <command> [flags]
+  reelyard <command> [flags]
 
 Commands:
   serve            Run the server in the foreground (or under a service manager)
-  install          Install Harbor as a system service (needs admin/root; --user for a user service)
+  install          Install Reelyard as a system service (needs admin/root; --user for a user service)
   uninstall        Remove the service
   start | stop | restart | status
                    Control the installed service
@@ -47,13 +48,13 @@ Common flags:
   --system         Use system-wide default locations (implied by install without --user)
 
 Environment:
-  HARBOR_DATA_DIR, HARBOR_LISTEN, HARBOR_DOWNLOAD_DIR, HARBOR_LIBRARY_DIR,
-  HARBOR_LOG_LEVEL, HARBOR_LOG_FORMAT, HARBOR_LOG_FILE
+  REELYARD_DATA_DIR, REELYARD_LISTEN, REELYARD_DOWNLOAD_DIR, REELYARD_LIBRARY_DIR,
+  REELYARD_LOG_LEVEL, REELYARD_LOG_FORMAT, REELYARD_LOG_FILE
 `
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "harbor:", err)
+		fmt.Fprintln(os.Stderr, "reelyard:", err)
 		os.Exit(1)
 	}
 }
@@ -82,7 +83,7 @@ func run(args []string) error {
 		fmt.Print(usage)
 		return nil
 	default:
-		return fmt.Errorf("unknown command %q (run 'harbor help')", cmd)
+		return fmt.Errorf("unknown command %q (run 'reelyard help')", cmd)
 	}
 }
 
@@ -142,17 +143,17 @@ func cmdServe(args []string) error {
 		if err := a.Start(ctx); err != nil {
 			return err
 		}
-		fmt.Fprintf(os.Stderr, "Harbor is running at %s — press Ctrl+C to stop\n", displayURL(a.Addr().String()))
+		fmt.Fprintf(os.Stderr, "Reelyard is running at %s — press Ctrl+C to stop\n", displayURL(a.Addr().String()))
 		<-ctx.Done()
 		return a.Stop(15 * time.Second)
 	}
 
 	// Under systemd / launchd / Windows Service Control Manager: when the
 	// bound VPN interface gets a new address, stop cleanly and exit with an
-	// error so the service manager starts Harbor again on the new address.
+	// error so the service manager starts Reelyard again on the new address.
 	restart := func(why string) func() {
 		return func() {
-			log.Warn(why + "; restarting Harbor")
+			log.Warn(why + "; restarting Reelyard")
 			_ = a.Stop(15 * time.Second)
 			os.Exit(3)
 		}
@@ -187,8 +188,8 @@ func displayURL(addr string) string {
 
 func serviceConfig(configPath string, user bool) *service.Config {
 	c := &service.Config{
-		Name:        "harbor",
-		DisplayName: "Harbor",
+		Name:        "reelyard",
+		DisplayName: "Reelyard",
 		Description: "Tracks movies and series from Stremio addons, downloads them and serves the media library.",
 		Arguments:   []string{"serve"},
 		Option:      service.KeyValue{},
@@ -205,10 +206,36 @@ func serviceConfig(configPath string, user bool) *service.Config {
 	return c
 }
 
+// oldServiceInstalled reports whether the service from before the rename
+// (when Reelyard was called Harbor) is still installed.
+func oldServiceInstalled(user bool) bool {
+	c := serviceConfig("", user)
+	c.Name, c.DisplayName = "harbor", "Harbor"
+	s, err := service.New(&program{}, c)
+	if err != nil {
+		return false
+	}
+	_, err = s.Status()
+	return err == nil
+}
+
 func cmdInstall(args []string) error {
 	fs, cf := newFlags("install", true)
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+	if oldServiceInstalled(cf.user) {
+		hint := "sudo systemctl disable --now harbor"
+		switch {
+		case cf.user && runtime.GOOS == "linux":
+			hint = "systemctl --user disable --now harbor && rm ~/.config/systemd/user/harbor.service"
+		case runtime.GOOS == "windows":
+			hint = "sc.exe stop harbor; sc.exe delete harbor"
+		case runtime.GOOS == "darwin":
+			hint = "the old harbor binary's uninstall command (harbor uninstall" + userSuffix(cf.user) + ")"
+		}
+		return fmt.Errorf("the service from before Reelyard was renamed (Harbor) is still installed; "+
+			"remove it first so both don't run on the same data: %s", hint)
 	}
 	system := !cf.user || cf.system
 	cfg, err := config.Load(cf.config, system)
@@ -234,7 +261,7 @@ func cmdInstall(args []string) error {
 	if err := s.Install(); err != nil {
 		return fmt.Errorf("install service: %w", err)
 	}
-	fmt.Printf("Installed the Harbor service (platform: %s).\nStart it with: harbor start%s\nThen open %s\n",
+	fmt.Printf("Installed the Reelyard service (platform: %s).\nStart it with: reelyard start%s\nThen open %s\n",
 		s.Platform(), userSuffix(cf.user), displayURL(cfg.Listen))
 	return nil
 }
@@ -258,7 +285,7 @@ func cmdControl(action string, args []string) error {
 	if err := service.Control(s, action); err != nil {
 		return err
 	}
-	fmt.Printf("Harbor service: %s done\n", action)
+	fmt.Printf("Reelyard service: %s done\n", action)
 	return nil
 }
 
@@ -273,7 +300,7 @@ func cmdStatus(args []string) error {
 	}
 	st, err := s.Status()
 	if errors.Is(err, service.ErrNotInstalled) {
-		fmt.Println("Harbor service: not installed")
+		fmt.Println("Reelyard service: not installed")
 		return nil
 	}
 	if err != nil {
@@ -284,7 +311,7 @@ func cmdStatus(args []string) error {
 	if !ok {
 		name = "unknown"
 	}
-	fmt.Println("Harbor service:", name)
+	fmt.Println("Reelyard service:", name)
 	return nil
 }
 

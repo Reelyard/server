@@ -1,4 +1,4 @@
-// Package suppliers manages the Stremio addons Harbor searches: adding
+// Package suppliers manages the Stremio addons Reelyard searches: adding
 // them by manifest URL, refreshing their manifests, and testing them.
 package suppliers
 
@@ -11,9 +11,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/inluxc/harbor/internal/release"
-	"github.com/inluxc/harbor/internal/store"
-	"github.com/inluxc/harbor/internal/stremio"
+	"github.com/reelyard/server/internal/release"
+	"github.com/reelyard/server/internal/store"
+	"github.com/reelyard/server/internal/stremio"
 )
 
 // Supplier is a stored supplier plus what its manifest says it can do.
@@ -49,7 +49,7 @@ type Service struct {
 // Errors shown to the user.
 var (
 	ErrDuplicate   = errors.New("this addon is already added")
-	ErrNoResources = errors.New("this addon offers neither streams nor subtitles, so Harbor can't use it")
+	ErrNoResources = errors.New("this addon offers neither streams nor subtitles, so Reelyard can't use it")
 )
 
 func wrap(sp *store.Supplier) *Supplier {
@@ -250,7 +250,7 @@ func (s *Service) Test(ctx context.Context, id int64) (*TestResult, error) {
 
 func summarize(checks []Check) (bool, string) {
 	if len(checks) == 0 {
-		return false, "This addon doesn't serve movies or series by IMDb id, so Harbor can't test it."
+		return false, "This addon doesn't serve movies or series by IMDb id, so Reelyard can't test it."
 	}
 	var streams, usable, subs, failed int
 	for _, c := range checks {
@@ -269,7 +269,7 @@ func summarize(checks []Check) (bool, string) {
 	case failed == len(checks):
 		return false, "The addon didn't answer: " + checks[0].Error
 	case streams > 0 && usable == 0:
-		return false, "The addon returns streams, but none are torrents. It is probably set up for a debrid service, which Harbor can't download from yet."
+		return false, "The addon returns streams, but none are torrents. It is probably set up for a debrid service, which Reelyard can't download from yet."
 	case usable > 0:
 		return true, fmt.Sprintf("Works: %d torrent streams found for the test titles.", usable)
 	case subs > 0:

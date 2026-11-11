@@ -13,9 +13,9 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/inluxc/harbor/internal/auth"
-	"github.com/inluxc/harbor/internal/config"
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/auth"
+	"github.com/reelyard/server/internal/config"
+	"github.com/reelyard/server/internal/store"
 )
 
 type client struct {
@@ -190,7 +190,7 @@ func TestUIMissing(t *testing.T) {
 	}
 	b, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
-	if !strings.Contains(string(b), "Harbor is running") {
+	if !strings.Contains(string(b), "Reelyard is running") {
 		t.Fatalf("missing-ui page: %q", b)
 	}
 }

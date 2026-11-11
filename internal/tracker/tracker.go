@@ -13,14 +13,14 @@ import (
 	"sync"
 	"time"
 
-	"github.com/inluxc/harbor/internal/engine"
-	"github.com/inluxc/harbor/internal/events"
-	"github.com/inluxc/harbor/internal/importer"
-	"github.com/inluxc/harbor/internal/lang"
-	"github.com/inluxc/harbor/internal/metadata"
-	"github.com/inluxc/harbor/internal/profile"
-	"github.com/inluxc/harbor/internal/search"
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/engine"
+	"github.com/reelyard/server/internal/events"
+	"github.com/reelyard/server/internal/importer"
+	"github.com/reelyard/server/internal/lang"
+	"github.com/reelyard/server/internal/metadata"
+	"github.com/reelyard/server/internal/profile"
+	"github.com/reelyard/server/internal/search"
+	"github.com/reelyard/server/internal/store"
 )
 
 // Downloads is the part of the engine the tracker uses.

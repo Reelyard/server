@@ -16,12 +16,12 @@ import (
 
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/store"
 )
 
 const (
 	// CookieName is the session cookie.
-	CookieName = "harbor_session"
+	CookieName = "reelyard_session"
 	// APIKeyHeader carries an API key for scripts.
 	APIKeyHeader = "X-Api-Key"
 	// SessionTTL is how long a login lasts.
@@ -82,7 +82,7 @@ func randomToken(n int) string {
 }
 
 // dummyHash makes failed lookups take as long as real password checks.
-var dummyHash, _ = bcrypt.GenerateFromPassword([]byte("harbor-timing-equaliser"), bcryptCost)
+var dummyHash, _ = bcrypt.GenerateFromPassword([]byte("reelyard-timing-equaliser"), bcryptCost)
 
 // Service ties auth to the store.
 type Service struct {

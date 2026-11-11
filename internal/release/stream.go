@@ -6,10 +6,10 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/inluxc/harbor/internal/lang"
+	"github.com/reelyard/server/internal/lang"
 )
 
-// Stream is what Harbor knows about one addon stream after parsing.
+// Stream is what Reelyard knows about one addon stream after parsing.
 type Stream struct {
 	TorrentName string `json:"torrentName"`
 	FilePath    string `json:"filePath,omitempty"`

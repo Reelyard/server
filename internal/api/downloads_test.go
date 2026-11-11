@@ -14,11 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/inluxc/harbor/internal/auth"
-	"github.com/inluxc/harbor/internal/config"
-	"github.com/inluxc/harbor/internal/engine"
-	"github.com/inluxc/harbor/internal/events"
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/auth"
+	"github.com/reelyard/server/internal/config"
+	"github.com/reelyard/server/internal/engine"
+	"github.com/reelyard/server/internal/events"
+	"github.com/reelyard/server/internal/store"
 )
 
 func newDownloadServer(t *testing.T) *client {

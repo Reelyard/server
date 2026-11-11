@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/store"
 )
 
 type fake struct {
@@ -149,7 +149,7 @@ func TestReachErr(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "nothing is answering") {
 		t.Fatalf("refused: %v", err)
 	}
-	err = s.Test(ctx, Target{Kind: Plex, URL: "http://harbor-test.invalid:32400", Token: "x"})
+	err = s.Test(ctx, Target{Kind: Plex, URL: "http://reelyard-test.invalid:32400", Token: "x"})
 	if err == nil || !strings.Contains(err.Error(), "couldn't find the host") {
 		t.Fatalf("dns: %v", err)
 	}

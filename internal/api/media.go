@@ -6,11 +6,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/inluxc/harbor/internal/profile"
-	"github.com/inluxc/harbor/internal/search"
-	"github.com/inluxc/harbor/internal/store"
-	"github.com/inluxc/harbor/internal/stremio"
-	"github.com/inluxc/harbor/internal/suppliers"
+	"github.com/reelyard/server/internal/profile"
+	"github.com/reelyard/server/internal/search"
+	"github.com/reelyard/server/internal/store"
+	"github.com/reelyard/server/internal/stremio"
+	"github.com/reelyard/server/internal/suppliers"
 )
 
 func (s *Server) routesMedia(mux *http.ServeMux) {

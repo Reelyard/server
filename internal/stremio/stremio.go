@@ -201,7 +201,7 @@ func hasPrefix(id string, prefixes []string) bool {
 	return false
 }
 
-// Validate checks the fields Harbor relies on.
+// Validate checks the fields Reelyard relies on.
 func (m *Manifest) Validate() error {
 	if m.ID == "" || m.Name == "" {
 		return errors.New("manifest is missing id or name")
@@ -249,7 +249,7 @@ type Stream struct {
 	BehaviorHints StreamHints `json:"behaviorHints"`
 }
 
-// IsTorrent reports whether Harbor can download this stream itself.
+// IsTorrent reports whether Reelyard can download this stream itself.
 func (s *Stream) IsTorrent() bool { return len(s.InfoHash) == 40 || len(s.InfoHash) == 32 }
 
 // Text returns the descriptive text (addons use title or description).

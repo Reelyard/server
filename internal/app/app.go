@@ -1,4 +1,4 @@
-// Package app wires Harbor's parts together and runs them.
+// Package app wires Reelyard's parts together and runs them.
 package app
 
 import (
@@ -11,33 +11,33 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/inluxc/harbor/internal/api"
-	"github.com/inluxc/harbor/internal/auth"
-	"github.com/inluxc/harbor/internal/config"
-	"github.com/inluxc/harbor/internal/dlna"
-	"github.com/inluxc/harbor/internal/engine"
-	"github.com/inluxc/harbor/internal/events"
-	"github.com/inluxc/harbor/internal/importer"
-	"github.com/inluxc/harbor/internal/mediaserver"
-	"github.com/inluxc/harbor/internal/metadata"
-	"github.com/inluxc/harbor/internal/profile"
-	"github.com/inluxc/harbor/internal/search"
-	"github.com/inluxc/harbor/internal/store"
-	"github.com/inluxc/harbor/internal/stremio"
-	"github.com/inluxc/harbor/internal/suppliers"
-	"github.com/inluxc/harbor/internal/tracker"
-	"github.com/inluxc/harbor/internal/version"
+	"github.com/reelyard/server/internal/api"
+	"github.com/reelyard/server/internal/auth"
+	"github.com/reelyard/server/internal/config"
+	"github.com/reelyard/server/internal/dlna"
+	"github.com/reelyard/server/internal/engine"
+	"github.com/reelyard/server/internal/events"
+	"github.com/reelyard/server/internal/importer"
+	"github.com/reelyard/server/internal/mediaserver"
+	"github.com/reelyard/server/internal/metadata"
+	"github.com/reelyard/server/internal/profile"
+	"github.com/reelyard/server/internal/search"
+	"github.com/reelyard/server/internal/store"
+	"github.com/reelyard/server/internal/stremio"
+	"github.com/reelyard/server/internal/suppliers"
+	"github.com/reelyard/server/internal/tracker"
+	"github.com/reelyard/server/internal/version"
 )
 
-// App is a running Harbor instance.
+// App is a running Reelyard instance.
 type App struct {
 	Config *config.Config
 	Log    *slog.Logger
 	UI     fs.FS
 	// OnRebind runs when the bound network interface changes address
-	// (set by the service runner to restart Harbor).
+	// (set by the service runner to restart Reelyard).
 	OnRebind func()
-	// Restart, when set, stops Harbor so the service manager starts it
+	// Restart, when set, stops Reelyard so the service manager starts it
 	// again (used after the folders change).
 	Restart func()
 
@@ -77,7 +77,7 @@ func (a *App) Start(ctx context.Context) error {
 	}
 	a.engine = eng
 
-	client := stremio.New("Harbor/" + version.Version)
+	client := stremio.New("Reelyard/" + version.Version)
 	sup := &suppliers.Service{Store: st, Client: client}
 	meta := metadata.New(client)
 	srch := &search.Service{Suppliers: sup, Client: client}
@@ -141,7 +141,7 @@ func (a *App) Start(ctx context.Context) error {
 	go imp.Run(runCtx)
 	go trk.Run(runCtx)
 
-	a.Log.Info("harbor started", "version", version.Version, "listen", a.addr.String(),
+	a.Log.Info("reelyard started", "version", version.Version, "listen", a.addr.String(),
 		"data", a.Config.DataDir, "downloads", a.Config.DownloadDir, "library", a.Config.LibraryDir)
 	return nil
 }
@@ -174,7 +174,7 @@ func (a *App) Stop(timeout time.Duration) error {
 			err = cerr
 		}
 	}
-	a.Log.Info("harbor stopped")
+	a.Log.Info("reelyard stopped")
 	return err
 }
 

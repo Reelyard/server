@@ -11,7 +11,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/inluxc/harbor/internal/lang"
+	"github.com/reelyard/server/internal/lang"
 )
 
 // Info is what a release name tells us.

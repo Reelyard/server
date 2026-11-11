@@ -9,7 +9,7 @@ import (
 
 	"gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/inluxc/harbor/internal/config"
+	"github.com/reelyard/server/internal/config"
 )
 
 // Setup builds the logger described by cfg, installs it as slog's default,
@@ -29,7 +29,7 @@ func Setup(cfg *config.Config, extra io.Writer) (*slog.Logger, io.Closer, error)
 			return nil, nil, err
 		}
 		lj := &lumberjack.Logger{
-			Filename:   filepath.Join(cfg.LogDir(), "harbor.log"),
+			Filename:   filepath.Join(cfg.LogDir(), "reelyard.log"),
 			MaxSize:    20, // MB
 			MaxBackups: 5,
 			MaxAge:     30, // days

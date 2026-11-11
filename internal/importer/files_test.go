@@ -13,7 +13,7 @@ func TestPlace(t *testing.T) {
 	dir := t.TempDir()
 	src := filepath.Join(dir, "dl", "a.mkv")
 	os.MkdirAll(filepath.Dir(src), 0o755)
-	data := bytes.Repeat([]byte("harbor"), 50000)
+	data := bytes.Repeat([]byte("reelyard"), 50000)
 	os.WriteFile(src, data, 0o644)
 
 	dst := filepath.Join(dir, "lib", "Movies", "A (2000)", "A (2000).mkv")
@@ -46,7 +46,7 @@ func TestPlace(t *testing.T) {
 	if got, _ := os.ReadFile(cp); !bytes.Equal(got, data) {
 		t.Fatal("copy differs")
 	}
-	if left, _ := filepath.Glob(filepath.Join(dir, "copy", ".harbor-copy-*")); len(left) != 0 {
+	if left, _ := filepath.Glob(filepath.Join(dir, "copy", ".reelyard-copy-*")); len(left) != 0 {
 		t.Fatalf("temp files left: %v", left)
 	}
 }

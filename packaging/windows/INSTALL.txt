@@ -1,47 +1,47 @@
-Harbor for Windows
+Reelyard for Windows
 ==================
 
 Try it
 ------
-Double-click harbor.exe, or run it from a terminal:
+Double-click reelyard.exe, or run it from a terminal:
 
-    harbor.exe serve
+    reelyard.exe serve
 
 Then open http://localhost:8787 in your browser to create your account.
-Windows Firewall will ask whether Harbor may use the network: allow it on
+Windows Firewall will ask whether Reelyard may use the network: allow it on
 private networks, so other peers and your TV can reach it.
 
 Run it as a Windows service (starts with Windows)
 -------------------------------------------------
-1. Copy harbor.exe to a permanent place, for example C:\Program Files\Harbor\
+1. Copy reelyard.exe to a permanent place, for example C:\Program Files\Reelyard\
 2. Open a terminal as Administrator (right-click Terminal > Run as administrator)
 3. Run:
 
-    cd "C:\Program Files\Harbor"
-    .\harbor.exe install
-    .\harbor.exe start
+    cd "C:\Program Files\Reelyard"
+    .\reelyard.exe install
+    .\reelyard.exe start
 
-Data, downloads and the library are stored in C:\ProgramData\Harbor.
-Change the folders in C:\ProgramData\Harbor\config.yaml, then run
-".\harbor.exe restart".
+Data, downloads and the library are stored in C:\ProgramData\Reelyard.
+Change the folders in C:\ProgramData\Reelyard\config.yaml, then run
+".\reelyard.exe restart".
 
 Firewall rules for the service
 ------------------------------
 A service can't show the firewall prompt, so add the rules yourself
 (Administrator terminal):
 
-    netsh advfirewall firewall add rule name="Harbor web UI" dir=in action=allow protocol=TCP localport=8787 profile=private
-    netsh advfirewall firewall add rule name="Harbor torrents TCP" dir=in action=allow protocol=TCP localport=42069
-    netsh advfirewall firewall add rule name="Harbor torrents UDP" dir=in action=allow protocol=UDP localport=42069
-    netsh advfirewall firewall add rule name="Harbor DLNA" dir=in action=allow protocol=TCP localport=8200 profile=private
-    netsh advfirewall firewall add rule name="Harbor DLNA discovery" dir=in action=allow protocol=UDP localport=1900 profile=private
+    netsh advfirewall firewall add rule name="Reelyard web UI" dir=in action=allow protocol=TCP localport=8787 profile=private
+    netsh advfirewall firewall add rule name="Reelyard torrents TCP" dir=in action=allow protocol=TCP localport=42069
+    netsh advfirewall firewall add rule name="Reelyard torrents UDP" dir=in action=allow protocol=UDP localport=42069
+    netsh advfirewall firewall add rule name="Reelyard DLNA" dir=in action=allow protocol=TCP localport=8200 profile=private
+    netsh advfirewall firewall add rule name="Reelyard DLNA discovery" dir=in action=allow protocol=UDP localport=1900 profile=private
 
 Other commands
 --------------
-    harbor.exe status       is the service running?
-    harbor.exe stop         stop the service
-    harbor.exe uninstall    remove the service (your data stays)
-    harbor.exe reset-password   set a new password for your account
-    harbor.exe version
+    reelyard.exe status       is the service running?
+    reelyard.exe stop         stop the service
+    reelyard.exe uninstall    remove the service (your data stays)
+    reelyard.exe reset-password   set a new password for your account
+    reelyard.exe version
 
 Only download content you have the rights to.
