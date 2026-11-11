@@ -2,7 +2,7 @@ name: ZimaOS store
 
 # Builds the ZimaOS/CasaOS app store in deploy/zimaos with ZimaOS's own build
 # action: checked on PRs that touch it, published to GitHub Pages
-# (gh-pages branch, folder zimaos/) on release tags.
+# (gh-pages branch, folder zimaos/) on release tags (not betas).
 #
 # Users add the store in ZimaOS with:
 #   https://reelyard.github.io/server/zimaos/
@@ -41,7 +41,8 @@ jobs:
             out/report.json
           if-no-files-found: warn
       - name: Publish to GitHub Pages
-        if: github.event_name != 'pull_request'
+        # Not for betas (v*-beta.N): the store only offers full releases.
+        if: github.event_name != 'pull_request' && !contains(github.ref_name, '-')
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}

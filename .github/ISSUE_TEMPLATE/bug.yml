@@ -1,0 +1,60 @@
+name: Something's wrong
+description: Reelyard did something unexpected, failed to install, or a TV/player can't play.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for testing. Don't paste passwords, API keys, addon URLs with keys in them, or your list of titles.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Open http://<your machine>:8787/api/v1/health and copy the "version".
+      placeholder: 0.1.0-beta.1
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How is it installed?
+      options:
+        - Docker / Docker Compose
+        - ZimaOS or CasaOS
+        - Unraid
+        - TrueNAS SCALE
+        - Synology
+        - QNAP
+        - OpenMediaVault
+        - Raspberry Pi image
+        - .deb or .rpm package
+        - Windows
+        - macOS
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System and hardware
+      placeholder: Unraid 7.1 on an Intel N100 / Raspberry Pi 5 4 GB / Windows 11
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened, and what did you expect?
+      description: Steps to get there help a lot.
+    validations:
+      required: true
+  - type: input
+    id: player
+    attributes:
+      label: TV or player (for playback problems)
+      placeholder: Samsung QE55Q80 (2021) via DLNA / VLC on Android / Jellyfin
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log lines
+      description: |
+        Docker: `docker logs reelyard --tail 100`. Linux service: `journalctl -u reelyard -n 100`.
+        Otherwise the file `logs/reelyard.log` in Reelyard's data folder. Remove anything private first.
+      render: text
