@@ -7,8 +7,8 @@ Reelyard runs on any NAS that runs Docker containers, using the image
   `/DATA` on ZimaOS). Keeping both on one share lets Reelyard hardlink finished
   files into the library instead of copying them.
 - **Host networking** (`network_mode: host`), so TVs can find the DLNA
-  server. Without DLNA you can publish ports 8787 (web UI) and 42069 TCP+UDP
-  (torrents) instead.
+  server and Reelyard's apps can find Reelyard. Without those you can publish
+  ports 8787 (web UI) and 42069 TCP+UDP (torrents) instead.
 - **PUID / PGID**: the user and group that should own downloaded files.
   `UMASK` sets permissions for new files (default `002`).
 

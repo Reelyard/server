@@ -206,6 +206,7 @@ download_dir: /srv/reelyard/downloads
 library_dir: /srv/media
 torrent_port: 42069   # peers connect here (TCP+UDP); forward it in your router
 bind_interface: wg0   # optional: torrents only use this interface (e.g. your VPN)
+announce: true        # apps on the local network find Reelyard by multicast DNS
 log:
   level: info     # debug | info | warn | error
   format: text    # text | json
@@ -214,7 +215,7 @@ log:
 
 Environment variables override the file: `REELYARD_LISTEN`, `REELYARD_DATA_DIR`,
 `REELYARD_DOWNLOAD_DIR`, `REELYARD_LIBRARY_DIR`, `REELYARD_TORRENT_PORT`, `REELYARD_BIND_INTERFACE`, `REELYARD_LOG_LEVEL`,
-`REELYARD_LOG_FORMAT`, `REELYARD_LOG_FILE`.
+`REELYARD_LOG_FORMAT`, `REELYARD_LOG_FILE`, `REELYARD_ANNOUNCE`.
 
 Downloads land in `<download_dir>/<info hash>/…`. When one finishes, Reelyard links it into the
 library (a hardlink when both folders are on the same disk, so no extra space is used; a copy
@@ -263,11 +264,20 @@ sign in by pairing code instead of a password:
 Codes work for 10 minutes. **Settings → Devices** lists every device and signs any of them out.
 
 To play a file, an app asks `POST /api/v1/library/{id}/play` for a link to `/api/v1/play/{id}`
-that works for 8 hours without any header, so any video player can open it and seek.
-`GET /api/v1/library/titles` lists the library by movie and series;
+that works for 8 hours without any header, so any video player can open it and seek. The answer
+also carries the file's subtitles as WebVTT links, where the user stopped last time, and — when
+the app says what its player can play — whether this file will play and why not.
+`GET /api/v1/home` gives the home screen (continue watching, next episode, recently added);
+`PUT /api/v1/progress/{itemId}` saves where the user is. `GET /api/v1/library/titles` lists the
+library by movie and series, with artwork served (and cached) by Reelyard;
 `GET /api/v1/library/titles/{imdbId}` gives a title's seasons, episodes and files.
 Apps on another origin (Samsung and LG TV apps) can call the API: it answers CORS requests
 that carry a token, never with cookies.
+
+Apps find Reelyard on the local network by multicast DNS (service `_reelyard._tcp`); set
+`announce: false` (or `REELYARD_ANNOUNCE=0`) to stop that. Reelyard doesn't announce itself when
+it only listens on this machine. The whole app API is described in OpenAPI at
+`/api/v1/openapi.yaml`.
 
 ## Development
 

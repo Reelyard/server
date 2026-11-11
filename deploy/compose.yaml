@@ -12,8 +12,9 @@ services:
     image: ghcr.io/reelyard/server:latest
     container_name: reelyard
     restart: unless-stopped
-    # Host networking lets TVs find the DLNA server (discovery uses
-    # multicast). Without DLNA, remove this line and uncomment "ports".
+    # Host networking lets TVs find the DLNA server and Reelyard's apps find
+    # Reelyard (both use multicast). Without them, remove this line and
+    # uncomment "ports".
     network_mode: host
     # ports:
     #   - "8787:8787"        # web UI

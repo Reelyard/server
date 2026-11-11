@@ -192,7 +192,7 @@ func (im *Importer) Import(ctx context.Context, id int64) (err error) {
 		DownloadID: &did, TitleType: d.TitleType, TitleID: d.TitleID, TitleName: d.TitleName,
 		Path: rel, Size: fi.Size(), Method: method, Resolution: res,
 		VideoCodec: probe.VideoCodec, DurationSec: probe.DurationSec, AudioLangs: probe.AudioLangs, EmbeddedSubs: probe.EmbeddedSubs,
-		OSHash: hash,
+		AudioCodecs: probe.AudioCodecs, OSHash: hash,
 	})
 	if err != nil {
 		return err

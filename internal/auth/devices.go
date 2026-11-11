@@ -181,23 +181,55 @@ func (s *StreamSigner) clock() time.Time {
 	return s.now()
 }
 
-func (s *StreamSigner) mac(fileID int64, exp int64) string {
+// Kinds of signed link. The kind is part of what is signed, so a link to
+// one thing never opens another.
+const (
+	LinkStream   = "stream"   // a library file
+	LinkSubtitle = "subtitle" // a subtitle file, as WebVTT
+)
+
+func (s *StreamSigner) mac(msg string) string {
 	m := hmac.New(sha256.New, s.key)
-	fmt.Fprintf(m, "stream:%d:%d", fileID, exp)
+	m.Write([]byte(msg))
 	return hex.EncodeToString(m.Sum(nil))
 }
 
-// Sign returns the query string ("exp=…&sig=…") for a file and when it expires.
+// Sign returns the query string ("exp=…&sig=…") for a library file and when it expires.
 func (s *StreamSigner) Sign(fileID int64) (string, time.Time) {
-	exp := s.clock().Add(StreamLinkTTL).Truncate(time.Second)
-	return "exp=" + strconv.FormatInt(exp.Unix(), 10) + "&sig=" + s.mac(fileID, exp.Unix()), exp
+	return s.SignLink(LinkStream, fileID)
 }
 
-// Valid reports whether exp and sig are a live signature for fileID.
+// Valid reports whether exp and sig are a live signature for a library file.
 func (s *StreamSigner) Valid(fileID int64, exp, sig string) bool {
+	return s.ValidLink(LinkStream, fileID, exp, sig)
+}
+
+// SignLink signs a link of the given kind to the thing with this id.
+func (s *StreamSigner) SignLink(kind string, id int64) (string, time.Time) {
+	exp := s.clock().Add(StreamLinkTTL).Truncate(time.Second)
+	return "exp=" + strconv.FormatInt(exp.Unix(), 10) + "&sig=" + s.mac(fmt.Sprintf("%s:%d:%d", kind, id, exp.Unix())), exp
+}
+
+// ValidLink reports whether exp and sig are a live signature for kind and id.
+func (s *StreamSigner) ValidLink(kind string, id int64, exp, sig string) bool {
 	e, err := strconv.ParseInt(exp, 10, 64)
 	if err != nil || sig == "" || len(s.key) == 0 || s.clock().Unix() > e {
 		return false
 	}
-	return hmac.Equal([]byte(sig), []byte(s.mac(fileID, e)))
+	return hmac.Equal([]byte(sig), []byte(s.mac(fmt.Sprintf("%s:%d:%d", kind, id, e))))
+}
+
+// ArtSig signs an artwork link. Artwork links don't expire, so images cache
+// well; the signature only stops the proxy fetching artwork for anything
+// Reelyard didn't hand out.
+func (s *StreamSigner) ArtSig(imdb, kind string) string {
+	return s.mac("art:" + imdb + "/" + kind)
+}
+
+// ArtValid checks an artwork signature.
+func (s *StreamSigner) ArtValid(imdb, kind, sig string) bool {
+	if sig == "" || len(s.key) == 0 {
+		return false
+	}
+	return hmac.Equal([]byte(sig), []byte(s.ArtSig(imdb, kind)))
 }
