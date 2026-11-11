@@ -191,7 +191,7 @@ function Devices() {
       <div>
         <h2 className="font-semibold">Devices</h2>
         <p className="text-sm text-muted">
-          TVs, phones and computers running the Harbor app. To add one, open the app on it and enter the code it shows here.
+          TVs, phones and computers running the Reelyard app. To add one, open the app on it and enter the code it shows here.
         </p>
       </div>
       <form onSubmit={approve} className="flex flex-wrap items-end gap-2">

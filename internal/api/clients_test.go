@@ -13,9 +13,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/inluxc/harbor/internal/auth"
-	"github.com/inluxc/harbor/internal/config"
-	"github.com/inluxc/harbor/internal/store"
+	"github.com/reelyard/server/internal/auth"
+	"github.com/reelyard/server/internal/config"
+	"github.com/reelyard/server/internal/store"
 )
 
 type clientsEnv struct {
@@ -272,7 +272,11 @@ func TestStreamLinks(t *testing.T) {
 		t.Fatalf("whole file: %d %d", resp.StatusCode, resp.ContentLength)
 	}
 	// Tampered or moved to another file: refused.
-	if resp, _ := get(t, e.srv.URL+url[:len(url)-1]+"0"); resp.StatusCode != 403 {
+	tampered := url[:len(url)-1] + "A"
+	if url[len(url)-1] == 'A' {
+		tampered = url[:len(url)-1] + "B"
+	}
+	if resp, _ := get(t, e.srv.URL+tampered); resp.StatusCode != 403 {
 		t.Fatalf("bad signature: %d", resp.StatusCode)
 	}
 	other := e.addFile("movie", "tt0000002", "Other", "Movies/Other/Other.mp4", 10)

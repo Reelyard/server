@@ -243,7 +243,7 @@ curl -H "X-Api-Key: hbr_..." http://localhost:8787/api/v1/system
 
 ### Apps and devices
 
-Harbor's apps for TVs, phones and computers ([Reelyard/clients](https://github.com/Reelyard/clients))
+Reelyard's apps for TVs, phones and computers ([Reelyard/clients](https://github.com/Reelyard/clients))
 sign in by pairing code instead of a password:
 
 1. The app calls `POST /api/v1/devices/pair` with `{"name": "Living room TV", "platform": "tizen"}`
