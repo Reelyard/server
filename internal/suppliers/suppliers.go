@@ -40,6 +40,10 @@ func (s *Supplier) Base() string { return stremio.BaseURL(s.ManifestURL) }
 type Service struct {
 	Store  *store.Store
 	Client *stremio.Client
+	// CatalogBase serves Stremio's addon catalogs (default: Cinemeta).
+	CatalogBase string
+
+	catalog catalogCache
 }
 
 // Errors shown to the user.

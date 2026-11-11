@@ -35,6 +35,20 @@ export type Supplier = {
   lastOkAt?: string;
   lastError?: string;
 };
+export type CatalogAddon = {
+  name: string;
+  description?: string;
+  logo?: string;
+  version: string;
+  manifestUrl: string;
+  configureUrl?: string;
+  resources: string[];
+  types: string[];
+  official: boolean;
+  configurable: boolean;
+  configurationRequired: boolean;
+  installed: boolean;
+};
 export type SupplierCheck = { resource: string; type: string; title: string; count: number; usable: number; samples?: string[]; error?: string; durationMs: number };
 export type SupplierTest = { ok: boolean; message: string; checks: SupplierCheck[] };
 
@@ -139,6 +153,7 @@ export const api = {
   system: () => request<SystemInfo>("GET", "/system"),
 
   suppliers: () => request<{ suppliers: Supplier[] }>("GET", "/suppliers").then((r) => r.suppliers),
+  supplierCatalog: () => request<{ addons: CatalogAddon[] }>("GET", "/suppliers/catalog").then((r) => r.addons),
   addSupplier: (url: string) => request<{ supplier: Supplier }>("POST", "/suppliers", { url }).then((r) => r.supplier),
   updateSupplier: (id: number, patch: { name?: string; enabled?: boolean; priority?: number }) =>
     request<{ supplier: Supplier }>("PATCH", `/suppliers/${id}`, patch).then((r) => r.supplier),

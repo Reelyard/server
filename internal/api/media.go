@@ -13,6 +13,7 @@ import (
 
 func (s *Server) routesMedia(mux *http.ServeMux) {
 	mux.Handle("GET /api/v1/suppliers", s.authed(s.listSuppliers))
+	mux.Handle("GET /api/v1/suppliers/catalog", s.authed(s.supplierCatalog))
 	mux.Handle("POST /api/v1/suppliers", s.authed(s.addSupplier))
 	mux.Handle("PATCH /api/v1/suppliers/{id}", s.authed(s.patchSupplier))
 	mux.Handle("DELETE /api/v1/suppliers/{id}", s.authed(s.deleteSupplier))
@@ -48,6 +49,16 @@ func (s *Server) listSuppliers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"suppliers": list})
+}
+
+func (s *Server) supplierCatalog(w http.ResponseWriter, r *http.Request) {
+	list, err := s.Suppliers.Catalog(r.Context())
+	if err != nil {
+		s.Log.Warn("addon catalog", "err", err)
+		writeError(w, http.StatusBadGateway, "Stremio's addon catalog isn't answering right now. Try again in a moment.")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"addons": list})
 }
 
 func (s *Server) addSupplier(w http.ResponseWriter, r *http.Request) {
