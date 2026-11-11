@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router";
-import { api, type Candidate, type Meta, type StreamSearch } from "../api";
+import { ApiError, api, type Candidate, type Meta, type StreamSearch } from "../api";
 import { bytes, episodeCode, langName } from "../format";
 import { Poster } from "./Search";
 
@@ -16,7 +16,50 @@ function Chip({ children, tone = "plain", title }: { children: React.ReactNode; 
   return <span title={title} className={`inline-block rounded px-1.5 py-0.5 text-xs whitespace-nowrap ${cls}`}>{children}</span>;
 }
 
-function CandidateRow({ c }: { c: Candidate }) {
+type TitleRef = { type: string; id: string; name: string };
+
+function DownloadButton({ c, title }: { c: Candidate; title: TitleRef }) {
+  const [state, setState] = useState<"idle" | "busy" | "added" | "exists">("idle");
+  const [error, setError] = useState("");
+  if (!c.usable || !c.infoHash) return null;
+
+  async function add() {
+    setState("busy");
+    setError("");
+    try {
+      await api.addDownload({
+        infoHash: c.infoHash!,
+        fileIdx: c.fileIdx,
+        sources: c.sources,
+        name: c.stream.torrentName,
+        titleType: title.type,
+        titleId: title.id,
+        titleName: title.name,
+      });
+      setState("added");
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 409) return setState("exists");
+      setError(e instanceof Error ? e.message : "Couldn't start the download.");
+      setState("idle");
+    }
+  }
+
+  if (state === "added" || state === "exists") {
+    return (
+      <Link to="/downloads" className="rounded-lg bg-ok-soft px-3 py-1 text-sm text-ok hover:underline">
+        {state === "added" ? "Added · view" : "Already in downloads"}
+      </Link>
+    );
+  }
+  return (
+    <span className="flex items-center gap-2">
+      {error && <span role="alert" className="text-xs text-bad">{error}</span>}
+      <button className="btn-primary py-1" disabled={state === "busy"} onClick={add}>{state === "busy" ? "Adding…" : "Download"}</button>
+    </span>
+  );
+}
+
+function CandidateRow({ c, title }: { c: Candidate; title: TitleRef }) {
   const i = c.stream.info;
   const ok = !c.problems || c.problems.length === 0;
   return (
@@ -47,13 +90,14 @@ function CandidateRow({ c }: { c: Candidate }) {
           {c.stream.site ? `${c.stream.site} · ` : ""}via {c.supplierName}
           {c.alsoFrom?.length ? ` (+${c.alsoFrom.join(", ")})` : ""}
         </span>
+        <DownloadButton c={c} title={title} />
       </div>
       {!ok && <p className="text-xs text-bad">{c.problems!.join(" · ")}</p>}
     </li>
   );
 }
 
-function Streams({ type, id }: { type: string; id: string }) {
+function Streams({ type, id, name }: { type: string; id: string; name: string }) {
   const [data, setData] = useState<StreamSearch | null>(null);
   const [error, setError] = useState("");
   const [res, setRes] = useState("");
@@ -114,11 +158,11 @@ function Streams({ type, id }: { type: string; id: string }) {
         </div>
       )}
       {shown.length > 0 ? (
-        <ul className="card divide-y divide-line">{shown.map((c) => <CandidateRow key={c.key} c={c} />)}</ul>
+        <ul className="card divide-y divide-line">{shown.map((c) => <CandidateRow key={c.key} c={c} title={{ type, id, name }} />)}</ul>
       ) : (
         data.suppliers.length > 0 && <p className="text-muted">No streams match.</p>
       )}
-      <p className="text-xs text-muted">Downloading arrives in M2. For now this list shows what Harbor would choose from.</p>
+      <p className="text-xs text-muted">Download fetches only the file for this title, even from a season pack. Download only what you have the rights to.</p>
     </section>
   );
 }
@@ -173,7 +217,7 @@ export default function Title() {
       {meta.type === "movie" && (
         <section className="flex flex-col gap-3">
           <h2 className="text-lg font-semibold">Available streams</h2>
-          <Streams type="movie" id={meta.id} />
+          <Streams type="movie" id={meta.id} name={meta.name} />
         </section>
       )}
 
@@ -215,7 +259,7 @@ export default function Title() {
           {picked ? (
             <section className="flex flex-col gap-3">
               <h3 className="font-semibold">Streams for {episodeCode(picked.season, picked.episode)} · {picked.title}</h3>
-              <Streams type="series" id={picked.id} />
+              <Streams type="series" id={picked.id} name={meta.name} />
             </section>
           ) : (
             <p className="text-muted">Pick an episode to see the streams your suppliers have for it.</p>

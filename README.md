@@ -5,9 +5,9 @@ Stremio addons ("suppliers"), downloads them with a built-in torrent engine, and
 them in a media library with Jellyfin/Plex naming and subtitles. It will also serve the
 library over DLNA. One binary for Linux, macOS and Windows.
 
-> Status: **M0 — skeleton**. The server, database, sign-in, web UI shell and service
-> installer work. Suppliers, downloads and the rest arrive in later milestones; see
-> [PLAN.md](PLAN.md).
+> Status: **M2 — downloads**. Suppliers, title search, stream search and the built-in torrent
+> engine work. Importing into the library, automatic tracking, seeding rules and DLNA arrive in
+> later milestones; see [PLAN.md](PLAN.md).
 
 Only download content you have the rights to.
 
@@ -64,6 +64,7 @@ listen: ":8787"
 data_dir: /srv/harbor
 download_dir: /srv/harbor/downloads
 library_dir: /srv/media
+torrent_port: 42069   # peers connect here (TCP+UDP); forward it in your router
 log:
   level: info     # debug | info | warn | error
   format: text    # text | json
@@ -71,8 +72,11 @@ log:
 ```
 
 Environment variables override the file: `HARBOR_LISTEN`, `HARBOR_DATA_DIR`,
-`HARBOR_DOWNLOAD_DIR`, `HARBOR_LIBRARY_DIR`, `HARBOR_LOG_LEVEL`, `HARBOR_LOG_FORMAT`,
-`HARBOR_LOG_FILE`.
+`HARBOR_DOWNLOAD_DIR`, `HARBOR_LIBRARY_DIR`, `HARBOR_TORRENT_PORT`, `HARBOR_LOG_LEVEL`,
+`HARBOR_LOG_FORMAT`, `HARBOR_LOG_FILE`.
+
+Downloads land in `<download_dir>/<info hash>/…`. Speed limits and how many downloads run at
+once are set in **Settings → Downloads**.
 
 ## Forgot the password?
 

@@ -96,6 +96,7 @@ export type Candidate = {
   alsoFrom?: string[];
   infoHash?: string;
   fileIdx?: number;
+  sources?: string[];
   stream: { torrentName: string; filePath?: string; info: ReleaseInfo; seeders: number; size?: number; site?: string; label?: string };
   usable: boolean;
   problems?: string[];
@@ -107,6 +108,41 @@ export type StreamSearch = {
   episode?: number;
   candidates: Candidate[];
   suppliers: { id: number; name: string; count: number; error?: string; durationMs: number }[];
+};
+
+export type Download = {
+  id: number;
+  infoHash: string;
+  fileIdx: number;
+  name: string;
+  filePath?: string;
+  titleType?: string;
+  titleId?: string;
+  titleName?: string;
+  state: "queued" | "metadata" | "downloading" | "paused" | "seeding" | "failed";
+  error?: string;
+  size: number;
+  doneBytes: number;
+  uploaded: number;
+  addedAt: string;
+  completedAt?: string;
+  progress: number;
+  downRate: number;
+  upRate: number;
+  peers: number;
+  seeds: number;
+  eta: number;
+  ratio: number;
+};
+export type DownloadSettings = { maxActive: number; downloadLimitKBps: number; uploadLimitKBps: number };
+export type NewDownload = {
+  infoHash: string;
+  fileIdx?: number;
+  sources?: string[];
+  name: string;
+  titleType?: string;
+  titleId?: string;
+  titleName?: string;
 };
 
 export class ApiError extends Error {
@@ -164,5 +200,13 @@ export const api = {
   searchTitles: (q: string, type = "") =>
     request<{ results: MetaResult[] }>("GET", `/metadata/search?q=${encodeURIComponent(q)}${type ? `&type=${type}` : ""}`).then((r) => r.results),
   meta: (type: string, id: string) => request<{ meta: Meta }>("GET", `/metadata/${type}/${encodeURIComponent(id)}`).then((r) => r.meta),
+  downloads: () => request<{ downloads: Download[]; port: number }>("GET", "/downloads"),
+  addDownload: (d: NewDownload) => request<{ download: Download }>("POST", "/downloads", d).then((r) => r.download),
+  pauseDownload: (id: number) => request<{ download: Download }>("POST", `/downloads/${id}/pause`),
+  resumeDownload: (id: number) => request<{ download: Download }>("POST", `/downloads/${id}/resume`),
+  removeDownload: (id: number, deleteData: boolean) => request<void>("DELETE", `/downloads/${id}${deleteData ? "?deleteData=true" : ""}`),
+  downloadSettings: () => request<{ settings: DownloadSettings; port: number }>("GET", "/settings/downloads"),
+  saveDownloadSettings: (s: DownloadSettings) => request<{ settings: DownloadSettings; port: number }>("PUT", "/settings/downloads", s),
+
   streams: (type: string, id: string) => request<StreamSearch>("GET", `/streams/${type}/${id}`),
 };

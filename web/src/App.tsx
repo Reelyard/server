@@ -4,6 +4,7 @@ import { api, type User } from "./api";
 import Layout from "./components/Layout";
 import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/Dashboard";
+import Downloads from "./pages/Downloads";
 import Placeholder from "./pages/Placeholder";
 import Search from "./pages/Search";
 import Settings from "./pages/Settings";
@@ -61,7 +62,7 @@ export default function App() {
             <Route path="title/:type/:id" element={<Title />} />
             <Route path="suppliers" element={<Suppliers />} />
             <Route path="profiles" element={<Placeholder title="Quality profiles" milestone="M4" text="Choose screen sizes, size limits, audio and subtitle languages, and seeding rules for each title." />} />
-            <Route path="downloads" element={<Placeholder title="Downloads" milestone="M2" text="Active and seeding torrents, with speed, progress, peers and ratio." />} />
+            <Route path="downloads" element={<Downloads />} />
             <Route path="activity" element={<Placeholder title="Activity" milestone="M3" text="A log of everything Harbor did: searches, grabs, imports and failures." />} />
             <Route path="settings" element={<Settings user={phase.user} />} />
             <Route path="*" element={<Navigate to="/" replace />} />
