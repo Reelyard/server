@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Navigate, Route, Routes } from "react-router";
+import { Navigate, Route, Routes, useNavigate } from "react-router";
 import { api, type User } from "./api";
 import Layout from "./components/Layout";
 import AuthPage from "./pages/AuthPage";
@@ -12,11 +12,21 @@ import Settings from "./pages/Settings";
 import Suppliers from "./pages/Suppliers";
 import Titles from "./pages/Titles";
 import Title from "./pages/Title";
+import Welcome from "./pages/Welcome";
 
 type Phase = { kind: "loading" } | { kind: "error"; message: string } | { kind: "setup" } | { kind: "login" } | { kind: "ready"; user: User };
 
 export default function App() {
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
+  // First-run setup: null while checking.
+  const [welcome, setWelcome] = useState<boolean | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (phase.kind !== "ready") return;
+    setWelcome(null);
+    api.onboarding().then((o) => setWelcome(!o.done)).catch(() => setWelcome(false));
+  }, [phase.kind]);
 
   const load = useCallback(async () => {
     try {
@@ -55,6 +65,8 @@ export default function App() {
     case "login":
       return <AuthPage mode="login" onDone={(user) => setPhase({ kind: "ready", user })} />;
     case "ready":
+      if (welcome === null) return <div className="grid h-full place-items-center text-muted">Loading Harbor…</div>;
+      if (welcome) return <Welcome onFinished={(to) => (setWelcome(false), navigate(to))} />;
       return (
         <Routes>
           <Route element={<Layout user={phase.user} onSignOut={() => setPhase({ kind: "login" })} />}>

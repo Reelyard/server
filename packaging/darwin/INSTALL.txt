@@ -1,0 +1,21 @@
+Harbor for macOS
+================
+
+Easiest: brew install --cask inluxc/tap/harbor
+
+With this archive, let macOS run the unsigned binary once:
+    xattr -d com.apple.quarantine harbor
+
+Try it:
+    ./harbor serve
+Then open http://localhost:8787 to create your account.
+
+Start it now and at every login:
+    sudo install -m 0755 harbor /usr/local/bin/harbor
+    harbor install --user && harbor start --user
+
+Install ffmpeg too (brew install ffmpeg) for language checks, thumbnails
+and TV transcoding.
+Other commands: harbor status | stop | restart | uninstall | reset-password | version
+
+Only download content you have the rights to.

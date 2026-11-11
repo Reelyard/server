@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -98,5 +99,34 @@ func TestSaveRoundTrip(t *testing.T) {
 	}
 	if got.Listen != ":9999" || got.DataDir != dir {
 		t.Errorf("round trip lost data: %+v", got)
+	}
+}
+
+func TestUpdateFile(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "sub", "config.yaml")
+	if err := UpdateFile(p, map[string]string{"library_dir": "/srv/lib"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte("# my settings\nlisten: \":9000\" # keep\nlibrary_dir: /old\nlog:\n  level: debug\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	lib, dl := filepath.Join(t.TempDir(), "media library"), filepath.Join(t.TempDir(), "dl")
+	if err := UpdateFile(p, map[string]string{"library_dir": lib, "download_dir": dl}); err != nil {
+		t.Fatal(err)
+	}
+	b, _ := os.ReadFile(p)
+	s := string(b)
+	for _, want := range []string{"# my settings", "# keep", `listen: ":9000"`, "level: debug"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("missing %q in:\n%s", want, s)
+		}
+	}
+	t.Setenv("HARBOR_DATA_DIR", filepath.Dir(p))
+	cfg, err := Load("", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.LibraryDir != lib || cfg.DownloadDir != dl || cfg.Listen != ":9000" || cfg.Log.Level != "debug" {
+		t.Fatalf("reloaded %+v", cfg)
 	}
 }

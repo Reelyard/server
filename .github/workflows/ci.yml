@@ -92,3 +92,32 @@ jobs:
         with:
           name: harbor-${{ matrix.goos }}-${{ matrix.goarch }}
           path: harbor-*
+
+  packages:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --snapshot --clean --skip=docker
+      # Install the .deb on a real systemd host: the service must start and answer.
+      - name: Install .deb and check the service
+        run: |
+          sudo dpkg -i dist/harbor_*_amd64.deb
+          for i in $(seq 30); do curl -sf http://127.0.0.1:8787/api/v1/health && break; sleep 1; done
+          curl -sf http://127.0.0.1:8787/api/v1/health
+          systemctl is-active harbor
+          sudo dpkg -r harbor
+          ! systemctl is-active harbor

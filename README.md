@@ -5,10 +5,106 @@ Stremio addons ("suppliers"), downloads them with a built-in torrent engine, and
 them in a media library with Jellyfin/Plex naming and subtitles. It also serves the
 library to TVs over DLNA. One binary for Linux, macOS and Windows.
 
-> Status: **M6 — DLNA and media servers**. Suppliers, search, the built-in torrent engine,
+> Status: **M7 — packaging**. Suppliers, search, the built-in torrent engine,
 > importing into a Jellyfin/Plex-style library with subtitles, quality profiles, automatic
-> tracking, sharing limits, stall detection, disk-space checks, VPN binding, the DLNA server
-> and Jellyfin/Emby/Plex refresh work. Packaging arrives next; see [PLAN.md](PLAN.md).
+> tracking, sharing limits, stall detection, disk-space checks, VPN binding, the DLNA server,
+> Jellyfin/Emby/Plex refresh, packages for Linux, macOS, Windows and Docker, and a first-run
+> setup work; see [PLAN.md](PLAN.md).
+
+## Install
+
+Downloads are on the [releases page](https://github.com/inluxc/harbor/releases). After
+installing, open <http://localhost:8787>: the first visit creates your account and walks
+you through folders and suppliers.
+
+**Debian, Ubuntu, Raspberry Pi OS** (`.deb`) or **Fedora, RHEL, openSUSE** (`.rpm`):
+
+```sh
+sudo apt install ./harbor_*_amd64.deb      # or: sudo dnf install ./harbor-*.x86_64.rpm
+```
+
+The package creates a `harbor` user, stores everything in `/var/lib/harbor`, and starts
+the `harbor` systemd service (`systemctl status harbor`). Install `ffmpeg` too for
+language checks, thumbnails and TV transcoding. To keep media elsewhere, change the
+folders in the setup wizard, then give the service access to them with
+`sudo systemctl edit harbor` → `[Service]` `ReadWritePaths=/srv/media`. Removing the
+package keeps your data.
+
+**macOS** (Homebrew):
+
+```sh
+brew install --cask inluxc/tap/harbor
+harbor install --user && harbor start --user    # start now and at every login
+```
+
+Or download the `darwin` archive and run `xattr -d com.apple.quarantine harbor` once:
+the binaries aren't notarized.
+
+**Windows:** download the `windows` zip and follow `INSTALL.txt` inside: double-click
+`harbor.exe` to try it, or install it as a Windows service from an administrator
+terminal (`harbor.exe install`, `harbor.exe start`), plus the firewall rules listed there.
+
+**Docker** (NAS and home servers):
+
+```sh
+docker run -d --name harbor --network host --restart unless-stopped \
+  -v harbor-config:/config -v /srv/media:/data \
+  ghcr.io/inluxc/harbor:latest
+```
+
+`/data` holds `downloads/` and `library/`; keeping both on that one volume lets imports
+use hardlinks instead of copies. `--network host` is needed for DLNA discovery (TVs find
+servers by multicast); without DLNA you can publish ports instead:
+`-p 8787:8787 -p 42069:42069 -p 42069:42069/udp`. The image runs as user 1000 and
+includes ffmpeg. Docker Compose:
+
+```yaml
+services:
+  harbor:
+    image: ghcr.io/inluxc/harbor:latest
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - harbor-config:/config
+      - /srv/media:/data
+volumes:
+  harbor-config:
+```
+
+**From source** (Go 1.25+, Node 20+):
+
+```sh
+make web && make build
+bin/harbor serve
+```
+
+Without `make` (e.g. on Windows): `cd web && npm ci && npm run build && cd ..`, then
+`go build -o harbor.exe ./cmd/harbor` and `harbor.exe serve`.
+
+## Running as a service
+
+The packages set this up for you. With a plain binary:
+
+```sh
+sudo harbor install          # system service: systemd (Linux), launchd (macOS)
+sudo harbor start
+harbor install --user        # or a per-user service, no root needed
+harbor start --user
+```
+
+On Windows, run `harbor.exe install` and `harbor.exe start` from an administrator
+terminal. `install` writes a config file into the data folder so the service and the
+CLI use the same locations. Other commands: `stop`, `restart`, `status`, `uninstall`,
+`reset-password`, `version`.
+
+## Suppliers
+
+Suppliers are Stremio addons. Harbor uses the ones
+that answer with torrent streams (an `infoHash`) and the ones that give subtitles. Add
+them in **Suppliers** by pasting the addon's `manifest.json` address (for configurable
+addons, configure them on their site first and paste the address it gives you), or pick
+one from **Browse addons**. **Test** shows whether an addon answers and how many of its
+streams Harbor can use. Addons that only return debrid or web links aren't usable.
 
 ## Watching on a TV (DLNA)
 
@@ -65,40 +161,6 @@ ffprobe when the profile requires one), that release is put on a blocklist for t
 and Harbor picks the next best.
 
 Only download content you have the rights to.
-
-## Run it
-
-```sh
-make web      # build the web UI (needs Node 20+)
-make build    # build bin/harbor (needs Go 1.25+)
-bin/harbor serve
-```
-
-Open <http://localhost:8787>. The first visit asks you to create the admin account.
-
-Without `make` (e.g. on Windows):
-
-```sh
-cd web && npm ci && npm run build && cd ..
-go build -o harbor.exe ./cmd/harbor
-harbor.exe serve
-```
-
-## Install as a service
-
-```sh
-sudo harbor install          # system service: systemd (Linux), launchd (macOS)
-sudo harbor start
-harbor install --user        # or a per-user service, no root needed
-harbor start --user
-```
-
-On Windows, run `harbor.exe install` and `harbor.exe start` from an administrator
-terminal; Harbor runs as a Windows service.
-
-`install` writes a config file into the data folder so the service and the CLI use
-the same locations. Other commands: `stop`, `restart`, `status`, `uninstall`,
-`reset-password`, `version`.
 
 ## Folders
 

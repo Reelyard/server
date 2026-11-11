@@ -37,6 +37,9 @@ type App struct {
 	// OnRebind runs when the bound network interface changes address
 	// (set by the service runner to restart Harbor).
 	OnRebind func()
+	// Restart, when set, stops Harbor so the service manager starts it
+	// again (used after the folders change).
+	Restart func()
 
 	store  *store.Store
 	engine *engine.Engine
@@ -108,6 +111,7 @@ func (a *App) Start(ctx context.Context) error {
 		Bus:          bus,
 		DLNA:         a.dlna,
 		MediaServers: media,
+		Restart:      a.Restart,
 	}
 	a.http = &http.Server{
 		Handler:           srv.Handler(),
