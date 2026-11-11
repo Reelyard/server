@@ -8,3 +8,4 @@ web/dist/*
 *.db-shm
 .DS_Store
 web/tsconfig.tsbuildinfo
+.claude/

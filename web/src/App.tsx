@@ -5,7 +5,10 @@ import Layout from "./components/Layout";
 import AuthPage from "./pages/AuthPage";
 import Dashboard from "./pages/Dashboard";
 import Placeholder from "./pages/Placeholder";
+import Search from "./pages/Search";
 import Settings from "./pages/Settings";
+import Suppliers from "./pages/Suppliers";
+import Title from "./pages/Title";
 
 type Phase = { kind: "loading" } | { kind: "error"; message: string } | { kind: "setup" } | { kind: "login" } | { kind: "ready"; user: User };
 
@@ -54,7 +57,9 @@ export default function App() {
           <Route element={<Layout user={phase.user} onSignOut={() => setPhase({ kind: "login" })} />}>
             <Route index element={<Dashboard />} />
             <Route path="titles" element={<Placeholder title="Titles" milestone="M4" text="Your tracked movies and series will show here as a poster grid, with what's missing, downloading and done." />} />
-            <Route path="suppliers" element={<Placeholder title="Suppliers" milestone="M1" text="Add Stremio addon manifest URLs here. Harbor will show what each one offers (streams, subtitles) and let you test it." />} />
+            <Route path="search" element={<Search />} />
+            <Route path="title/:type/:id" element={<Title />} />
+            <Route path="suppliers" element={<Suppliers />} />
             <Route path="profiles" element={<Placeholder title="Quality profiles" milestone="M4" text="Choose screen sizes, size limits, audio and subtitle languages, and seeding rules for each title." />} />
             <Route path="downloads" element={<Placeholder title="Downloads" milestone="M2" text="Active and seeding torrents, with speed, progress, peers and ratio." />} />
             <Route path="activity" element={<Placeholder title="Activity" milestone="M3" text="A log of everything Harbor did: searches, grabs, imports and failures." />} />

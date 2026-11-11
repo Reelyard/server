@@ -14,7 +14,11 @@ import (
 	"github.com/inluxc/harbor/internal/api"
 	"github.com/inluxc/harbor/internal/auth"
 	"github.com/inluxc/harbor/internal/config"
+	"github.com/inluxc/harbor/internal/metadata"
+	"github.com/inluxc/harbor/internal/search"
 	"github.com/inluxc/harbor/internal/store"
+	"github.com/inluxc/harbor/internal/stremio"
+	"github.com/inluxc/harbor/internal/suppliers"
 	"github.com/inluxc/harbor/internal/version"
 )
 
@@ -46,7 +50,14 @@ func (a *App) Start(ctx context.Context) error {
 	}
 	a.store = st
 
-	srv := &api.Server{Store: st, Auth: auth.New(st), Config: a.Config, UI: a.UI, Log: a.Log}
+	client := stremio.New("Harbor/" + version.Version)
+	sup := &suppliers.Service{Store: st, Client: client}
+	srv := &api.Server{
+		Store: st, Auth: auth.New(st), Config: a.Config, UI: a.UI, Log: a.Log,
+		Suppliers: sup,
+		Meta:      metadata.New(client),
+		Search:    &search.Service{Suppliers: sup, Client: client},
+	}
 	a.http = &http.Server{
 		Handler:           srv.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,

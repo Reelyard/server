@@ -4,6 +4,7 @@ import { api, type User } from "../api";
 
 const NAV = [
   { to: "/", label: "Dashboard", end: true },
+  { to: "/search", label: "Search" },
   { to: "/titles", label: "Titles" },
   { to: "/downloads", label: "Downloads" },
   { to: "/suppliers", label: "Suppliers" },

@@ -1,0 +1,227 @@
+import { useEffect, useMemo, useState } from "react";
+import { Link, useParams, useSearchParams } from "react-router";
+import { api, type Candidate, type Meta, type StreamSearch } from "../api";
+import { bytes, episodeCode, langName } from "../format";
+import { Poster } from "./Search";
+
+const RES_ORDER = ["2160p", "1080p", "720p", "576p", "480p", "360p"];
+
+function Chip({ children, tone = "plain", title }: { children: React.ReactNode; tone?: "plain" | "deep" | "accent" | "bad"; title?: string }) {
+  const cls = {
+    plain: "bg-bg text-ink",
+    deep: "bg-deep-soft text-deep",
+    accent: "bg-accent-soft text-accent",
+    bad: "bg-bad-soft text-bad",
+  }[tone];
+  return <span title={title} className={`inline-block rounded px-1.5 py-0.5 text-xs whitespace-nowrap ${cls}`}>{children}</span>;
+}
+
+function CandidateRow({ c }: { c: Candidate }) {
+  const i = c.stream.info;
+  const ok = !c.problems || c.problems.length === 0;
+  return (
+    <li className={`flex flex-col gap-2 px-4 py-3 ${ok ? "" : "opacity-60"}`}>
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="font-mono text-sm break-all">{c.stream.torrentName}</p>
+          {c.stream.filePath && c.stream.filePath !== c.stream.torrentName && (
+            <p className="font-mono text-xs break-all text-muted">↳ {c.stream.filePath}</p>
+          )}
+        </div>
+        <div className="flex shrink-0 items-baseline gap-4 text-sm tabular-nums">
+          <span title="Seeders">{c.stream.seeders >= 0 ? `${c.stream.seeders} seeders` : "seeders ?"}</span>
+          <span className="sm:w-16 sm:text-right">{bytes(c.stream.size)}</span>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {i.resolution ? <Chip tone="deep">{i.resolution}</Chip> : <Chip tone="plain">size unknown</Chip>}
+        {i.source && <Chip tone={i.source === "REMUX" ? "accent" : "plain"}>{i.source}</Chip>}
+        {i.codec && <Chip>{i.codec}{i.bitDepth ? ` ${i.bitDepth}-bit` : ""}</Chip>}
+        {i.hdr?.map((h) => <Chip key={h} tone="accent">{h}</Chip>)}
+        {i.audio && i.audio.length > 0 && <Chip>{i.audio.join(" ")}{i.channels ? ` ${i.channels}` : ""}</Chip>}
+        {i.languages?.map((l) => <Chip key={l} title={langName(l)}>{l.toUpperCase()}</Chip>)}
+        {i.multi && <Chip>Multi audio</Chip>}
+        {i.seasonPack && <Chip tone="deep">Season pack</Chip>}
+        {i.upscaled && <Chip tone="bad">Upscaled</Chip>}
+        <span className="ml-auto text-xs text-muted">
+          {c.stream.site ? `${c.stream.site} · ` : ""}via {c.supplierName}
+          {c.alsoFrom?.length ? ` (+${c.alsoFrom.join(", ")})` : ""}
+        </span>
+      </div>
+      {!ok && <p className="text-xs text-bad">{c.problems!.join(" · ")}</p>}
+    </li>
+  );
+}
+
+function Streams({ type, id }: { type: string; id: string }) {
+  const [data, setData] = useState<StreamSearch | null>(null);
+  const [error, setError] = useState("");
+  const [res, setRes] = useState("");
+  const [showAll, setShowAll] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    setData(null);
+    setError("");
+    api.streams(type, id).then((d) => live && setData(d)).catch((e) => live && setError(e.message));
+    return () => {
+      live = false;
+    };
+  }, [type, id]);
+
+  const resolutions = useMemo(() => {
+    const set = new Set((data?.candidates ?? []).map((c) => c.stream.info.resolution).filter(Boolean) as string[]);
+    return RES_ORDER.filter((r) => set.has(r));
+  }, [data]);
+
+  if (error) return <p role="alert" className="rounded-lg bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p>;
+  if (!data) return <p className="text-muted">Asking your suppliers…</p>;
+
+  const good = data.candidates.filter((c) => !c.problems?.length);
+  const shown = data.candidates.filter((c) => (showAll || !c.problems?.length) && (!res || c.stream.info.resolution === res));
+
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        {data.suppliers.length === 0 && (
+          <span className="text-muted">
+            No stream suppliers are on. <Link to="/suppliers" className="text-deep underline">Add one</Link> to see torrents here.
+          </span>
+        )}
+        {data.suppliers.map((s) => (
+          <Chip key={s.id} tone={s.error ? "bad" : "plain"} title={s.error}>
+            {s.name}: {s.error ? s.error : `${s.count} in ${(s.durationMs / 1000).toFixed(1)}s`}
+          </Chip>
+        ))}
+      </div>
+      {data.candidates.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-sm text-muted">{good.length} usable of {data.candidates.length}</span>
+          {["", ...resolutions].map((r) => (
+            <button
+              key={r || "all"}
+              aria-pressed={res === r}
+              onClick={() => setRes(r)}
+              className={`rounded-full border px-2.5 py-0.5 text-xs ${res === r ? "border-ink bg-ink text-bg" : "border-line bg-surface hover:bg-bg"}`}
+            >
+              {r || "Any size"}
+            </button>
+          ))}
+          <label className="ml-auto flex items-center gap-1.5 text-sm">
+            <input id="show-all" type="checkbox" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} className="accent-[var(--hb-deep)]" />
+            Show unusable
+          </label>
+        </div>
+      )}
+      {shown.length > 0 ? (
+        <ul className="card divide-y divide-line">{shown.map((c) => <CandidateRow key={c.key} c={c} />)}</ul>
+      ) : (
+        data.suppliers.length > 0 && <p className="text-muted">No streams match.</p>
+      )}
+      <p className="text-xs text-muted">Downloading arrives in M2. For now this list shows what Harbor would choose from.</p>
+    </section>
+  );
+}
+
+export default function Title() {
+  const { type = "", id = "" } = useParams();
+  const [params, setParams] = useSearchParams();
+  const [meta, setMeta] = useState<Meta | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let live = true;
+    setMeta(null);
+    setError("");
+    api.meta(type, id).then((m) => live && setMeta(m)).catch((e) => live && setError(e.message));
+    return () => {
+      live = false;
+    };
+  }, [type, id]);
+
+  const seasons = useMemo(() => {
+    const s = new Set((meta?.videos ?? []).map((v) => v.season));
+    return [...s].sort((a, b) => (a === 0 ? 1 : b === 0 ? -1 : a - b));
+  }, [meta]);
+  const season = Number(params.get("s") ?? seasons[0] ?? 1);
+  const episodeId = params.get("ep");
+  const episodes = (meta?.videos ?? []).filter((v) => v.season === season);
+  const picked = meta?.videos?.find((v) => v.id === episodeId);
+
+  if (error) return <p role="alert" className="rounded-lg bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p>;
+  if (!meta) return <p className="text-muted">Loading…</p>;
+
+  const now = Date.now();
+  return (
+    <div className="flex flex-col gap-8">
+      <header className="flex flex-col gap-5 sm:flex-row">
+        <div className="w-32 shrink-0 sm:w-40"><Poster src={meta.poster} name={meta.name} /></div>
+        <div className="flex min-w-0 flex-col gap-2">
+          <p className="eyebrow">{meta.type === "movie" ? "Movie" : "Series"}</p>
+          <h1 className="text-2xl font-semibold tracking-tight">{meta.name} <span className="font-normal text-muted">{meta.releaseInfo || meta.year}</span></h1>
+          <p className="text-sm text-muted">
+            {[meta.runtime, meta.genres?.slice(0, 3).join(", "), meta.imdbRating && `IMDb ${meta.imdbRating}`, meta.status].filter(Boolean).join(" · ")}
+          </p>
+          {meta.description && <p className="max-w-prose text-sm">{meta.description}</p>}
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <button className="btn-primary" disabled title="Tracking arrives in M4">Track this {meta.type === "movie" ? "movie" : "series"}</button>
+            <span className="text-xs text-muted">Tracking and automatic downloads arrive in M4.</span>
+          </div>
+        </div>
+      </header>
+
+      {meta.type === "movie" && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-lg font-semibold">Available streams</h2>
+          <Streams type="movie" id={meta.id} />
+        </section>
+      )}
+
+      {meta.type === "series" && (
+        <section className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-lg font-semibold">Episodes</h2>
+            <label htmlFor="season" className="sr-only">Season</label>
+            <select
+              id="season"
+              className="input w-auto py-1.5"
+              value={season}
+              onChange={(e) => setParams({ s: e.target.value })}
+            >
+              {seasons.map((s) => <option key={s} value={s}>{s === 0 ? "Specials" : `Season ${s}`}</option>)}
+            </select>
+          </div>
+          <ol className="card divide-y divide-line">
+            {episodes.map((v) => {
+              const aired = new Date(v.released).getTime() <= now;
+              const active = v.id === episodeId;
+              return (
+                <li key={v.id}>
+                  <button
+                    onClick={() => setParams({ s: String(season), ep: v.id })}
+                    className={`flex w-full items-baseline gap-3 px-4 py-2.5 text-left text-sm hover:bg-bg ${active ? "bg-deep-soft" : ""}`}
+                    aria-current={active}
+                  >
+                    <span className="w-16 shrink-0 font-mono text-xs text-muted">{episodeCode(v.season, v.episode)}</span>
+                    <span className="min-w-0 flex-1 truncate">{v.title || `Episode ${v.episode}`}</span>
+                    <span className={`shrink-0 text-xs ${aired ? "text-muted" : "text-accent"}`}>
+                      {v.released ? (aired ? new Date(v.released).toLocaleDateString() : `Airs ${new Date(v.released).toLocaleDateString()}`) : ""}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+          {picked ? (
+            <section className="flex flex-col gap-3">
+              <h3 className="font-semibold">Streams for {episodeCode(picked.season, picked.episode)} · {picked.title}</h3>
+              <Streams type="series" id={picked.id} />
+            </section>
+          ) : (
+            <p className="text-muted">Pick an episode to see the streams your suppliers have for it.</p>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
