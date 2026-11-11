@@ -188,6 +188,11 @@ func (a *App) housekeeping(ctx context.Context) {
 		} else if n > 0 {
 			a.Log.Debug("pruned expired sessions", "count", n)
 		}
+		if n, err := a.store.PruneDevices(ctx); err != nil && ctx.Err() == nil {
+			a.Log.Warn("prune device pairings", "err", err)
+		} else if n > 0 {
+			a.Log.Debug("pruned expired device pairings", "count", n)
+		}
 		select {
 		case <-ctx.Done():
 			return

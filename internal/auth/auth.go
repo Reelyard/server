@@ -142,11 +142,35 @@ func (a *Service) NewAPIKey(ctx context.Context, userID int64, name string) (str
 	return raw, k, err
 }
 
-// Authenticate finds the user for a request from its API key header or
-// session cookie. It returns store.ErrNotFound when neither is valid.
+// HeaderCredentials reports whether a request carries a credential in a
+// header (an API key or a Bearer token). Browsers never add these by
+// themselves, so such requests can't be cross-site request forgeries; and
+// Authenticate never falls back to the cookie when one is present.
+func HeaderCredentials(r *http.Request) bool {
+	return r.Header.Get(APIKeyHeader) != "" || r.Header.Get("Authorization") != ""
+}
+
+// Authenticate finds the user for a request from its API key header,
+// Bearer token (a device token or an API key), or session cookie. A request
+// with a header credential is judged on that alone. It returns
+// store.ErrNotFound when no credential is valid.
 func (a *Service) Authenticate(r *http.Request) (*store.User, error) {
 	if k := r.Header.Get(APIKeyHeader); k != "" {
 		return a.Store.APIKeyUser(r.Context(), HashToken(k))
+	}
+	if h := r.Header.Get("Authorization"); h != "" {
+		scheme, tok, ok := strings.Cut(h, " ")
+		tok = strings.TrimSpace(tok)
+		if !ok || !strings.EqualFold(scheme, "Bearer") || tok == "" {
+			return nil, store.ErrNotFound
+		}
+		switch {
+		case strings.HasPrefix(tok, deviceTokenPrefix):
+			return a.Store.DeviceUser(r.Context(), HashToken(tok), remoteHost(r))
+		case strings.HasPrefix(tok, apiKeyPrefix):
+			return a.Store.APIKeyUser(r.Context(), HashToken(tok))
+		}
+		return nil, store.ErrNotFound
 	}
 	c, err := r.Cookie(CookieName)
 	if err != nil || c.Value == "" {

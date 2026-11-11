@@ -2,6 +2,16 @@
 
 export type User = { id: number; username: string; createdAt: string };
 export type APIKey = { id: number; name: string; prefix: string; createdAt: string; lastUsedAt?: string };
+export type Device = {
+  id: number;
+  name: string;
+  platform?: string;
+  createdAt: string;
+  approvedAt?: string;
+  lastUsedAt?: string;
+  lastIp?: string;
+  paired: boolean;
+};
 export type SystemInfo = {
   version: string;
   commit: string;
@@ -307,6 +317,9 @@ export const api = {
   listKeys: () => request<{ keys: APIKey[] }>("GET", "/auth/keys").then((r) => r.keys),
   createKey: (name: string) => request<{ key: APIKey; secret: string }>("POST", "/auth/keys", { name }),
   deleteKey: (id: number) => request<void>("DELETE", `/auth/keys/${id}`),
+  devices: () => request<{ devices: Device[] }>("GET", "/devices").then((r) => r.devices),
+  approveDevice: (code: string) => request<{ device: Device }>("POST", "/devices/approve", { code }).then((r) => r.device),
+  removeDevice: (id: number) => request<void>("DELETE", `/devices/${id}`),
   system: () => request<SystemInfo>("GET", "/system"),
 
   suppliers: () => request<{ suppliers: Supplier[] }>("GET", "/suppliers").then((r) => r.suppliers),
