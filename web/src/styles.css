@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+/* Harbor palette: channel blue + buoy orange on a cool neutral. */
+@theme {
+  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "Cascadia Mono", Menlo, Consolas, monospace;
+
+  --color-bg: var(--hb-bg);
+  --color-surface: var(--hb-surface);
+  --color-ink: var(--hb-ink);
+  --color-muted: var(--hb-muted);
+  --color-line: var(--hb-line);
+  --color-accent: var(--hb-accent);
+  --color-accent-soft: var(--hb-accent-soft);
+  --color-deep: var(--hb-deep);
+  --color-deep-soft: var(--hb-deep-soft);
+  --color-ok: var(--hb-ok);
+  --color-ok-soft: var(--hb-ok-soft);
+  --color-bad: var(--hb-bad);
+  --color-bad-soft: var(--hb-bad-soft);
+}
+
+:root {
+  --hb-bg: #f3f5f7;
+  --hb-surface: #ffffff;
+  --hb-ink: #14212e;
+  --hb-muted: #5b6b7a;
+  --hb-line: #d9e0e7;
+  --hb-accent: #d9481c;
+  --hb-accent-soft: #fbe6dd;
+  --hb-deep: #1f4b6e;
+  --hb-deep-soft: #e1ebf3;
+  --hb-ok: #1f7a4d;
+  --hb-ok-soft: #dcefe4;
+  --hb-bad: #b3261e;
+  --hb-bad-soft: #f7dedc;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --hb-bg: #0e1620;
+    --hb-surface: #15202c;
+    --hb-ink: #e4ebf2;
+    --hb-muted: #93a3b3;
+    --hb-line: #263646;
+    --hb-accent: #ff7a4a;
+    --hb-accent-soft: #3a2219;
+    --hb-deep: #7fb2dc;
+    --hb-deep-soft: #1a2d3f;
+    --hb-ok: #5fcf95;
+    --hb-ok-soft: #173327;
+    --hb-bad: #f2867e;
+    --hb-bad-soft: #3a1d1c;
+    color-scheme: dark;
+  }
+}
+
+html, body, #root { height: 100%; }
+body { background: var(--hb-bg); color: var(--hb-ink); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+
+@utility card { @apply rounded-xl border border-line bg-surface; }
+@utility input {
+  @apply w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink outline-none
+    focus:border-deep focus:ring-2 focus:ring-deep/25;
+}
+@utility label { @apply mb-1 block text-sm font-medium; }
+@utility btn {
+  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium
+    transition-colors disabled:cursor-not-allowed disabled:opacity-60
+    focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent;
+}
+@utility btn-primary { @apply btn bg-deep text-white hover:bg-deep/90; }
+@utility btn-ghost { @apply btn border border-line bg-surface text-ink hover:bg-bg; }
+@utility btn-danger { @apply btn border border-bad/40 bg-bad-soft text-bad hover:bg-bad-soft/70; }
+@utility eyebrow { @apply text-xs font-medium tracking-wider text-muted uppercase; }
+
+@media (prefers-color-scheme: dark) {
+  .btn-primary { color: #0e1620; }
+}

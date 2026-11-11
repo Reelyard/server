@@ -1,0 +1,301 @@
+<title>Harbor Project Ledger</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: a harbor-chart log book — header with overall progress, a milestone "channel" strip,
+   then milestone sections of task rows, then decisions / questions / risks / log as tables. */
+:root {
+  --bg: #f3f5f7;
+  --surface: #ffffff;
+  --ink: #14212e;
+  --muted: #5b6b7a;
+  --line: #d9e0e7;
+  --accent: #d9481c;      /* buoy orange */
+  --accent-soft: #fbe6dd;
+  --deep: #1f4b6e;        /* channel blue */
+  --deep-soft: #e1ebf3;
+  --ok: #1f7a4d; --ok-soft: #dcefe4;
+  --warn: #9a6a00; --warn-soft: #f6ecd2;
+  --bad: #b3261e; --bad-soft: #f7dedc;
+  --idle: #8795a3; --idle-soft: #e9edf1;
+  --f-display: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0e1620; --surface: #15202c; --ink: #e4ebf2; --muted: #93a3b3; --line: #263646;
+  --accent: #ff7a4a; --accent-soft: #3a2219; --deep: #7fb2dc; --deep-soft: #1a2d3f;
+  --ok: #5fcf95; --ok-soft: #173327; --warn: #e6b94d; --warn-soft: #33291a;
+  --bad: #f2867e; --bad-soft: #3a1d1c; --idle: #8798a8; --idle-soft: #1f2b37;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #0e1620; --surface: #15202c; --ink: #e4ebf2; --muted: #93a3b3; --line: #263646;
+  --accent: #ff7a4a; --accent-soft: #3a2219; --deep: #7fb2dc; --deep-soft: #1a2d3f;
+  --ok: #5fcf95; --ok-soft: #173327; --warn: #e6b94d; --warn-soft: #33291a;
+  --bad: #f2867e; --bad-soft: #3a1d1c; --idle: #8798a8; --idle-soft: #1f2b37;
+  color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-block: 28px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex; flex-direction: column; gap: 32px; }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; }
+h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.01em; }
+h2 { font-size: 1.25rem; font-weight: 600; }
+h3 { font-size: 1.05rem; font-weight: 600; }
+code, .mono { font-family: var(--f-mono); font-size: 0.86em; }
+code { background: var(--idle-soft); padding: 1px 5px; border-radius: 4px; }
+.eyebrow { font-family: var(--f-mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+.muted { color: var(--muted); }
+
+/* header */
+header { display: flex; flex-wrap: wrap; gap: 20px 32px; align-items: flex-end; justify-content: space-between; }
+header .title { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.summary { display: flex; gap: 24px; flex-wrap: wrap; }
+.stat { display: flex; flex-direction: column; gap: 2px; }
+.stat b { font-family: var(--f-display); font-size: 1.6rem; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.note { padding: 10px 14px; border-radius: 8px; background: var(--warn-soft); color: var(--warn); font-size: 0.9rem; }
+
+/* channel strip */
+.channel { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; }
+.buoy { display: flex; flex-direction: column; gap: 6px; text-decoration: none; color: inherit; min-width: 0;
+  padding: 8px 8px 10px; border-radius: 8px; border: 1px solid transparent; }
+.buoy:hover, .buoy:focus-visible { border-color: var(--line); background: var(--surface); outline: none; }
+.buoy .bar { height: 8px; border-radius: 4px; background: var(--idle-soft); overflow: hidden; }
+.buoy .bar i { display: block; height: 100%; background: var(--deep); }
+.buoy.current .bar { outline: 2px solid var(--accent); outline-offset: 2px; }
+.buoy.complete .bar i { background: var(--ok); }
+.buoy .lbl { display: flex; justify-content: space-between; gap: 4px; font-size: 0.78rem; }
+.buoy .lbl span:first-child { font-family: var(--f-mono); font-weight: 500; }
+.buoy .name { font-size: 0.78rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 640px) { .channel { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+
+/* toolbar */
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+.filters { display: flex; gap: 6px; flex-wrap: wrap; }
+.filters button { font: inherit; font-size: 0.85rem; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); cursor: pointer; }
+.filters button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.filters button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* milestones */
+.milestones { display: flex; flex-direction: column; gap: 20px; }
+.ms { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; scroll-margin-top: 16px; }
+.ms-head { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 14px; align-items: baseline; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.ms-head .code { font-family: var(--f-mono); font-weight: 500; color: var(--deep); }
+.ms-head .count { font-variant-numeric: tabular-nums; font-size: 0.85rem; color: var(--muted); }
+.ms-head .dw { grid-column: 2 / 4; font-size: 0.88rem; color: var(--muted); min-width: 0; }
+.ms.current .ms-head { box-shadow: inset 4px 0 0 var(--accent); }
+.tasks { list-style: none; margin: 0; padding: 0; }
+.task { display: grid; grid-template-columns: 4.6rem 1fr auto; gap: 12px; align-items: center; padding: 9px 18px; border-top: 1px solid var(--line); }
+.task:first-child { border-top: 0; }
+.task .code { font-family: var(--f-mono); font-size: 0.82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.task .t { min-width: 0; overflow-wrap: anywhere; }
+.task.done .t { color: var(--muted); }
+.task .tnote { display: block; font-size: 0.82rem; color: var(--muted); }
+.empty-ms { padding: 12px 18px; color: var(--muted); font-size: 0.9rem; }
+@media (max-width: 520px) { .task { grid-template-columns: 1fr auto; } .task .code { grid-column: 1 / 3; } }
+
+/* status chips */
+.chip, .chip-select { font: inherit; font-size: 0.78rem; font-weight: 500; padding: 3px 10px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap; }
+.chip-select { appearance: none; -webkit-appearance: none; cursor: pointer; padding-right: 22px;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 11px) 55%, calc(100% - 7px) 55%; background-size: 4px 4px; background-repeat: no-repeat; }
+.s-todo { background-color: var(--idle-soft); color: var(--idle); }
+.s-doing { background-color: var(--deep-soft); color: var(--deep); }
+.s-done { background-color: var(--ok-soft); color: var(--ok); }
+.s-blocked { background-color: var(--bad-soft); color: var(--bad); }
+.s-dropped { background-color: var(--idle-soft); color: var(--idle); text-decoration: line-through; }
+.s-open { background-color: var(--warn-soft); color: var(--warn); }
+.s-closed, .s-answered, .s-mitigated { background-color: var(--ok-soft); color: var(--ok); }
+
+/* tables */
+.tables { display: grid; grid-template-columns: 1fr; gap: 28px; }
+.tbl { display: flex; flex-direction: column; gap: 10px; min-width: 0; scroll-margin-top: 16px; }
+.scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { text-align: left; padding: 9px 14px; border-top: 1px solid var(--line); vertical-align: top; }
+thead th { border-top: 0; font-family: var(--f-mono); font-size: 0.72rem; font-weight: 500; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); background: var(--bg); }
+td.id { font-family: var(--f-mono); font-size: 0.82rem; color: var(--muted); white-space: nowrap; }
+td.date { font-variant-numeric: tabular-nums; white-space: nowrap; }
+nav.jump { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.88rem; }
+nav.jump a { color: var(--deep); }
+footer { font-size: 0.82rem; color: var(--muted); }
+@media (prefers-reduced-motion: no-preference) { .buoy .bar i { transition: width .4s ease; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="title">
+      <span class="eyebrow">Go media tracker · Stremio suppliers · built-in torrent + DLNA</span>
+      <h1>Harbor Project Ledger</h1>
+      <span class="muted" id="current">Loading the ledger…</span>
+    </div>
+    <div class="summary" aria-live="polite">
+      <div class="stat"><b id="s-done">–</b><span class="eyebrow">Done</span></div>
+      <div class="stat"><b id="s-doing">–</b><span class="eyebrow">In progress</span></div>
+      <div class="stat"><b id="s-blocked">–</b><span class="eyebrow">Blocked</span></div>
+      <div class="stat"><b id="s-pct">–</b><span class="eyebrow">Complete</span></div>
+    </div>
+  </header>
+
+  <div id="note" class="note" hidden></div>
+
+  <nav class="channel" id="channel" aria-label="Milestones"></nav>
+
+  <section style="display:flex;flex-direction:column;gap:14px">
+    <div class="toolbar">
+      <h2>Tasks</h2>
+      <div class="filters" role="group" aria-label="Filter tasks">
+        <button type="button" data-f="all" aria-pressed="true">All</button>
+        <button type="button" data-f="open" aria-pressed="false">Open</button>
+        <button type="button" data-f="doing" aria-pressed="false">In progress</button>
+        <button type="button" data-f="blocked" aria-pressed="false">Blocked</button>
+        <button type="button" data-f="done" aria-pressed="false">Done</button>
+      </div>
+    </div>
+    <nav class="jump" aria-label="Sections">
+      <a href="#decisions">Decisions</a><a href="#questions">Open questions</a><a href="#risks">Risks</a><a href="#log">Work log</a>
+    </nav>
+    <div class="milestones" id="milestones">
+      <div class="ms"><div class="empty-ms">Tasks appear here once the ledger loads. Claude adds and updates them as the work moves forward.</div></div>
+    </div>
+  </section>
+
+  <div class="tables">
+    <section class="tbl" id="decisions"><h2>Decisions</h2><div class="scroll"><table>
+      <thead><tr><th>ID</th><th>Date</th><th>Decision</th><th>Reason</th></tr></thead><tbody id="t-decisions"></tbody></table></div></section>
+    <section class="tbl" id="questions"><h2>Open questions</h2><div class="scroll"><table>
+      <thead><tr><th>ID</th><th>Question</th><th>Default if no answer</th><th>Answer</th><th>Status</th></tr></thead><tbody id="t-questions"></tbody></table></div></section>
+    <section class="tbl" id="risks"><h2>Risks</h2><div class="scroll"><table>
+      <thead><tr><th>ID</th><th>Risk</th><th>Mitigation</th><th>Status</th></tr></thead><tbody id="t-risks"></tbody></table></div></section>
+    <section class="tbl" id="log"><h2>Work log</h2><div class="scroll"><table>
+      <thead><tr><th>Date</th><th>Session summary</th><th>Tasks touched</th></tr></thead><tbody id="t-log"></tbody></table></div></section>
+  </div>
+
+  <footer>Status: To do · In progress · Done · Blocked · Dropped. Editors can change a task's status from its chip; changes save for everyone.</footer>
+</div>
+
+<script>
+(() => {
+  const STATUSES = [["todo","To do"],["doing","In progress"],["done","Done"],["blocked","Blocked"],["dropped","Dropped"]];
+  const LABEL = Object.fromEntries(STATUSES);
+  const S = { milestones: [], tasks: [], notes: {}, canEdit: false, filter: "all", gotM: false, gotT: false };
+  let db = null;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+  const md = (s) => esc(s).replace(/`([^`]+)`/g, "<code>$1</code>").replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>");
+  const note = (msg) => { const n = $("note"); n.textContent = msg || ""; n.hidden = !msg; };
+
+  try { const f = localStorage.getItem("ledger-filter"); if (f) S.filter = f; } catch (e) {}
+
+  document.querySelectorAll(".filters button").forEach(b => b.addEventListener("click", () => {
+    S.filter = b.dataset.f;
+    try { localStorage.setItem("ledger-filter", S.filter); } catch (e) {}
+    render();
+  }));
+
+  const match = (t) => S.filter === "all" ? true
+    : S.filter === "open" ? (t.status === "todo" || t.status === "doing" || t.status === "blocked")
+    : t.status === S.filter;
+
+  function render() {
+    document.querySelectorAll(".filters button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.f === S.filter)));
+    const ms = [...S.milestones].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const tasks = [...S.tasks].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const live = tasks.filter(t => t.status !== "dropped");
+    const cnt = (s) => tasks.filter(t => t.status === s).length;
+    const done = cnt("done");
+    $("s-done").textContent = tasks.length ? `${done}/${live.length}` : "–";
+    $("s-doing").textContent = tasks.length ? cnt("doing") : "–";
+    $("s-blocked").textContent = tasks.length ? cnt("blocked") : "–";
+    $("s-pct").textContent = live.length ? Math.round(done / live.length * 100) + "%" : "–";
+
+    const per = {};
+    ms.forEach(m => {
+      const ts = tasks.filter(t => t.milestone === m.code);
+      const lv = ts.filter(t => t.status !== "dropped");
+      per[m.code] = { ts, total: lv.length, done: lv.filter(t => t.status === "done").length };
+    });
+    const current = ms.find(m => per[m.code].total && per[m.code].done < per[m.code].total);
+    if (ms.length) {
+      $("current").innerHTML = current
+        ? `Current milestone: <b>${esc(current.code)} · ${esc(current.title)}</b>`
+        : (tasks.length ? "All milestones complete." : "No tasks yet.");
+    }
+
+    $("channel").innerHTML = ms.map(m => {
+      const p = per[m.code], pct = p.total ? Math.round(p.done / p.total * 100) : 0;
+      const cls = ["buoy", current && current.code === m.code ? "current" : "", p.total && p.done === p.total ? "complete" : ""].join(" ");
+      return `<a class="${cls}" href="#${esc(m.code)}" title="${esc(m.code)} · ${esc(m.title)}: ${p.done} of ${p.total} done">
+        <span class="lbl"><span>${esc(m.code)}</span><span class="muted">${p.done}/${p.total}</span></span>
+        <span class="bar"><i style="width:${pct}%"></i></span>
+        <span class="name">${esc(m.title)}</span></a>`;
+    }).join("");
+
+    if (!ms.length) return;
+    $("milestones").innerHTML = ms.map(m => {
+      const p = per[m.code];
+      const rows = p.ts.filter(match);
+      const dates = [m.started && `started ${m.started}`, m.finished && `finished ${m.finished}`].filter(Boolean).join(" · ");
+      return `<section class="ms ${current && current.code === m.code ? "current" : ""}" id="${esc(m.code)}">
+        <div class="ms-head"><span class="code">${esc(m.code)}</span><h3>${esc(m.title)}</h3>
+          <span class="count">${p.done} / ${p.total}${dates ? " · " + esc(dates) : ""}</span>
+          <span class="dw">Done when: ${md(m.doneWhen)}</span></div>
+        ${rows.length ? `<ul class="tasks">${rows.map(taskRow).join("")}</ul>`
+          : `<div class="empty-ms">No ${S.filter === "all" ? "" : "matching "}tasks.</div>`}
+      </section>`;
+    }).join("");
+
+    const tbl = (id, items, cols) => {
+      $(id).innerHTML = (items && items.length) ? items.map(r => `<tr>${cols.map(c => c(r)).join("")}</tr>`).join("")
+        : `<tr><td colspan="${cols.length}" class="muted">Nothing recorded yet.</td></tr>`;
+    };
+    const st = (v) => `<td><span class="chip s-${esc(String(v || "open").toLowerCase())}">${esc(v || "open")}</span></td>`;
+    tbl("t-decisions", S.notes.decisions, [r => `<td class="id">${esc(r.id)}</td>`, r => `<td class="date">${esc(r.date)}</td>`, r => `<td>${md(r.decision)}</td>`, r => `<td>${md(r.reason)}</td>`]);
+    tbl("t-questions", S.notes.questions, [r => `<td class="id">${esc(r.id)}</td>`, r => `<td>${md(r.question)}</td>`, r => `<td>${md(r.default)}</td>`, r => `<td>${md(r.answer) || '<span class="muted">—</span>'}</td>`, r => st(r.status)]);
+    tbl("t-risks", S.notes.risks, [r => `<td class="id">${esc(r.id)}</td>`, r => `<td>${md(r.risk)}</td>`, r => `<td>${md(r.mitigation)}</td>`, r => st(r.status)]);
+    tbl("t-log", [...(S.notes.log || [])].reverse(), [r => `<td class="date">${esc(r.date)}</td>`, r => `<td>${md(r.summary)}</td>`, r => `<td class="mono">${esc(r.tasks)}</td>`]);
+  }
+
+  function taskRow(t) {
+    const s = t.status || "todo";
+    const ctl = S.canEdit
+      ? `<select class="chip-select s-${esc(s)}" id="st-${esc(t.code)}" data-code="${esc(t.code)}" aria-label="Status of ${esc(t.code)}">
+          ${STATUSES.map(([v, l]) => `<option value="${v}"${v === s ? " selected" : ""}>${l}</option>`).join("")}</select>`
+      : `<span class="chip s-${esc(s)}">${esc(LABEL[s] || s)}</span>`;
+    return `<li class="task ${esc(s)}"><span class="code">${esc(t.code)}</span>
+      <span class="t">${md(t.title)}${t.note ? `<span class="tnote">${md(t.note)}</span>` : ""}</span>${ctl}</li>`;
+  }
+
+  document.addEventListener("change", async (e) => {
+    const sel = e.target.closest && e.target.closest("select[data-code]");
+    if (!sel || !db) return;
+    const code = sel.dataset.code, status = sel.value;
+    sel.disabled = true;
+    try {
+      await db.doc("tasks/" + code).update({ status, updated: new Date().toISOString().slice(0, 10) });
+      note("");
+    } catch (err) {
+      if (err && err.code === "invalid_argument") { S.canEdit = false; note("You can view this ledger but not change it."); }
+      else note("That change didn't save. Check your connection and try again.");
+      render();
+    } finally { sel.disabled = false; }
+  });
+
+  (async () => {
+    db = await claude.use("db");
+    if (!db) { note("The ledger's data isn't available in this view. Open it on claude.ai while signed in."); $("current").textContent = "Ledger data unavailable."; return; }
+    const user = await claude.use("user");
+    if (user) { try { S.canEdit = await user.canEdit(); } catch (e) { S.canEdit = false; } }
+    const timer = setTimeout(() => note("The ledger can't be reached yet. It will fill in once the connection returns."), 10000);
+    const ok = (snap) => { if (!snap.metadata.fromCache) { clearTimeout(timer); note(""); } };
+    const fail = () => { clearTimeout(timer); note("The ledger stopped updating. Reload the page to reconnect."); };
+    db.collection("milestones").onSnapshot(snap => { S.milestones = snap.docs.map(d => d.data()); ok(snap); render(); }, fail);
+    db.collection("tasks").limit(1000).onSnapshot(snap => { S.tasks = snap.docs.map(d => d.data()); ok(snap); render(); }, fail);
+    db.collection("notes").onSnapshot(snap => { S.notes = Object.fromEntries(snap.docs.map(d => [d.id, (d.data() || {}).items || []])); ok(snap); render(); }, fail);
+  })();
+})();
+</script>

@@ -1,0 +1,67 @@
+import { useCallback, useEffect, useState } from "react";
+import { Navigate, Route, Routes } from "react-router";
+import { api, type User } from "./api";
+import Layout from "./components/Layout";
+import AuthPage from "./pages/AuthPage";
+import Dashboard from "./pages/Dashboard";
+import Placeholder from "./pages/Placeholder";
+import Settings from "./pages/Settings";
+
+type Phase = { kind: "loading" } | { kind: "error"; message: string } | { kind: "setup" } | { kind: "login" } | { kind: "ready"; user: User };
+
+export default function App() {
+  const [phase, setPhase] = useState<Phase>({ kind: "loading" });
+
+  const load = useCallback(async () => {
+    try {
+      if (await api.setupNeeded()) return setPhase({ kind: "setup" });
+      try {
+        setPhase({ kind: "ready", user: await api.me() });
+      } catch {
+        setPhase({ kind: "login" });
+      }
+    } catch {
+      setPhase({ kind: "error", message: "Harbor's server isn't answering. Check that it is running, then reload." });
+    }
+  }, []);
+
+  useEffect(() => {
+    load();
+    const onSignedOut = () => setPhase((p) => (p.kind === "ready" ? { kind: "login" } : p));
+    window.addEventListener("harbor:signed-out", onSignedOut);
+    return () => window.removeEventListener("harbor:signed-out", onSignedOut);
+  }, [load]);
+
+  switch (phase.kind) {
+    case "loading":
+      return <div className="grid h-full place-items-center text-muted">Loading Harbor…</div>;
+    case "error":
+      return (
+        <div className="grid h-full place-items-center p-6">
+          <div className="card max-w-md p-6 text-center">
+            <p className="mb-4">{phase.message}</p>
+            <button className="btn-primary" onClick={load}>Try again</button>
+          </div>
+        </div>
+      );
+    case "setup":
+      return <AuthPage mode="setup" onDone={(user) => setPhase({ kind: "ready", user })} />;
+    case "login":
+      return <AuthPage mode="login" onDone={(user) => setPhase({ kind: "ready", user })} />;
+    case "ready":
+      return (
+        <Routes>
+          <Route element={<Layout user={phase.user} onSignOut={() => setPhase({ kind: "login" })} />}>
+            <Route index element={<Dashboard />} />
+            <Route path="titles" element={<Placeholder title="Titles" milestone="M4" text="Your tracked movies and series will show here as a poster grid, with what's missing, downloading and done." />} />
+            <Route path="suppliers" element={<Placeholder title="Suppliers" milestone="M1" text="Add Stremio addon manifest URLs here. Harbor will show what each one offers (streams, subtitles) and let you test it." />} />
+            <Route path="profiles" element={<Placeholder title="Quality profiles" milestone="M4" text="Choose screen sizes, size limits, audio and subtitle languages, and seeding rules for each title." />} />
+            <Route path="downloads" element={<Placeholder title="Downloads" milestone="M2" text="Active and seeding torrents, with speed, progress, peers and ratio." />} />
+            <Route path="activity" element={<Placeholder title="Activity" milestone="M3" text="A log of everything Harbor did: searches, grabs, imports and failures." />} />
+            <Route path="settings" element={<Settings user={phase.user} />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Route>
+        </Routes>
+      );
+  }
+}
