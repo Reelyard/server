@@ -17,6 +17,7 @@ import (
 	"sync"
 	"time"
 
+	generics "github.com/anacrolix/generics"
 	"github.com/anacrolix/torrent"
 	"github.com/anacrolix/torrent/metainfo"
 	"github.com/anacrolix/torrent/storage"
@@ -133,6 +134,12 @@ func New(ctx context.Context, o Options) (*Engine, error) {
 	e.stor = storage.NewFileOpts(storage.NewFileClientOpts{
 		ClientBaseDir:   o.DownloadDir,
 		PieceCompletion: pc,
+		// Write files in place. With part files the library writes
+		// "name.part" and renames it (read-only) only after a flush once
+		// the last piece verifies, so a finished download can briefly be
+		// missing from its path (seen on macOS), and read-only files
+		// can't be deleted on Windows. Completion is tracked in pc.
+		UsePartFiles: generics.Some(false),
 		// <download dir>/<info hash>/<torrent's own layout>: torrents with
 		// the same name can't collide.
 		TorrentDirMaker: func(base string, _ *metainfo.Info, ih metainfo.Hash) string {

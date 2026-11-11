@@ -164,6 +164,14 @@ func TestDownloadOneFileAndResume(t *testing.T) {
 	if err != nil || !bytes.Equal(got, video) {
 		t.Fatalf("downloaded file differs (err %v)", err)
 	}
+	// Written in place: no leftover .part file, and still writable (so it
+	// can be deleted on Windows and hardlinked/moved by the importer).
+	if _, err := os.Stat(filepath.Join(dlDir, done.FilePath) + ".part"); err == nil {
+		t.Fatal("a .part file was left behind")
+	}
+	if fi, err := os.Stat(filepath.Join(dlDir, done.FilePath)); err != nil || fi.Mode().Perm()&0o200 == 0 {
+		t.Fatalf("finished file mode %v (err %v): want owner-writable", fi.Mode(), err)
+	}
 	// Pause/resume while seeding keeps it complete.
 	if p, err := e.Pause(ctx, s.ID); err != nil || p.State != store.StatePaused {
 		t.Fatalf("pause: %+v %v", p, err)
