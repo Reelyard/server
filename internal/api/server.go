@@ -17,18 +17,24 @@ import (
 
 	"github.com/inluxc/harbor/internal/auth"
 	"github.com/inluxc/harbor/internal/config"
+	"github.com/inluxc/harbor/internal/metadata"
+	"github.com/inluxc/harbor/internal/search"
 	"github.com/inluxc/harbor/internal/store"
+	"github.com/inluxc/harbor/internal/suppliers"
 	"github.com/inluxc/harbor/internal/version"
 )
 
 // Server holds the API's dependencies.
 type Server struct {
-	Store   *store.Store
-	Auth    *auth.Service
-	Config  *config.Config
-	UI      fs.FS // built web app (index.html + assets); may be empty
-	Log     *slog.Logger
-	started time.Time
+	Store     *store.Store
+	Auth      *auth.Service
+	Suppliers *suppliers.Service
+	Meta      *metadata.Service
+	Search    *search.Service
+	Config    *config.Config
+	UI        fs.FS // built web app (index.html + assets); may be empty
+	Log       *slog.Logger
+	started   time.Time
 }
 
 // Handler returns the full HTTP handler: API, UI, and middleware.
@@ -52,6 +58,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/v1/auth/keys", s.authed(s.createKey))
 	mux.Handle("DELETE /api/v1/auth/keys/{id}", s.authed(s.deleteKey))
 	mux.Handle("GET /api/v1/system", s.authed(s.system))
+	s.routesMedia(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "no such API endpoint")
 	})

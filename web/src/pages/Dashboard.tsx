@@ -8,9 +8,9 @@ function uptime(sec: number) {
 }
 
 const STEPS = [
-  { to: "/suppliers", title: "Add a supplier", text: "Paste a Stremio addon manifest URL that returns torrent streams.", milestone: "M1" },
-  { to: "/profiles", title: "Set a quality profile", text: "Pick screen sizes, languages and subtitles you want.", milestone: "M4" },
-  { to: "/titles", title: "Track a title", text: "Search a movie or series and Harbor fetches it for you.", milestone: "M4" },
+  { to: "/suppliers", title: "Add a supplier", text: "Paste a Stremio addon manifest URL that returns torrent streams.", milestone: "" },
+  { to: "/search", title: "Find a title", text: "Search a movie or series and see which torrents your suppliers have.", milestone: "" },
+  { to: "/titles", title: "Track a title", text: "Pick a quality profile and Harbor fetches it for you.", milestone: "M4" },
 ];
 
 export default function Dashboard() {
@@ -35,7 +35,7 @@ export default function Dashboard() {
           {STEPS.map((s, i) => (
             <li key={s.to}>
               <Link to={s.to} className="card flex h-full flex-col gap-1 p-4 transition-colors hover:border-deep">
-                <span className="font-mono text-xs text-muted">Step {i + 1} · available in {s.milestone}</span>
+                <span className="font-mono text-xs text-muted">Step {i + 1}{s.milestone ? ` · available in ${s.milestone}` : ""}</span>
                 <span className="font-medium">{s.title}</span>
                 <span className="text-sm text-muted">{s.text}</span>
               </Link>
