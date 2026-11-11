@@ -46,8 +46,10 @@ type Server struct {
 	Bus          *events.Bus
 	Config       *config.Config
 	UI           fs.FS // built web app (index.html + assets); may be empty
-	Log          *slog.Logger
-	started      time.Time
+	// Restart restarts Harbor (set when it runs as a service); nil otherwise.
+	Restart func()
+	Log     *slog.Logger
+	started time.Time
 
 	closeOnce sync.Once
 	closing   chan struct{}
@@ -87,6 +89,7 @@ func (s *Server) Handler() http.Handler {
 	s.routesLibrary(mux)
 	s.routesTracking(mux)
 	s.routesPlayback(mux)
+	s.routesOnboarding(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "no such API endpoint")
 	})

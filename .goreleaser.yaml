@@ -1,0 +1,138 @@
+# Release builds: `goreleaser release --clean` on a v* tag (see
+# .github/workflows/release.yml). Try it locally with
+#   goreleaser release --snapshot --clean --skip=docker
+version: 2
+
+project_name: harbor
+
+before:
+  hooks:
+    # The web UI is embedded in the binary.
+    - sh -c "cd web && npm ci --no-audit --no-fund && npm run build"
+    - go mod tidy -diff
+
+builds:
+  - id: harbor
+    main: ./cmd/harbor
+    binary: harbor
+    env:
+      - CGO_ENABLED=0
+    goos: [linux, darwin, windows]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w
+      - -X github.com/inluxc/harbor/internal/version.Version={{ .Version }}
+      - -X github.com/inluxc/harbor/internal/version.Commit={{ .ShortCommit }}
+      - -X github.com/inluxc/harbor/internal/version.Date={{ .CommitDate }}
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+archives:
+  - id: harbor
+    ids: [harbor]
+    formats: [tar.gz]
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - LICENSE
+      - src: "packaging/{{ .Os }}/INSTALL.txt"
+        dst: INSTALL.txt
+        info:
+          mode: 0644
+
+checksum:
+  name_template: checksums.txt
+
+nfpms:
+  - id: harbor
+    ids: [harbor]
+    package_name: harbor
+    file_name_template: "{{ .ConventionalFileName }}"
+    vendor: Harbor
+    homepage: https://github.com/inluxc/harbor
+    maintainer: Harbor maintainers <noreply@github.com>
+    description: |-
+      Tracks movies and series, finds torrents through Stremio addons,
+      downloads them into a Jellyfin/Plex-style library with subtitles
+      and serves it over DLNA.
+    license: MIT
+    section: video
+    formats: [deb, rpm]
+    bindir: /usr/bin
+    recommends:
+      - ffmpeg
+    contents:
+      - src: packaging/linux/harbor.service
+        dst: /usr/lib/systemd/system/harbor.service
+        file_info:
+          mode: 0644
+      - dst: /var/lib/harbor
+        type: dir
+        file_info:
+          mode: 0775
+    scripts:
+      postinstall: packaging/linux/postinstall.sh
+      preremove: packaging/linux/preremove.sh
+      postremove: packaging/linux/postremove.sh
+
+homebrew_casks:
+  - name: harbor
+    ids: [harbor]
+    homepage: https://github.com/inluxc/harbor
+    description: Track movies and series, download them into a media library and serve it over DLNA
+    license: MIT
+    repository:
+      owner: inluxc
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Casks
+    # Published only once the tap repository and its token exist.
+    skip_upload: '{{ if not (index .Env "HOMEBREW_TAP_TOKEN") }}true{{ else }}false{{ end }}'
+    hooks:
+      post:
+        # The binaries aren't notarized; let macOS run them.
+        install_steps: |
+          on_macos do
+            run "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "{{ .StagedPath }}/harbor"]
+          end
+    caveats: |
+      Start Harbor now and at every login:
+        harbor install --user && harbor start --user
+      Then open http://localhost:8787
+      Only download content you have the rights to.
+
+dockers_v2:
+  - id: harbor
+    ids: [harbor]
+    dockerfile: packaging/docker/Dockerfile
+    images:
+      - ghcr.io/inluxc/harbor
+    tags:
+      - "{{ .Version }}"
+      - "{{ if not .Prerelease }}latest{{ end }}"
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    labels:
+      org.opencontainers.image.title: Harbor
+      org.opencontainers.image.source: https://github.com/inluxc/harbor
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.licenses: MIT
+
+changelog:
+  use: github
+  sort: asc
+  filters:
+    exclude:
+      - "^Merge branch"
+
+release:
+  draft: true
+  prerelease: auto
+  footer: |
+    **Install:** see [the README](https://github.com/inluxc/harbor#install).
+    Only download content you have the rights to.

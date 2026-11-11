@@ -17,6 +17,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -254,4 +255,78 @@ func (c *Config) Save(path string) error {
 		return err
 	}
 	return os.WriteFile(path, b, 0o644)
+}
+
+// FilePath is where settings are saved: the file the config was read from,
+// or <data dir>/config.yaml.
+func (c *Config) FilePath() string {
+	if c.path != "" {
+		return c.path
+	}
+	return filepath.Join(c.DataDir, FileName)
+}
+
+// EnvOverrides lists the HARBOR_* variables that set the download and
+// library folders (a file change can't move those).
+func EnvOverrides() []string {
+	var out []string
+	for _, k := range []string{"HARBOR_DOWNLOAD_DIR", "HARBOR_LIBRARY_DIR"} {
+		if os.Getenv(k) != "" {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+// UpdateFile sets top-level keys in the YAML config file at path, keeping
+// everything else (and comments) as it is. The file is created if missing.
+func UpdateFile(path string, values map[string]string) error {
+	var doc yaml.Node
+	b, err := os.ReadFile(path)
+	switch {
+	case err == nil:
+		if err := yaml.Unmarshal(b, &doc); err != nil {
+			return fmt.Errorf("config %s: %w", path, err)
+		}
+	case errors.Is(err, fs.ErrNotExist):
+	default:
+		return err
+	}
+	if doc.Kind == 0 {
+		doc = yaml.Node{Kind: yaml.DocumentNode, Content: []*yaml.Node{{Kind: yaml.MappingNode}}}
+	}
+	m := doc.Content[0]
+	if m.Kind != yaml.MappingNode {
+		return fmt.Errorf("config %s: top level is not a mapping", path)
+	}
+	keys := make([]string, 0, len(values))
+	for k := range values {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		v := values[k]
+		found := false
+		for i := 0; i+1 < len(m.Content); i += 2 {
+			if m.Content[i].Value == k {
+				m.Content[i+1] = &yaml.Node{Kind: yaml.ScalarNode, Value: v}
+				found = true
+			}
+		}
+		if !found {
+			m.Content = append(m.Content, &yaml.Node{Kind: yaml.ScalarNode, Value: k}, &yaml.Node{Kind: yaml.ScalarNode, Value: v})
+		}
+	}
+	out, err := yaml.Marshal(&doc)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, out, 0o644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
 }

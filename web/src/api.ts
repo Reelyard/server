@@ -259,6 +259,19 @@ export type MediaServer = {
 };
 export type MediaServerInput = { id?: string; kind: MediaServerKind; name: string; url: string; token: string; enabled: boolean };
 
+export type FolderInfo = { path: string; free: number };
+export type Onboarding = {
+  done: boolean;
+  download: FolderInfo;
+  library: FolderInfo;
+  hardlinks: boolean;
+  configFile: string;
+  locked: string;
+  canRestart: boolean;
+  suppliers: number;
+};
+export type FoldersResult = { changed: boolean; restarting: boolean; hardlinks: boolean; download: FolderInfo; library: FolderInfo };
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch("/api/v1" + path, {
     method,
@@ -316,6 +329,9 @@ export const api = {
   downloadSettings: () => request<{ settings: DownloadSettings; port: number; network: NetworkStatus; free: number }>("GET", "/settings/downloads"),
   saveDownloadSettings: (s: DownloadSettings) =>
     request<{ settings: DownloadSettings; port: number; network: NetworkStatus; free: number }>("PUT", "/settings/downloads", s),
+  onboarding: () => request<Onboarding>("GET", "/onboarding"),
+  saveFolders: (download: string, library: string) => request<FoldersResult>("PUT", "/onboarding/folders", { download, library }),
+  finishOnboarding: () => request<void>("POST", "/onboarding/done"),
   dlna: () => request<DlnaState>("GET", "/settings/dlna"),
   saveDlna: (s: DlnaSettings) => request<DlnaState>("PUT", "/settings/dlna", s),
   mediaServers: () => request<MediaServer[]>("GET", "/mediaservers"),
