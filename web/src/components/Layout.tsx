@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router";
+import { UpdateBanner } from "./Updates";
 import { api, type User } from "../api";
 
 const NAV = [
@@ -74,6 +75,7 @@ export default function Layout({ user, onSignOut }: { user: User; onSignOut: () 
       </aside>
       <main className="min-w-0 flex-1 px-4 py-6 md:px-10 md:py-10">
         <div className="mx-auto max-w-5xl">
+          <UpdateBanner />
           <Outlet />
         </div>
       </main>

@@ -3,6 +3,7 @@ import { api, type APIKey, type BlockedRelease, type Device, type DownloadSettin
 import { DlnaOptions, MediaServers } from "../components/Playback";
 import { Viewers } from "../components/Viewers";
 import { AddonLinks } from "../components/AddonLinks";
+import { UpdateSettings } from "../components/Updates";
 import { TabPanel, Tabs, useTab, type Tab } from "../components/Tabs";
 
 function fmt(d?: string) {
@@ -467,6 +468,7 @@ const TABS: Tab[] = [
   { id: "viewers", label: "Viewers" },
   { id: "downloads", label: "Downloads" },
   { id: "apps", label: "Apps and API" },
+  { id: "updates", label: "Updates" },
   { id: "account", label: "Account" },
 ];
 
@@ -502,6 +504,7 @@ export default function Settings({ user }: { user: User }) {
             <ApiKeys />
           </>
         )}
+        {tab === "updates" && <UpdateSettings />}
         {tab === "account" && <Password />}
       </TabPanel>
     </div>

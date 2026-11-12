@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/kardianos/service"
+	"github.com/reelyard/server/internal/update"
 	"golang.org/x/term"
 
 	"github.com/reelyard/server/internal/app"
@@ -135,6 +136,7 @@ func cmdServe(args []string) error {
 	}
 	defer closer.Close()
 
+	update.CleanupOld() // the program an update replaced
 	a := &app.App{Config: cfg, Log: log, UI: web.FS()}
 
 	if service.Interactive() {
