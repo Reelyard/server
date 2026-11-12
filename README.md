@@ -11,6 +11,9 @@ library to TVs over DLNA. One binary for Linux, macOS and Windows.
 > Jellyfin/Emby/Plex refresh, packages for Linux, macOS, Windows and Docker, and a first-run
 > setup work; see [PLAN.md](PLAN.md).
 
+Website and docs: <https://reelyard.github.io/server/> (source in [`site/`](site), published by
+the Website workflow).
+
 ## Install
 
 Downloads are on the [releases page](https://github.com/reelyard/server/releases). After
