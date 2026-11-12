@@ -8,6 +8,10 @@ import (
 	"time"
 )
 
+// WatchedAt is how far into a film or episode it counts as watched (the
+// credits are left).
+const WatchedAt = 0.9
+
 // Progress is where a user is in a film or episode.
 type Progress struct {
 	ItemID      string    `json:"itemId"` // tt… or tt…:S:E

@@ -252,7 +252,7 @@ export class ApiError extends Error {
   }
 }
 
-export type DlnaSettings = { enabled: boolean; name: string; port: number; interfaces: string[]; transcode: boolean };
+export type DlnaSettings = { enabled: boolean; name: string; port: number; interfaces: string[]; transcode: boolean; trackProgress: boolean; watchedMark: boolean };
 export type DlnaStatus = { running: boolean; addresses: string[]; error?: string; ffmpeg: boolean; ffprobe: boolean };
 export type NetInterface = { name: string; addrs: string[]; virtual: boolean };
 export type DlnaState = { settings: DlnaSettings; status: DlnaStatus; interfaces: NetInterface[] };

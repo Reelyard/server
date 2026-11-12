@@ -229,10 +229,6 @@ func (s *Server) fetchArt(ctx context.Context, imdb, kind string) ([]byte, error
 
 // ---- resume points ----
 
-// watchedAt is how far into a film or episode it counts as watched (the
-// credits are left).
-const watchedAt = 0.9
-
 var itemIDPattern = regexp.MustCompile(`^tt[0-9]{1,12}(:[0-9]{1,4}:[0-9]{1,5})?$`)
 
 func (s *Server) listProgress(w http.ResponseWriter, r *http.Request) {
@@ -283,7 +279,7 @@ func (s *Server) saveProgress(w http.ResponseWriter, r *http.Request) {
 	case body.Watched != nil:
 		p.Watched = *body.Watched
 	case p.DurationSec > 0:
-		p.Watched = float64(p.PositionSec) >= watchedAt*float64(p.DurationSec)
+		p.Watched = float64(p.PositionSec) >= store.WatchedAt*float64(p.DurationSec)
 	}
 	if p.Watched {
 		p.PositionSec = 0 // start from the beginning next time

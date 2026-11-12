@@ -117,6 +117,20 @@ export function DlnaOptions() {
               </span>
             </span>
           </label>
+          <label className="flex items-start gap-2 text-sm">
+            <input id="dlna-progress" type="checkbox" className="mt-1 accent-[var(--hb-deep)]" checked={s.trackProgress} onChange={(e) => set({ trackProgress: e.target.checked })} />
+            <span>
+              Share what's been watched and where to resume
+              <span className="block text-xs text-muted">TVs that support it see watched marks and resume points, and the places they stop at are saved to your account. Many TVs ignore this.</span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm">
+            <input id="dlna-mark" type="checkbox" className="mt-1 accent-[var(--hb-deep)]" checked={s.watchedMark} disabled={!s.trackProgress} onChange={(e) => set({ watchedMark: e.target.checked })} />
+            <span>
+              Put a ✓ before watched titles
+              <span className="block text-xs text-muted">Works on any TV, since it's part of the name.</span>
+            </span>
+          </label>
           {status?.running && status.addresses.length > 0 && (
             <p className="rounded-lg bg-bg px-3 py-2 text-sm">
               Look for <b>{s.name}</b> in your TV's media or sources menu. Reachable at{" "}
