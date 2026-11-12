@@ -203,6 +203,11 @@ func serviceConfig(configPath string, user bool) *service.Config {
 	// Restart on failure (systemd / Windows).
 	c.Option["Restart"] = "on-failure"
 	c.Option["OnFailure"] = "restart"
+	if runtime.GOOS == "darwin" {
+		// launchd starts services with only /usr/bin:/bin:/usr/sbin:/sbin,
+		// so Homebrew's ffmpeg/ffprobe would never be found.
+		c.EnvVars = map[string]string{"PATH": darwinServicePath}
+	}
 	return c
 }
 
@@ -388,3 +393,7 @@ func readPassword(fromStdin bool, in io.Reader) (string, error) {
 	}
 	return string(a), nil
 }
+
+// darwinServicePath is the PATH a macOS service runs with: Homebrew on Apple
+// Silicon and Intel first, then the system folders.
+const darwinServicePath = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"

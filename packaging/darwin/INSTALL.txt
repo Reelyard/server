@@ -1,9 +1,7 @@
 Reelyard for macOS
 ================
 
-Easiest: brew install --cask reelyard/tap/reelyard
-
-With this archive, let macOS run the unsigned binary once:
+Let macOS run the unsigned binary once:
     xattr -d com.apple.quarantine reelyard
 
 Try it:
