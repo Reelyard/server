@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api, type APIKey, type BlockedRelease, type Device, type DownloadSettings, type Language, type NetworkStatus, type User } from "../api";
 import { DlnaOptions, MediaServers } from "../components/Playback";
 import { Viewers } from "../components/Viewers";
+import { AddonLinks } from "../components/AddonLinks";
 import { TabPanel, Tabs, useTab, type Tab } from "../components/Tabs";
 
 function fmt(d?: string) {
@@ -497,6 +498,7 @@ export default function Settings({ user }: { user: User }) {
         {tab === "apps" && (
           <>
             <Devices />
+            <AddonLinks />
             <ApiKeys />
           </>
         )}
