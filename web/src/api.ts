@@ -288,6 +288,9 @@ export type Onboarding = {
 };
 export type FoldersResult = { changed: boolean; restarting: boolean; hardlinks: boolean; download: FolderInfo; library: FolderInfo };
 
+// AddonLink is one person's Nuvio/Stremio install link; url is "" when they have none.
+export type AddonLink = { userId: number; name: string; viewer: boolean; url: string };
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch("/api/v1" + path, {
     method,
@@ -327,6 +330,9 @@ export const api = {
   approveDevice: (code: string) => request<{ device: Device }>("POST", "/devices/approve", { code }).then((r) => r.device),
   removeDevice: (id: number) => request<void>("DELETE", `/devices/${id}`),
   system: () => request<SystemInfo>("GET", "/system"),
+  addonLinks: () => request<{ links: AddonLink[] }>("GET", "/addon").then((r) => r.links),
+  newAddonLink: (userId: number) => request<{ url: string }>("POST", `/addon/${userId}`),
+  deleteAddonLink: (userId: number) => request<void>("DELETE", `/addon/${userId}`),
 
   suppliers: () => request<{ suppliers: Supplier[] }>("GET", "/suppliers").then((r) => r.suppliers),
   supplierCatalog: () => request<{ addons: CatalogAddon[] }>("GET", "/suppliers/catalog").then((r) => r.addons),
