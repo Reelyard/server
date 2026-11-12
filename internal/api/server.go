@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/reelyard/server/internal/update"
 	"io"
 	"io/fs"
 	"log/slog"
@@ -47,9 +48,11 @@ type Server struct {
 	Tracker      *tracker.Tracker
 	DLNA         *dlna.Server
 	MediaServers *mediaserver.Service
-	Bus          *events.Bus
-	Config       *config.Config
-	UI           fs.FS // built web app (index.html + assets); may be empty
+	// Updates tracks releases and installs them; nil in tests.
+	Updates *update.Service
+	Bus     *events.Bus
+	Config  *config.Config
+	UI      fs.FS // built web app (index.html + assets); may be empty
 	// Restart restarts Reelyard (set when it runs as a service); nil otherwise.
 	Restart func()
 	Log     *slog.Logger
@@ -142,6 +145,7 @@ func (s *Server) Handler() http.Handler {
 	s.routesViewers(mux)
 	s.routesAddon(mux)
 	s.routesBrowse(mux)
+	s.routesUpdates(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "no such API endpoint")
 	})

@@ -28,6 +28,7 @@ import (
 	"github.com/reelyard/server/internal/stremio"
 	"github.com/reelyard/server/internal/suppliers"
 	"github.com/reelyard/server/internal/tracker"
+	"github.com/reelyard/server/internal/update"
 	"github.com/reelyard/server/internal/version"
 )
 
@@ -103,6 +104,7 @@ func (a *App) Start(ctx context.Context) error {
 		SubtitleLangs: func() []string { return importer.LoadSettings(context.Background(), st).SubtitleLangs },
 	})
 	eng.OnComplete(imp.Enqueue)
+	upd := update.New(update.Options{Store: st, Log: a.Log, Current: version.Version, Restart: a.Restart})
 	srv := &api.Server{
 		Store: st, Auth: auth.New(st), Config: a.Config, UI: a.UI, Log: a.Log,
 		Suppliers:    sup,
@@ -115,6 +117,7 @@ func (a *App) Start(ctx context.Context) error {
 		DLNA:         a.dlna,
 		MediaServers: media,
 		Restart:      a.Restart,
+		Updates:      upd,
 	}
 	a.http = &http.Server{
 		Handler:           srv.Handler(),
@@ -144,6 +147,7 @@ func (a *App) Start(ctx context.Context) error {
 	go a.housekeeping(runCtx)
 	go imp.Run(runCtx)
 	go trk.Run(runCtx)
+	go upd.Run(runCtx)
 
 	a.Log.Info("reelyard started", "version", version.Version, "listen", a.addr.String(),
 		"data", a.Config.DataDir, "downloads", a.Config.DownloadDir, "library", a.Config.LibraryDir)

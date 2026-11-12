@@ -290,6 +290,25 @@ export type Onboarding = {
 };
 export type FoldersResult = { changed: boolean; restarting: boolean; hardlinks: boolean; download: FolderInfo; library: FolderInfo };
 
+// UpdateStatus is the current version, the latest release and what can be done.
+export type UpdateSettings = { channel: "stable" | "beta"; auto: boolean };
+export type Release = { version: string; name: string; url: string; notes: string; publishedAt: string; prerelease: boolean };
+export type UpdateStatus = {
+  current: string;
+  dev: boolean;
+  method: "binary" | "docker" | "package" | "homebrew" | "dev";
+  canApply: boolean;
+  reason?: string;
+  instructions?: string;
+  settings: UpdateSettings;
+  latest: Release | null;
+  available: boolean;
+  checkedAt: string | null;
+  checkError?: string;
+  state: "idle" | "updating" | "restarting" | "failed";
+  stateError?: string;
+};
+
 // BrowseCatalog is a supplier catalog Reelyard can show (Trending, Popular…).
 export type BrowseCatalog = { supplierId: number; supplier: string; type: "movie" | "series"; id: string; name: string; genres: string[]; genreRequired: boolean };
 export type BrowseItem = { id: string; type: string; name: string; poster?: string; releaseInfo?: string; imdbRating?: string };
@@ -336,6 +355,10 @@ export const api = {
   approveDevice: (code: string) => request<{ device: Device }>("POST", "/devices/approve", { code }).then((r) => r.device),
   removeDevice: (id: number) => request<void>("DELETE", `/devices/${id}`),
   system: () => request<SystemInfo>("GET", "/system"),
+  updates: () => request<UpdateStatus>("GET", "/updates"),
+  checkUpdates: () => request<UpdateStatus>("POST", "/updates/check"),
+  applyUpdate: () => request<UpdateStatus>("POST", "/updates/apply"),
+  saveUpdateSettings: (s: UpdateSettings) => request<UpdateStatus>("PUT", "/settings/updates", s),
   browseCatalogs: () => request<{ catalogs: BrowseCatalog[] }>("GET", "/browse").then((r) => r.catalogs),
   browse: (c: BrowseCatalog, genre: string, skip: number) => {
     const q = new URLSearchParams();
