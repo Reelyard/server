@@ -49,7 +49,7 @@ type Service struct {
 // Errors shown to the user.
 var (
 	ErrDuplicate   = errors.New("this addon is already added")
-	ErrNoResources = errors.New("this addon offers neither streams nor subtitles, so Reelyard can't use it")
+	ErrNoResources = errors.New("this addon offers no streams, subtitles or catalogs, so Reelyard can't use it")
 )
 
 func wrap(sp *store.Supplier) *Supplier {
@@ -131,7 +131,8 @@ func (s *Service) Add(ctx context.Context, rawURL string) (*Supplier, error) {
 		return nil, fmt.Errorf("couldn't read the addon's manifest: %w", friendly(err))
 	}
 	names := m.ResourceNames()
-	if !contains(names, stremio.ResStream) && !contains(names, stremio.ResSubtitles) {
+	if !contains(names, stremio.ResStream) && !contains(names, stremio.ResSubtitles) &&
+		!(contains(names, stremio.ResCatalog) && len(m.Catalogs) > 0) {
 		return nil, ErrNoResources
 	}
 	raw, _ := json.Marshal(m)
@@ -239,6 +240,24 @@ func (s *Service) Test(ctx context.Context, id int64) (*TestResult, error) {
 			res.Checks = append(res.Checks, c)
 		}
 	}
+	if len(res.Checks) == 0 { // a catalog-only addon: read its first catalog
+		if cat, ok := FirstBrowsable(m); ok {
+			c := Check{Resource: stremio.ResCatalog, Type: cat.Type, Title: cat.Name}
+			start := time.Now()
+			metas, err := s.Client.Catalog(ctx, sp.Base(), cat.Type, cat.ID, nil)
+			if err != nil {
+				c.Error = friendly(err).Error()
+			}
+			c.Count, c.Usable = len(metas), len(metas)
+			for _, mp := range metas {
+				if len(c.Samples) < 3 {
+					c.Samples = append(c.Samples, mp.Name)
+				}
+			}
+			c.DurationMS = time.Since(start).Milliseconds()
+			res.Checks = append(res.Checks, c)
+		}
+	}
 	res.OK, res.Message = summarize(res.Checks)
 	var checkErr error
 	if !res.OK {
@@ -252,13 +271,15 @@ func summarize(checks []Check) (bool, string) {
 	if len(checks) == 0 {
 		return false, "This addon doesn't serve movies or series by IMDb id, so Reelyard can't test it."
 	}
-	var streams, usable, subs, failed int
+	var streams, usable, subs, titles, failed int
 	for _, c := range checks {
 		if c.Error != "" {
 			failed++
 			continue
 		}
-		if c.Resource == stremio.ResStream {
+		if c.Resource == stremio.ResCatalog {
+			titles += c.Count
+		} else if c.Resource == stremio.ResStream {
 			streams += c.Count
 			usable += c.Usable
 		} else {
@@ -274,6 +295,8 @@ func summarize(checks []Check) (bool, string) {
 		return true, fmt.Sprintf("Works: %d torrent streams found for the test titles.", usable)
 	case subs > 0:
 		return true, fmt.Sprintf("Works: %d subtitles found for the test titles.", subs)
+	case titles > 0:
+		return true, fmt.Sprintf("Works: %d titles in “%s”. Browse its catalogs under Browse.", titles, checks[0].Title)
 	default:
 		return false, "The addon answered but found nothing for the test titles."
 	}
@@ -302,4 +325,35 @@ func contains(list []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// Browsable reports whether Reelyard can show a catalog: films or series,
+// needing nothing but a genre (when it offers a list of them).
+func Browsable(c stremio.Catalog) bool {
+	if c.Type != "movie" && c.Type != "series" {
+		return false
+	}
+	for _, e := range c.Extra {
+		if e.IsRequired && !(e.Name == "genre" && len(e.Options) > 0) {
+			return false
+		}
+	}
+	return true
+}
+
+// FirstBrowsable returns the first catalog that needs no extra at all.
+func FirstBrowsable(m *stremio.Manifest) (stremio.Catalog, bool) {
+	if !contains(m.ResourceNames(), stremio.ResCatalog) {
+		return stremio.Catalog{}, false
+	}
+	for _, c := range m.Catalogs {
+		required := false
+		for _, e := range c.Extra {
+			required = required || e.IsRequired
+		}
+		if Browsable(c) && !required {
+			return c, true
+		}
+	}
+	return stremio.Catalog{}, false
 }

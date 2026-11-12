@@ -290,6 +290,10 @@ export type Onboarding = {
 };
 export type FoldersResult = { changed: boolean; restarting: boolean; hardlinks: boolean; download: FolderInfo; library: FolderInfo };
 
+// BrowseCatalog is a supplier catalog Reelyard can show (Trending, Popular…).
+export type BrowseCatalog = { supplierId: number; supplier: string; type: "movie" | "series"; id: string; name: string; genres: string[]; genreRequired: boolean };
+export type BrowseItem = { id: string; type: string; name: string; poster?: string; releaseInfo?: string; imdbRating?: string };
+
 // AddonLink is one person's Nuvio/Stremio install link; url is "" when they have none.
 export type AddonLink = { userId: number; name: string; viewer: boolean; url: string };
 
@@ -332,6 +336,14 @@ export const api = {
   approveDevice: (code: string) => request<{ device: Device }>("POST", "/devices/approve", { code }).then((r) => r.device),
   removeDevice: (id: number) => request<void>("DELETE", `/devices/${id}`),
   system: () => request<SystemInfo>("GET", "/system"),
+  browseCatalogs: () => request<{ catalogs: BrowseCatalog[] }>("GET", "/browse").then((r) => r.catalogs),
+  browse: (c: BrowseCatalog, genre: string, skip: number) => {
+    const q = new URLSearchParams();
+    if (genre) q.set("genre", genre);
+    if (skip > 0) q.set("skip", String(skip));
+    const qs = q.toString();
+    return request<{ metas: BrowseItem[] }>("GET", `/browse/${c.supplierId}/${c.type}/${encodeURIComponent(c.id)}${qs ? "?" + qs : ""}`).then((r) => r.metas);
+  },
   addonLinks: () => request<{ links: AddonLink[] }>("GET", "/addon").then((r) => r.links),
   newAddonLink: (userId: number) => request<{ url: string }>("POST", `/addon/${userId}`),
   deleteAddonLink: (userId: number) => request<void>("DELETE", `/addon/${userId}`),

@@ -124,8 +124,9 @@ type Catalog struct {
 
 // CatalogExtra is an extra parameter a catalog accepts.
 type CatalogExtra struct {
-	Name       string `json:"name"`
-	IsRequired bool   `json:"isRequired,omitempty"`
+	Name       string   `json:"name"`
+	IsRequired bool     `json:"isRequired,omitempty"`
+	Options    []string `json:"options,omitempty"`
 }
 
 // Manifest describes an addon.
@@ -321,6 +322,7 @@ type MetaPreview struct {
 	Poster      string `json:"poster,omitempty"`
 	ReleaseInfo string `json:"releaseInfo,omitempty"`
 	Description string `json:"description,omitempty"`
+	IMDbRating  string `json:"imdbRating,omitempty"`
 }
 
 // Video is an episode (or part) of a meta item.
