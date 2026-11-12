@@ -247,8 +247,15 @@ docker compose up -d</code></pre>
 
     <!-- ============================================================ -->
     <h2 id="tracking">Tracking &amp; quality profiles</h2>
-    <p>Open a movie or series and press <strong>Track</strong>. Reelyard then looks for it by itself (every minute for new work, backing off from 15 minutes to a day when nothing fits), picks the best release for the title's <strong>quality profile</strong>, downloads it, and imports it. Series follow new episodes as they air; choose <em>all episodes</em>, <em>only new ones</em>, or <em>none</em>.</p>
-    <figure class="frame"><a href="img/series-main-light-1600.webp" class="shot-link"><img class="shot shot-light" src="img/series-main-light-800.webp" srcset="img/series-main-light-800.webp 800w, img/series-main-light-1600.webp 1600w" sizes="(max-width: 880px) calc(100vw - 34px), 760px" width="800" height="615" alt="A tracked series with each episode's state" loading="lazy" decoding="async"><img class="shot shot-dark" src="img/series-main-dark-800.webp" srcset="img/series-main-dark-800.webp 800w, img/series-main-dark-1600.webp 1600w" sizes="(max-width: 880px) calc(100vw - 34px), 760px" width="800" height="615" alt="A tracked series with each episode's state" loading="lazy" decoding="async"></a><figcaption>A tracked series: three episodes in the library, the rest on their way.</figcaption></figure>
+    <p>Open a movie or series and press <strong>Track</strong>. Reelyard then looks for it by itself (every minute for new work, backing off from 15 minutes to a day when nothing fits), picks the best release for the title's <strong>quality profile</strong>, downloads it, and imports it. Series follow new episodes as they air.</p>
+    <h3 id="episodes">Choosing seasons and episodes</h3>
+    <p>For a series, the Track panel asks what to get:</p>
+    <ul>
+      <li><strong>All episodes</strong>, <strong>only new ones</strong>, or <strong>None, I'll pick episodes</strong>;</li>
+      <li>which seasons, as chips (regular seasons on and specials off at first). You can change them after tracking too.</li>
+    </ul>
+    <p>In the episode list, tick <strong>get</strong> on any episode not in your library yet, or use <strong>Get whole season</strong> and <strong>Skip season</strong>. Saving a new mode or season choice applies it again to every episode; changing only the profile keeps your picks. Unticking an episode that's already downloading doesn't stop that download, only new searches.</p>
+    <figure class="frame"><a href="img/series-main-light-1600.webp" class="shot-link"><img class="shot shot-light" src="img/series-main-light-800.webp" srcset="img/series-main-light-800.webp 800w, img/series-main-light-1600.webp 1600w" sizes="(max-width: 880px) calc(100vw - 34px), 760px" width="800" height="615" alt="A tracked series with each episode's state" loading="lazy" decoding="async"><img class="shot shot-dark" src="img/series-main-dark-800.webp" srcset="img/series-main-dark-800.webp 800w, img/series-main-dark-1600.webp 1600w" sizes="(max-width: 880px) calc(100vw - 34px), 760px" width="800" height="615" alt="A tracked series with each episode's state" loading="lazy" decoding="async"></a><figcaption>A tracked series: three episodes in the library, the rest ticked to get and on their way. Under the Track panel, the viewers who can see it.</figcaption></figure>
     <h3 id="profiles">Quality profiles</h3>
     <p>A profile sets:</p>
     <ul>
@@ -265,12 +272,16 @@ docker compose up -d</code></pre>
 
     <!-- ============================================================ -->
     <h2 id="downloads">Downloads</h2>
-    <figure class="frame"><a href="img/downloads-main-light-1600.webp" class="shot-link"><img class="shot shot-light" src="img/downloads-main-light-800.webp" srcset="img/downloads-main-light-800.webp 800w, img/downloads-main-light-1600.webp 1600w" sizes="(max-width: 880px) calc(100vw - 34px), 760px" width="800" height="615" alt="The Downloads page with live progress" loading="lazy" decoding="async"><img class="shot shot-dark" src="img/downloads-main-dark-800.webp" srcset="img/downloads-main-dark-800.webp 800w, img/downloads-main-dark-1600.webp 1600w" sizes="(max-width: 880px) calc(100vw - 34px), 760px" width="800" height="615" alt="The Downloads page with live progress" loading="lazy" decoding="async"></a><figcaption>Downloads in progress, queued and sharing.</figcaption></figure>
+    <figure class="frame"><a href="img/downloads-main-light-1600.webp" class="shot-link"><img class="shot shot-light" src="img/downloads-main-light-800.webp" srcset="img/downloads-main-light-800.webp 800w, img/downloads-main-light-1600.webp 1600w" sizes="(max-width: 880px) calc(100vw - 34px), 760px" width="800" height="615" alt="The Downloads page with tabs and live progress" loading="lazy" decoding="async"><img class="shot shot-dark" src="img/downloads-main-dark-800.webp" srcset="img/downloads-main-dark-800.webp 800w, img/downloads-main-dark-1600.webp 1600w" sizes="(max-width: 880px) calc(100vw - 34px), 760px" width="800" height="615" alt="The Downloads page with tabs and live progress" loading="lazy" decoding="async"></a><figcaption>The Downloads page: what's running now, with the queue, paused, seeding and finished downloads in their own tabs.</figcaption></figure>
+    <p>The page has tabs: <strong>Downloading</strong>, <strong>Queue</strong>, <strong>Paused</strong> (paused and failed), <strong>Seeding</strong> and <strong>Finished</strong>.</p>
+    <h3 id="queue">Queue</h3>
+    <p>When all download slots are busy, the rest wait in the queue. Those with the most seeders start first, then those whose count isn't known yet, then those with none; among equals, the oldest first. The Queue tab lists them in that order with their seeder count. Counts come from the release when it's picked, and Reelyard asks your suppliers again for queued downloads that don't have one.</p>
+    <p>While others are waiting, a download that has had no peers and no data for 10 minutes is paused (shown as a grey "no peers" note) to free its slot. For a tracked title, that release is blocked and Reelyard looks for another. Downloads you pause yourself are left alone.</p>
     <h3 id="sharing">Sharing</h3>
     <p>Finished downloads keep sharing until the title's profile ratio or time limit (for downloads you started by hand: <strong>Settings → Downloads</strong>), whichever comes first. Then sharing stops, and if the file is in your library its download copy is deleted. The library file stays: it's a hardlink or a copy.</p>
     <h3 id="stalls">Stalls and disk space</h3>
     <ul>
-      <li>Downloads that make no progress for 30 minutes (adjustable) fail; tracked titles then try another release.</li>
+      <li>Downloads that make no progress for 30 minutes (adjustable) fail; tracked titles then try another release. When others are waiting in the queue, a download with no peers is paused after 10 minutes instead (see <a href="#queue">Queue</a>).</li>
       <li>Downloads that wouldn't fit on disk, keeping 2 GB free (adjustable), are refused.</li>
       <li>Speed limits and how many downloads run at once are set in <strong>Settings → Downloads</strong>.</li>
     </ul>
@@ -287,16 +298,27 @@ TV/Breaking Bad (2008)/Season 01/Breaking Bad (2008) - S01E02 - Cat's in the Bag
 
     <!-- ============================================================ -->
     <h2 id="dlna">Watching on a TV (DLNA)</h2>
-    <p>Reelyard has its own DLNA server, on by default. TVs, game consoles and players like VLC on your network list it as <strong>Reelyard</strong> (rename it in <strong>Settings → DLNA server</strong>) and play straight from the library, with seeking.</p>
+    <p>Reelyard has its own DLNA server, on by default. TVs, game consoles and players like VLC on your network list it as <strong>Reelyard</strong> (rename it in <strong>Settings → TVs (DLNA)</strong>) and play straight from the library, with seeking.</p>
     <ul>
       <li>Subtitles saved next to a video are offered with it, in your subtitle-language order (Samsung TVs get them too).</li>
       <li>Thumbnails need <code>ffmpeg</code>; durations need <code>ffprobe</code>.</li>
       <li>Turn on converted versions in the DLNA settings for TVs that can't play a file (needs <code>ffmpeg</code>).</li>
       <li>Where you stopped and what you've watched are shared with TVs that support it.</li>
     </ul>
+    <h3 id="dlna-name">One name per server</h3>
+    <p>TVs tell DLNA servers apart by a device ID made from the server's name, so two Reelyards on the same network both called "Reelyard" get mixed up: the TV acts as if the server keeps restarting. Give each its own name (for example "Reelyard NAS" and "Reelyard PC"). Reelyard looks for a twin when it starts and every 10 minutes, and warns in <strong>Settings → TVs (DLNA)</strong> when it finds one.</p>
+    <h3 id="viewers">Viewers: a server per family member</h3>
+    <p>TVs don't sign in, so each person who watches gets their own server in the TV's sources: <strong>Settings → Viewers → Add viewer</strong> creates, say, "Reelyard · Kids" next to the main "Reelyard". On a viewer's server:</p>
+    <ul>
+      <li>watched marks and resume points are theirs, and a <strong>Continue watching</strong> folder at the top lists what they're halfway through (the main server has one for your account too);</li>
+      <li><strong>Only titles I choose</strong> limits it to the films and series you pick; other titles don't appear and their files can't be opened from that server;</li>
+      <li><strong>Show on these TVs</strong> shows it only on the TVs you tick (the main server has the same option). TVs are listed once they've opened any Reelyard server and are told apart by address, so give each a fixed IP in your router.</li>
+    </ul>
+    <p>You can also choose from a title's own page: under the Track panel, <strong>Viewers who can see this</strong> has a chip per viewer. Click a limited viewer to give or take away that title (for a series, all its episodes, including future ones). Viewers who see the whole library show as "Name · all".</p>
+    <p>Each viewer's server uses the next port after the main one (8201, 8202, …); allow those in your firewall too. Anyone using a TV that shows a server can open it: hide the main server from a child's TV, and don't rely on this to keep a determined person out.</p>
     <h3 id="dlna-network">Network</h3>
     <ul>
-      <li>It uses TCP port <strong>8200</strong> and SSDP (UDP 1900, multicast); allow both in your firewall.</li>
+      <li>It uses TCP port <strong>8200</strong> (and 8201, 8202, … for <a href="#viewers">viewers</a>) and SSDP (UDP 1900, multicast); allow both in your firewall.</li>
       <li>Only devices on private networks (192.168.x, 10.x, 172.16–31.x, link-local) can connect.</li>
       <li>It isn't announced on your VPN interface or, unless you choose them, on Docker/VM bridges.</li>
       <li>In Docker, use host networking; multicast doesn't cross Docker's bridge network.</li>
@@ -305,7 +327,7 @@ TV/Breaking Bad (2008)/Season 01/Breaking Bad (2008) - S01E02 - Cat's in the Bag
     <!-- ============================================================ -->
     <h2 id="media-servers">Jellyfin, Emby and Plex</h2>
     <p>Point your media server's Movies and Shows libraries at <code>library/Movies</code> and <code>library/TV</code>.</p>
-    <p>In <strong>Settings → Jellyfin, Emby and Plex</strong>, add the server's address and an API key (Jellyfin, Emby) or <code>X-Plex-Token</code> (Plex); <strong>Test connection</strong> checks both. Reelyard then asks it to rescan about 30 seconds after new files arrive (several imports close together share one rescan). Keys are stored in Reelyard's database and never sent back to the browser.</p>
+    <p>In <strong>Settings → Library → Jellyfin, Emby and Plex</strong>, add the server's address and an API key (Jellyfin, Emby) or <code>X-Plex-Token</code> (Plex); <strong>Test connection</strong> checks both. Reelyard then asks it to rescan about 30 seconds after new files arrive (several imports close together share one rescan). Keys are stored in Reelyard's database and never sent back to the browser.</p>
 
     <!-- ============================================================ -->
     <h2 id="vpn">Using a VPN</h2>
@@ -408,7 +430,7 @@ echo 'new password' | reelyard reset-password --password-stdin</code></pre>
 
     <!-- ============================================================ -->
     <h2 id="api">API</h2>
-    <p>Everything the UI does goes through <code>/api/v1</code>. Scripts can use an API key from <strong>Settings → API keys</strong>, sent as the <code>X-Api-Key</code> header (<code>Authorization: Bearer hbr_...</code> works too):</p>
+    <p>Everything the UI does goes through <code>/api/v1</code>. Scripts can use an API key from <strong>Settings → Apps and API</strong>, sent as the <code>X-Api-Key</code> header (<code>Authorization: Bearer hbr_...</code> works too):</p>
 <pre><code>curl -H "X-Api-Key: hbr_..." http://localhost:8787/api/v1/system</code></pre>
     <p>The app API is described in OpenAPI at <code>/api/v1/openapi.yaml</code> on your own server. <code>/api/v1/health</code> reports the running version.</p>
 
@@ -417,10 +439,10 @@ echo 'new password' | reelyard reset-password --password-stdin</code></pre>
     <p>Reelyard's apps for TVs, phones and computers (<a href="https://github.com/Reelyard/clients">Reelyard/clients</a>) sign in with a pairing code instead of a password:</p>
     <ol>
       <li>The app calls <code>POST /api/v1/devices/pair</code> with <code>{"name": "Living room TV", "platform": "tizen"}</code> and shows the <code>code</code> it gets back (for example <code>K7Q-4MD</code>).</li>
-      <li>You enter that code under <strong>Settings → Devices</strong>.</li>
+      <li>You enter that code under <strong>Settings → Apps and API</strong>.</li>
       <li>The app, polling <code>POST /api/v1/devices/pair/token</code> with its <code>pollSecret</code>, gets its own token (<code>hbd_...</code>) and sends it as <code>Authorization: Bearer hbd_...</code>.</li>
     </ol>
-    <p>Codes work for 10 minutes. <strong>Settings → Devices</strong> lists every device and signs any of them out.</p>
+    <p>Codes work for 10 minutes. <strong>Settings → Apps and API</strong> lists every device and signs any of them out.</p>
     <h3 id="playback-api">Playback endpoints</h3>
     <div class="table-scroll">
     <table>
