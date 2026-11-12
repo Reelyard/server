@@ -3,6 +3,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/reelyard/server/internal/profile"
@@ -25,6 +26,7 @@ func (s *Server) routesTracking(mux *http.ServeMux) {
 	mux.Handle("POST /api/v1/titles/{id}/search", s.authed(s.searchTitle))
 	mux.Handle("POST /api/v1/items/{id}/search", s.authed(s.searchItem))
 	mux.Handle("PATCH /api/v1/items/{id}", s.authed(s.patchItem))
+	mux.Handle("PATCH /api/v1/titles/{id}/seasons/{season}", s.authed(s.patchSeason))
 
 	mux.Handle("GET /api/v1/blocklist", s.authed(s.listBlocklist))
 	mux.Handle("DELETE /api/v1/blocklist", s.authed(s.unblock))
@@ -274,6 +276,39 @@ func (s *Server) patchItem(w http.ResponseWriter, r *http.Request) {
 	}
 	it, _ := s.Store.GetItem(r.Context(), id)
 	writeJSON(w, http.StatusOK, map[string]any{"item": it})
+}
+
+// patchSeason turns a whole season of a tracked series on or off.
+func (s *Server) patchSeason(w http.ResponseWriter, r *http.Request) {
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	season, err := strconv.Atoi(r.PathValue("season"))
+	if err != nil || season < 0 {
+		writeError(w, http.StatusBadRequest, "season must be a number")
+		return
+	}
+	var b struct {
+		Monitored *bool `json:"monitored"`
+	}
+	if !decode(w, r, &b) {
+		return
+	}
+	if b.Monitored == nil {
+		writeError(w, http.StatusBadRequest, "nothing to change")
+		return
+	}
+	t, err := s.Store.GetTitle(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusNotFound, "not tracked")
+		return
+	}
+	if _, err := s.Tracker.SetSeasonMonitored(r.Context(), id, season, *b.Monitored); err != nil {
+		s.internal(w, "monitor season", err)
+		return
+	}
+	s.titleDetail(w, r, t)
 }
 
 // ---- blocklist ----

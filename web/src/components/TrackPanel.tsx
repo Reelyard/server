@@ -4,7 +4,7 @@ import { api, ApiError, type Item, type Profile, type Tracked } from "../api";
 const MONITOR = [
   { v: "all", label: "All episodes" },
   { v: "future", label: "Only new episodes" },
-  { v: "none", label: "None (paused)" },
+  { v: "none", label: "None, I'll pick episodes" },
 ];
 
 // TrackPanel shows tracking controls for a title and reports the tracked
@@ -13,15 +13,23 @@ export default function TrackPanel({
   imdbId,
   type,
   onChange,
+  seasons = [],
+  refreshKey = 0,
 }: {
   imdbId: string;
   type: "movie" | "series";
   onChange: (t: Tracked | null, items: Item[], profiles: Profile[]) => void;
+  // seasons the series has (0 = specials), for the season picker.
+  seasons?: number[];
+  // changes when episodes were switched elsewhere, to reload the counts.
+  refreshKey?: number;
 }) {
   const [tracked, setTracked] = useState<Tracked | null | undefined>(undefined);
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [profileId, setProfileId] = useState(0);
   const [monitor, setMonitor] = useState("all");
+  // Chosen seasons; [] means every regular season (no specials).
+  const [chosen, setChosen] = useState<number[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [confirmStop, setConfirmStop] = useState(false);
@@ -32,6 +40,7 @@ export default function TrackPanel({
     if (t) {
       setProfileId(t.profileId);
       setMonitor(t.monitor);
+      setChosen(t.seasons ?? []);
     }
     onChange(t, items, ps);
   }
@@ -52,7 +61,7 @@ export default function TrackPanel({
       live = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [imdbId]);
+  }, [imdbId, refreshKey]);
 
   async function run(fn: () => Promise<void>) {
     setBusy(true);
@@ -77,6 +86,34 @@ export default function TrackPanel({
       </select>
     </>
   );
+  const regular = seasons.filter((s) => s > 0);
+  const isOn = (s: number) => (chosen.length === 0 ? s > 0 : chosen.includes(s));
+  function toggleSeason(s: number) {
+    const now = seasons.filter((x) => (x === s ? !isOn(x) : isOn(x)));
+    // Every regular season and no specials is the default: store it as [].
+    const all = regular.length > 0 && regular.every((x) => now.includes(x)) && !now.includes(0);
+    setChosen(all ? [] : now);
+  }
+  const sameSeasons = (a: number[], b: number[]) => a.length === b.length && [...a].sort().every((x, i) => x === [...b].sort()[i]);
+  const noSeason = type === "series" && monitor !== "none" && seasons.length > 1 && seasons.filter(isOn).length === 0;
+  const seasonPicker = type === "series" && seasons.length > 1 && monitor !== "none" && (
+    <fieldset className="flex flex-wrap items-center gap-1.5">
+      <legend className="sr-only">Seasons to get</legend>
+      <span className="text-xs text-muted">Seasons:</span>
+      {seasons.map((s) => (
+        <button
+          key={s}
+          type="button"
+          aria-pressed={isOn(s)}
+          onClick={() => toggleSeason(s)}
+          className={`rounded-full border px-2.5 py-0.5 text-xs ${isOn(s) ? "border-deep bg-deep-soft text-deep" : "border-line text-muted hover:text-ink"}`}
+        >
+          {s === 0 ? "Specials" : s}
+        </button>
+      ))}
+      {noSeason && <span className="text-xs text-bad">Pick at least one season, or choose “None, I'll pick episodes”.</span>}
+    </fieldset>
+  );
   const monitorSelect = type === "series" && (
     <>
       <label htmlFor="track-monitor" className="sr-only">Episodes to get</label>
@@ -99,12 +136,16 @@ export default function TrackPanel({
             {monitorSelect}
             <button
               className="btn-primary py-1.5"
-              disabled={busy || !profileId}
-              onClick={() => run(async () => { const r = await api.track({ imdbId, type, profileId, monitor }); apply(r.title, r.items); })}
+              disabled={busy || !profileId || noSeason}
+              onClick={() => run(async () => { const r = await api.track({ imdbId, type, profileId, monitor, seasons: chosen }); apply(r.title, r.items); })}
             >
               {busy ? "Starting…" : "Track"}
             </button>
           </div>
+          {seasonPicker}
+          {type === "series" && monitor === "none" && (
+            <p className="text-xs text-muted">Nothing is downloaded until you tick episodes or whole seasons in the list below.</p>
+          )}
         </>
       ) : (
         <>
@@ -117,11 +158,11 @@ export default function TrackPanel({
           <div className="flex flex-wrap items-center gap-2">
             {profileSelect}
             {monitorSelect}
-            {(profileId !== tracked.profileId || monitor !== tracked.monitor) && (
+            {(profileId !== tracked.profileId || monitor !== tracked.monitor || !sameSeasons(chosen, tracked.seasons ?? [])) && (
               <button
                 className="btn-primary py-1.5"
-                disabled={busy}
-                onClick={() => run(async () => { const r = await api.updateTracked(tracked.id, { profileId, monitor, seasons: tracked.seasons }); apply(r.title, r.items); setMsg("Saved."); })}
+                disabled={busy || noSeason}
+                onClick={() => run(async () => { const r = await api.updateTracked(tracked.id, { profileId, monitor, seasons: chosen }); apply(r.title, r.items); setMsg("Saved."); })}
               >
                 Save
               </button>
@@ -139,6 +180,10 @@ export default function TrackPanel({
               <button className="btn-ghost py-1.5 text-bad" onClick={() => setConfirmStop(true)}>Stop tracking</button>
             )}
           </div>
+          {seasonPicker}
+          {type === "series" && (monitor !== tracked.monitor || !sameSeasons(chosen, tracked.seasons ?? [])) && (
+            <p className="text-xs text-muted">Saving applies this to every episode again, replacing ones you ticked or unticked by hand.</p>
+          )}
         </>
       )}
       {msg && <p role="status" className="text-sm text-ok">{msg}</p>}
