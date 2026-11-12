@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Downloads from "./pages/Downloads";
 import Profiles from "./pages/Profiles";
 import Search from "./pages/Search";
+import Browse from "./pages/Browse";
 import Settings from "./pages/Settings";
 import Suppliers from "./pages/Suppliers";
 import Titles from "./pages/Titles";
@@ -73,6 +74,7 @@ export default function App() {
             <Route index element={<Dashboard />} />
             <Route path="titles" element={<Titles />} />
             <Route path="search" element={<Search />} />
+            <Route path="browse" element={<Browse />} />
             <Route path="title/:type/:id" element={<Title />} />
             <Route path="suppliers" element={<Suppliers />} />
             <Route path="profiles" element={<Profiles />} />

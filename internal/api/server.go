@@ -58,6 +58,7 @@ type Server struct {
 	closeOnce sync.Once
 	closing   chan struct{}
 	links     *auth.StreamSigner
+	browse    browseCache
 	id        string
 }
 
@@ -140,6 +141,7 @@ func (s *Server) Handler() http.Handler {
 	s.routesClients(mux)
 	s.routesViewers(mux)
 	s.routesAddon(mux)
+	s.routesBrowse(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "no such API endpoint")
 	})
