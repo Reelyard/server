@@ -156,6 +156,37 @@ func TestSuppliersAndSearch(t *testing.T) {
 		t.Fatalf("series without episode: %d", code)
 	}
 
+	// A supplier language fills in releases whose names don't say theirs.
+	if code, _ := c.do("PATCH", "/api/v1/suppliers/"+torID, `{"language":"klingon"}`); code != 400 {
+		t.Fatalf("unknown language: %d", code)
+	}
+	if code, body := c.do("PATCH", "/api/v1/suppliers/"+torID, `{"language":"por"}`); code != 200 || body["supplier"].(map[string]any)["language"] != "pt" {
+		t.Fatalf("set language: %d %v", code, body)
+	}
+	_, body = c.do("GET", "/api/v1/streams/movie/tt0063350", "")
+	filled, tagged := 0, 0
+	for _, x := range body["candidates"].([]any) {
+		cd := x.(map[string]any)
+		langs, _ := cd["stream"].(map[string]any)["info"].(map[string]any)["languages"].([]any)
+		switch {
+		case cd["langFrom"] != nil:
+			if len(langs) != 1 || langs[0] != "pt" {
+				t.Fatalf("filled in: %v", cd)
+			}
+			filled++
+		case len(langs) > 0:
+			tagged++
+		default:
+			t.Fatalf("still no language: %v", cd)
+		}
+	}
+	if filled == 0 || tagged == 0 {
+		t.Fatalf("filled %d, tagged %d", filled, tagged)
+	}
+	if code, body := c.do("PATCH", "/api/v1/suppliers/"+torID, `{"language":""}`); code != 200 || body["supplier"].(map[string]any)["language"] != "" {
+		t.Fatalf("clear language: %d %v", code, body)
+	}
+
 	// Disable → not searched.
 	if code, _ := c.do("PATCH", "/api/v1/suppliers/"+torID, `{"enabled":false}`); code != 200 {
 		t.Fatalf("disable: %d", code)

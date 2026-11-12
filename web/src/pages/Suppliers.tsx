@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { api, type Supplier, type SupplierTest } from "../api";
+import { api, type Language, type Supplier, type SupplierTest } from "../api";
 import AddonCatalog from "../components/AddonCatalog";
 import { ago } from "../format";
 
@@ -38,8 +38,8 @@ function TestPanel({ result }: { result: SupplierTest }) {
   );
 }
 
-function SupplierCard({ s, first, last, onChange, onMove }: { s: Supplier; first: boolean; last: boolean; onChange: () => void; onMove: (dir: -1 | 1) => void }) {
-  const [busy, setBusy] = useState<"" | "test" | "refresh" | "toggle" | "delete">("");
+function SupplierCard({ s, first, last, langs, onChange, onMove }: { s: Supplier; first: boolean; last: boolean; langs: Language[]; onChange: () => void; onMove: (dir: -1 | 1) => void }) {
+  const [busy, setBusy] = useState<"" | "test" | "refresh" | "toggle" | "delete" | "language">("");
   const [test, setTest] = useState<SupplierTest | null>(null);
   const [error, setError] = useState("");
   const [confirming, setConfirming] = useState(false);
@@ -91,6 +91,28 @@ function SupplierCard({ s, first, last, onChange, onMove }: { s: Supplier; first
         </label>
       </div>
 
+      {s.resources.includes("stream") && (
+        <div className="flex flex-col gap-1">
+          <label className="flex flex-wrap items-center gap-2 text-sm" htmlFor={`sup-lang-${s.id}`}>
+            Audio language of its releases
+            <select
+              id={`sup-lang-${s.id}`}
+              className="input w-auto py-1"
+              value={s.language}
+              disabled={busy !== ""}
+              onChange={(e) => run("language", () => api.updateSupplier(s.id, { language: e.target.value }).then(onChange))}
+            >
+              <option value="">Not set</option>
+              {s.language && !langs.some((l) => l.code === s.language) && <option value={s.language}>{s.language}</option>}
+              {langs.map((l) => <option key={l.code} value={l.code}>{l.name}</option>)}
+            </select>
+          </label>
+          <p className="text-xs text-muted">
+            Used when a release name doesn't say its language. Without it, those releases count as English. Set it for addons that list releases in one language, so quality profiles that prefer it pick them.
+          </p>
+        </div>
+      )}
+
       {s.lastError && <p className="text-sm text-bad">Last problem ({ago(s.lastCheckedAt)}): {s.lastError}</p>}
       {test && <TestPanel result={test} />}
       {error && <p role="alert" className="rounded-lg bg-bad-soft px-3 py-2 text-sm text-bad">{error}</p>}
@@ -127,10 +149,12 @@ export default function Suppliers() {
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState("");
   const [browsing, setBrowsing] = useState(false);
+  const [langs, setLangs] = useState<Language[]>([]);
 
   const load = () => api.suppliers().then(setList).catch((e) => setError(e.message));
   useEffect(() => {
     load();
+    api.languages().then(setLangs).catch(() => {});
   }, []);
 
   async function add(e: FormEvent) {
@@ -200,7 +224,7 @@ export default function Suppliers() {
       {list && list.length > 0 && (
         <ul className="flex flex-col gap-3">
           {list.map((s, i) => (
-            <SupplierCard key={s.id} s={s} first={i === 0} last={i === list.length - 1} onChange={load} onMove={(d) => move(i, d)} />
+            <SupplierCard key={s.id} s={s} langs={langs} first={i === 0} last={i === list.length - 1} onChange={load} onMove={(d) => move(i, d)} />
           ))}
         </ul>
       )}

@@ -242,6 +242,8 @@ docker compose up -d</code></pre>
       <li>Add them in <strong>Suppliers</strong> by pasting the addon's <code>manifest.json</code> address, or pick one from <strong>Browse addons</strong>.</li>
       <li>For configurable addons, configure them on their own site first and paste the address it gives you.</li>
       <li><strong>Test</strong> shows whether an addon answers and how many of its streams Reelyard can use.</li>
+      <li><strong>Audio language of its releases</strong>, for stream addons: Reelyard reads a release's audio language from its name (tags like <code>PT-BR</code>, <code>DUBLADO</code> or <code>FRENCH</code>), and a name without one counts as English. For an addon that lists releases in one language, for example a Brazilian one, set that language here: its untagged releases then count as that language, so a <a href="#tracking">quality profile</a> that prefers it picks them. Releases whose names do say their language keep it. On a title page, a language that came from this setting is marked with <code>*</code>.</li>
+      <li>The order of the list sets which subtitle addon is asked first. It doesn't change which release is picked: that's up to the quality profile.</li>
     </ul>
     <div class="note info"><p>Addons that only return debrid or web links aren't usable: Reelyard needs torrent streams.</p></div>
 
