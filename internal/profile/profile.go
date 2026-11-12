@@ -234,8 +234,11 @@ func Evaluate(p *store.Profile, c search.Candidate, cx Context) Evaluation {
 		switch {
 		case best >= 0:
 			ev.Score += 300 - 50*best
-			if assumed {
+			switch {
+			case assumed:
 				note("language not stated, assumed English")
+			case c.LangFrom != "":
+				note("%s audio, from %s's language setting", lang.Name(c.Stream.Info.Languages[0]), c.LangFrom)
 			}
 		case p.AudioRequired:
 			reject("audio is %s; profile needs %s", langNames(have), langNames(p.AudioLangs))

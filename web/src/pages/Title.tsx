@@ -86,7 +86,11 @@ function CandidateRow({ c, title }: { c: Candidate; title: TitleRef }) {
         {i.codec && <Chip>{i.codec}{i.bitDepth ? ` ${i.bitDepth}-bit` : ""}</Chip>}
         {i.hdr?.map((h) => <Chip key={h} tone="accent">{h}</Chip>)}
         {i.audio && i.audio.length > 0 && <Chip>{i.audio.join(" ")}{i.channels ? ` ${i.channels}` : ""}</Chip>}
-        {i.languages?.map((l) => <Chip key={l} title={langName(l)}>{l.toUpperCase()}</Chip>)}
+        {i.languages?.map((l) => (
+          <Chip key={l} title={c.langFrom ? `${langName(l)}: the name doesn't say, so it comes from ${c.langFrom}'s language setting` : langName(l)}>
+            {l.toUpperCase()}{c.langFrom ? "*" : ""}
+          </Chip>
+        ))}
         {i.multi && <Chip>Multi audio</Chip>}
         {i.seasonPack && <Chip tone="deep">Season pack</Chip>}
         {i.upscaled && <Chip tone="bad">Upscaled</Chip>}

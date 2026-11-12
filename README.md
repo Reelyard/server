@@ -66,6 +66,11 @@ addons, configure them on their site first and paste the address it gives you), 
 one from **Browse addons**. **Test** shows whether an addon answers and how many of its
 streams Reelyard can use. Addons that only return debrid or web links aren't usable.
 
+Release names that don't state an audio language count as English. For an addon that lists
+releases in one language (say, a Brazilian one), set **Audio language of its releases** on
+its card: its untagged releases then count as that language, so profiles that prefer it pick
+them. The order of suppliers only sets which subtitle addon is asked first.
+
 ## Watching on a TV (DLNA)
 
 Reelyard has its own DLNA server, on by default. TVs, game consoles and players like VLC on

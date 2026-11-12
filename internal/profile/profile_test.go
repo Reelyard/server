@@ -3,6 +3,7 @@ package profile
 import (
 	"encoding/json"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -83,6 +84,13 @@ func TestAudioLanguage(t *testing.T) {
 	}
 	if ev := Evaluate(p, en, Context{}); !ev.Accepted {
 		t.Errorf("untagged release should count as English: %+v", ev)
+	}
+	// From a supplier set to Portuguese, the same untagged release is Portuguese.
+	fromPT := en
+	fromPT.Stream.Info.Languages, fromPT.LangFrom = []string{"pt"}, "Filmes BR"
+	a, b := Evaluate(p, fromPT, Context{}), Evaluate(p, en, Context{})
+	if a.Score != b.Score+50 || !slices.Contains(a.Notes, "Portuguese audio, from Filmes BR's language setting") {
+		t.Errorf("supplier language: %d vs %d, notes %v", a.Score, b.Score, a.Notes)
 	}
 }
 

@@ -10,12 +10,15 @@ import (
 
 // Supplier is a configured Stremio addon.
 type Supplier struct {
-	ID            int64      `json:"id"`
-	Name          string     `json:"name"`
-	ManifestURL   string     `json:"manifestUrl"`
-	Manifest      string     `json:"-"` // raw JSON
-	Enabled       bool       `json:"enabled"`
-	Priority      int        `json:"priority"`
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	ManifestURL string `json:"manifestUrl"`
+	Manifest    string `json:"-"` // raw JSON
+	Enabled     bool   `json:"enabled"`
+	Priority    int    `json:"priority"`
+	// Language is the audio language of this supplier's releases when their
+	// names don't say ("" = not set).
+	Language      string     `json:"language"`
 	CreatedAt     time.Time  `json:"createdAt"`
 	UpdatedAt     time.Time  `json:"updatedAt"`
 	LastCheckedAt *time.Time `json:"lastCheckedAt,omitempty"`
@@ -26,7 +29,7 @@ type Supplier struct {
 // ErrDuplicate means a unique value already exists.
 var ErrDuplicate = errors.New("already exists")
 
-const supplierCols = `id, name, manifest_url, manifest, enabled, priority, created_at, updated_at, last_checked_at, last_ok_at, last_error`
+const supplierCols = `id, name, manifest_url, manifest, enabled, priority, language, created_at, updated_at, last_checked_at, last_ok_at, last_error`
 
 type scanner interface{ Scan(...any) error }
 
@@ -34,7 +37,7 @@ func scanSupplier(row scanner) (*Supplier, error) {
 	var s Supplier
 	var created, updated string
 	var checked, ok sql.NullString
-	if err := row.Scan(&s.ID, &s.Name, &s.ManifestURL, &s.Manifest, &s.Enabled, &s.Priority,
+	if err := row.Scan(&s.ID, &s.Name, &s.ManifestURL, &s.Manifest, &s.Enabled, &s.Priority, &s.Language,
 		&created, &updated, &checked, &ok, &s.LastError); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
@@ -104,6 +107,7 @@ type SupplierPatch struct {
 	Name     *string
 	Enabled  *bool
 	Priority *int
+	Language *string
 }
 
 // UpdateSupplier applies a patch.
@@ -117,6 +121,9 @@ func (s *Store) UpdateSupplier(ctx context.Context, id int64, p SupplierPatch) (
 	}
 	if p.Priority != nil {
 		sets, args = append(sets, "priority = ?"), append(args, *p.Priority)
+	}
+	if p.Language != nil {
+		sets, args = append(sets, "language = ?"), append(args, *p.Language)
 	}
 	args = append(args, id)
 	res, err := s.DB.ExecContext(ctx, `UPDATE suppliers SET `+strings.Join(sets, ", ")+` WHERE id = ?`, args...)

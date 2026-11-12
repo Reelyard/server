@@ -41,6 +41,7 @@ export type Supplier = {
   configurable: boolean;
   enabled: boolean;
   priority: number;
+  language: string;
   lastCheckedAt?: string;
   lastOkAt?: string;
   lastError?: string;
@@ -110,6 +111,7 @@ export type Candidate = {
   stream: { torrentName: string; filePath?: string; info: ReleaseInfo; seeders: number; size?: number; site?: string; label?: string };
   usable: boolean;
   problems?: string[];
+  langFrom?: string;
   eval?: Evaluation;
 };
 export type StreamSearch = {
@@ -331,7 +333,7 @@ export const api = {
   suppliers: () => request<{ suppliers: Supplier[] }>("GET", "/suppliers").then((r) => r.suppliers),
   supplierCatalog: () => request<{ addons: CatalogAddon[] }>("GET", "/suppliers/catalog").then((r) => r.addons),
   addSupplier: (url: string) => request<{ supplier: Supplier }>("POST", "/suppliers", { url }).then((r) => r.supplier),
-  updateSupplier: (id: number, patch: { name?: string; enabled?: boolean; priority?: number }) =>
+  updateSupplier: (id: number, patch: { name?: string; enabled?: boolean; priority?: number; language?: string }) =>
     request<{ supplier: Supplier }>("PATCH", `/suppliers/${id}`, patch).then((r) => r.supplier),
   deleteSupplier: (id: number) => request<void>("DELETE", `/suppliers/${id}`),
   refreshSupplier: (id: number) => request<{ supplier: Supplier }>("POST", `/suppliers/${id}/refresh`).then((r) => r.supplier),

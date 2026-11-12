@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/reelyard/server/internal/lang"
 	"github.com/reelyard/server/internal/profile"
 	"github.com/reelyard/server/internal/search"
 	"github.com/reelyard/server/internal/store"
@@ -94,6 +95,7 @@ func (s *Server) patchSupplier(w http.ResponseWriter, r *http.Request) {
 		Name     *string `json:"name"`
 		Enabled  *bool   `json:"enabled"`
 		Priority *int    `json:"priority"`
+		Language *string `json:"language"`
 	}
 	if !decode(w, r, &body) {
 		return
@@ -106,7 +108,15 @@ func (s *Server) patchSupplier(w http.ResponseWriter, r *http.Request) {
 		}
 		body.Name = &n
 	}
-	if _, err := s.Store.UpdateSupplier(r.Context(), id, store.SupplierPatch{Name: body.Name, Enabled: body.Enabled, Priority: body.Priority}); err != nil {
+	if body.Language != nil && *body.Language != "" {
+		l := lang.Normalize(*body.Language)
+		if l == "" {
+			writeError(w, http.StatusBadRequest, "unknown language")
+			return
+		}
+		body.Language = &l
+	}
+	if _, err := s.Store.UpdateSupplier(r.Context(), id, store.SupplierPatch{Name: body.Name, Enabled: body.Enabled, Priority: body.Priority, Language: body.Language}); err != nil {
 		s.supplierErr(w, "update supplier", err)
 		return
 	}

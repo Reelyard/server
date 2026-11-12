@@ -29,12 +29,16 @@ type Candidate struct {
 	Stream       release.Stream `json:"stream"`
 	Usable       bool           `json:"usable"`
 	Problems     []string       `json:"problems,omitempty"` // why it can't or shouldn't be used
+	// LangFrom names the supplier whose language setting gave this
+	// release its audio language, because the name didn't say.
+	LangFrom string `json:"langFrom,omitempty"`
 }
 
 // SupplierResult says how one supplier answered.
 type SupplierResult struct {
 	ID         int64  `json:"id"`
 	Name       string `json:"name"`
+	Language   string `json:"language,omitempty"` // for releases that don't say
 	Count      int    `json:"count"`
 	Error      string `json:"error,omitempty"`
 	DurationMS int64  `json:"durationMs"`
@@ -102,7 +106,7 @@ func (s *Service) Streams(ctx context.Context, typ, id string) (*Result, error) 
 	answers := make([]answer, len(sups))
 	var wg sync.WaitGroup
 	for i, sp := range sups {
-		answers[i].sr = SupplierResult{ID: sp.ID, Name: sp.Name}
+		answers[i].sr = SupplierResult{ID: sp.ID, Name: sp.Name, Language: sp.Language}
 		if !sp.Manifest().Supports(stremio.ResStream, typ, id) {
 			answers[i].sr.Error = "doesn't offer this kind of title"
 			continue
@@ -134,6 +138,9 @@ func (s *Service) Streams(ctx context.Context, typ, id string) (*Result, error) 
 			c := candidate(a.sr, st, typ, season, episode)
 			if i, dup := seen[c.Key]; dup && c.InfoHash != "" {
 				res.Candidates[i].AlsoFrom = appendUnique(res.Candidates[i].AlsoFrom, a.sr.Name)
+				if prev := &res.Candidates[i]; len(prev.Stream.Info.Languages) == 0 && c.LangFrom != "" {
+					prev.Stream.Info.Languages, prev.LangFrom = c.Stream.Info.Languages, c.LangFrom
+				}
 				if c.Stream.Seeders > res.Candidates[i].Stream.Seeders {
 					res.Candidates[i].Stream.Seeders = c.Stream.Seeders
 				}
@@ -153,6 +160,9 @@ func candidate(sr SupplierResult, st stremio.Stream, typ string, season, episode
 		SupplierID: sr.ID, SupplierName: sr.Name,
 		InfoHash: st.InfoHash, FileIdx: st.FileIdx, Sources: st.Sources,
 		Stream: ps, Usable: st.IsTorrent(),
+	}
+	if len(ps.Info.Languages) == 0 && sr.Language != "" {
+		c.Stream.Info.Languages, c.LangFrom = []string{sr.Language}, sr.Name
 	}
 	c.Key = st.InfoHash
 	if st.FileIdx != nil {
