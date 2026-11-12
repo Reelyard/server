@@ -65,6 +65,10 @@
       <li><a href="#building">Building from source</a></li>
       <li><a href="#help">Getting help</a></li>
     </ul>
+    <h4>About</h4>
+    <ul>
+      <li><a href="#legal">Legal notice</a></li>
+    </ul>
   </aside>
 
   <article>
@@ -77,7 +81,7 @@
         <a href="#dlna">Watching on a TV</a><a href="#media-servers">Jellyfin, Emby, Plex</a><a href="#vpn">Using a VPN</a>
         <a href="#service">Service &amp; CLI</a><a href="#configuration">Configuration</a><a href="#folders">Folders</a>
         <a href="#updating">Updating</a><a href="#harbor">Upgrading from Harbor</a><a href="#password">Forgot the password</a>
-        <a href="#api">API</a><a href="#devices">Apps &amp; devices</a><a href="#building">Building from source</a><a href="#help">Getting help</a>
+        <a href="#api">API</a><a href="#devices">Apps &amp; devices</a><a href="#building">Building from source</a><a href="#help">Getting help</a><a href="#legal">Legal notice</a>
       </div>
     </details>
 
@@ -87,7 +91,7 @@
     <!-- ============================================================ -->
     <h2 id="overview">Overview</h2>
     <p>Reelyard tracks the movies and TV series you want, finds torrents for them through Stremio addons (“suppliers”), downloads them with a built-in torrent engine, and puts them in a media library with Jellyfin/Plex naming and subtitles. It also serves the library to TVs over DLNA. It's one binary for Linux, macOS and Windows, with a web UI on port <code>8787</code>.</p>
-    <div class="note"><p><strong>Only download content you have the rights to.</strong> Public-domain films such as <em>Night of the Living Dead</em> (1968) are good for testing.</p></div>
+    <div class="note"><p><strong>Reelyard does not condone piracy, and we host no content.</strong> Only download content you have the rights to. Public-domain films such as <em>Night of the Living Dead</em> (1968) are good for testing. See the <a href="#legal">legal notice</a>.</p></div>
 
     <!-- ============================================================ -->
     <h2 id="install">Install</h2>
@@ -447,13 +451,32 @@ make cross                       # all six OS/arch binaries into dist/</code></p
     <h2 id="help">Getting help</h2>
     <p>Open an <a href="https://github.com/reelyard/server/issues/new/choose">issue on GitHub</a>: <strong>Something's wrong</strong> for bugs, <strong>Idea or feedback</strong> for the rest. Include the version from <code>http://&lt;your machine&gt;:8787/api/v1/health</code>.</p>
     <div class="note"><p>Please don't post passwords, API keys, addon URLs that contain keys, or your list of titles. Trim log lines before pasting them.</p></div>
+    <!-- ============================================================ -->
+    <h2 id="legal">Legal notice</h2>
+    <p><strong>Reelyard does not condone piracy.</strong> We do not support or encourage downloading or sharing copyrighted material without the right holder's permission.</p>
+    <h3 id="legal-no-content">We host no content</h3>
+    <ul>
+      <li>Reelyard is software that you install and run on your own computer, NAS or Raspberry Pi. It is not a streaming service or a download site.</li>
+      <li>We do not host, store, upload, index, link to or distribute any movies, series or other media, legal or illegal. This website, our app stores, our Docker images, our releases and our repositories contain no media and no links to it.</li>
+      <li>Reelyard ships with no content sources. It only finds what the third-party addons (“suppliers”) <em>you</em> choose to add give it. We do not run, operate or endorse any addon, and we have no control over what they return.</li>
+      <li>Metadata such as titles, posters and episode lists comes from public catalogs and contains no media.</li>
+    </ul>
+    <h3 id="legal-your-responsibility">Your responsibility</h3>
+    <ul>
+      <li>You decide what Reelyard downloads and shares, and you alone are responsible for it.</li>
+      <li>Torrents share what you download with other people while they run. Downloading or sharing copyrighted material without permission is illegal in many countries.</li>
+      <li>Only download and share content you have the rights to: public-domain works, works under open licences, your own recordings, or content whose right holder allows it. Follow the laws of the country you live in.</li>
+    </ul>
+    <h3 id="legal-reports">Reports</h3>
+    <p>Because we host no media, there is nothing on our services to take down. If you believe something in this website, our repositories or our releases infringes your rights, <a href="https://github.com/reelyard/server/issues/new/choose">open an issue</a> and we will look at it promptly.</p>
+    <p>Reelyard is provided under the <a href="https://github.com/reelyard/server/blob/main/LICENSE">MIT licence</a>, “as is”, without warranty of any kind.</p>
   </article>
 </div>
 
 <footer>
   <div class="wrap">
     <span>Reelyard · MIT licensed · formerly Harbor</span>
-    <span><a href="./">Home</a> · <a href="https://github.com/reelyard/server">GitHub</a> · <a href="https://github.com/reelyard/server/issues/new/choose">Report a problem</a></span>
+    <span><a href="./">Home</a> · <a href="#legal">Legal</a> · <a href="https://github.com/reelyard/server">GitHub</a> · <a href="https://github.com/reelyard/server/issues/new/choose">Report a problem</a></span>
   </div>
 </footer>
 
