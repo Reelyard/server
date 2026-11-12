@@ -9,3 +9,7 @@ web/dist/*
 .DS_Store
 web/tsconfig.tsbuildinfo
 .claude/
+
+# Written into the checkout by useblacksmith/setup-docker-builder in CI;
+# GoReleaser refuses to release from a tree with untracked files.
+buildkitd.toml
