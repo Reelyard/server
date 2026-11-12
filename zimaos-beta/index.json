@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updated_at": "2026-11-12T13:23:11Z",
+  "updated_at": "2026-11-12T21:21:53Z",
   "app_count": 1,
   "base_url": "https://reelyard.github.io/server/zimaos-beta",
   "apps": [
@@ -22,7 +22,7 @@
       "thumbnail": "",
       "compose_url": "/apps/io.github.reelyard.server.beta/docker-compose.yml",
       "meta_url": "/apps/io.github.reelyard.server.beta/meta.json",
-      "content_hash": "d15019c3",
+      "content_hash": "4c409b99",
       "version": "0.1.0"
     }
   ]

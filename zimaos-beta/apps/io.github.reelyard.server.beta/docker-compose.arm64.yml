@@ -1,7 +1,7 @@
 name: reelyard
 services:
   reelyard:
-    image: ghcr.io/reelyard/server:beta@sha256:699dbdd3228b61ac653cf6c476e27a7387a80f7eec3fc6788f0d73d2d8c97322
+    image: ghcr.io/reelyard/server:beta@sha256:9c99f9a58bdf8e085634a7d73eddbf0fa7b766bffa067c779b0eb3ccc147ffee
     container_name: reelyard
     environment:
       PUID: $PUID
