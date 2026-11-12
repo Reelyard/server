@@ -65,11 +65,35 @@ func (f *fakeDownloads) Add(ctx context.Context, r engine.AddRequest) (*engine.S
 	if err != nil {
 		return nil, err
 	}
+	seeders := -1
+	if r.Seeders != nil {
+		seeders = *r.Seeders
+	}
 	st := &engine.Status{Download: store.Download{ID: row.ID, InfoHash: strings.ToLower(r.InfoHash), FileIdx: idx, Name: r.Name,
-		TitleType: r.TitleType, TitleID: r.TitleID, TitleName: r.TitleName, State: store.StateDownloading}}
+		TitleType: r.TitleType, TitleID: r.TitleID, TitleName: r.TitleName, State: store.StateDownloading, Seeders: seeders}}
 	f.d[st.ID] = st
 	c := *st
 	return &c, nil
+}
+
+func (f *fakeDownloads) List() []engine.Status {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	var out []engine.Status
+	for _, d := range f.d {
+		out = append(out, *d)
+	}
+	return out
+}
+
+func (f *fakeDownloads) SetSeeders(_ context.Context, id int64, n int) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if d, ok := f.d[id]; ok {
+		d.Seeders = n
+		return nil
+	}
+	return engine.ErrNotFound
 }
 
 func (f *fakeDownloads) Get(id int64) (*engine.Status, error) {
@@ -369,5 +393,89 @@ func TestPickEpisodes(t *testing.T) {
 	}
 	if on := count(); on[3] != 0 {
 		t.Fatalf("season 3 still on: %v", on)
+	}
+}
+
+// A tracked episode whose download the engine paused for having no peers
+// is searched again with another release; the dead one is blocked.
+func TestNoPeersPausedRetried(t *testing.T) {
+	ctx := context.Background()
+	tr, st, fd, _ := setup(t)
+	ti, err := tr.Track(ctx, TrackRequest{IMDbID: "tt0903747", Type: "series", ProfileID: 1, Monitor: "all", Seasons: []int{1}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr.Pass(ctx)
+	e1, _ := st.ItemByItemID(ctx, "tt0903747:1:1")
+	if e1.DownloadID == nil {
+		t.Fatalf("S01E01 not grabbed: %+v", e1)
+	}
+	d, _ := fd.Get(*e1.DownloadID)
+	fd.set(d.ID, func(s *engine.Status) { s.State = store.StatePaused; s.Error = engine.NoPeersMsg })
+	st.SearchSoon(ctx, ti.ID, e1.ID)
+	tr.Pass(ctx)
+	if bl, _ := st.BlockedFor(ctx, "tt0903747:1:1"); !bl[d.InfoHash] {
+		t.Fatal("peerless release not blocked")
+	}
+	if got, err := fd.Get(d.ID); err == nil && got.InfoHash == d.InfoHash {
+		t.Fatal("peerless download not removed")
+	}
+	e1, _ = st.ItemByItemID(ctx, "tt0903747:1:1")
+	if e1.GrabbedHash == d.InfoHash {
+		t.Fatalf("grabbed the peerless release again: %+v", e1)
+	}
+
+	// A download paused by hand is left alone.
+	e1, _ = st.ItemByItemID(ctx, "tt0903747:1:1")
+	if e1.DownloadID != nil {
+		d2, _ := fd.Get(*e1.DownloadID)
+		fd.set(d2.ID, func(s *engine.Status) { s.State = store.StatePaused; s.Error = "" })
+		tr.Pass(ctx)
+		if got, err := fd.Get(d2.ID); err != nil || got.State != store.StatePaused {
+			t.Fatalf("hand-paused download touched: %+v %v", got, err)
+		}
+	}
+}
+
+// Grabs keep the release's seeder count, and queued downloads without one
+// get it looked up (a release no longer listed counts as 0).
+func TestSeeders(t *testing.T) {
+	ctx := context.Background()
+	tr, st, fd, fs := setup(t)
+	ti, err := tr.Track(ctx, TrackRequest{IMDbID: "tt0903747", Type: "series", ProfileID: 1, Monitor: "all", Seasons: []int{1}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tr.Pass(ctx)
+	e1, _ := st.ItemByItemID(ctx, "tt0903747:1:1")
+	d, _ := fd.Get(*e1.DownloadID)
+	if d.Seeders <= 0 {
+		t.Fatalf("grab didn't keep seeders: %d", d.Seeders)
+	}
+	want := d.Seeders
+
+	// Two queued downloads without a count: one still listed, one gone.
+	fd.set(d.ID, func(s *engine.Status) { s.State = store.StateQueued; s.Seeders = -1 })
+	gone, _ := fd.Add(ctx, engine.AddRequest{InfoHash: strings.Repeat("9", 40), TitleType: "series", TitleID: "tt0903747:1:1", Name: "gone"})
+	fd.set(gone.ID, func(s *engine.Status) { s.State = store.StateQueued })
+	other, _ := fd.Add(ctx, engine.AddRequest{InfoHash: strings.Repeat("8", 40), Name: "added by hand"}) // no title: left alone
+	fd.set(other.ID, func(s *engine.Status) { s.State = store.StateQueued })
+	_ = ti
+	before := len(fs.calls)
+	tr.Pass(ctx)
+	if got, _ := fd.Get(d.ID); got.Seeders != want {
+		t.Fatalf("listed release: %d, want %d", got.Seeders, want)
+	}
+	if got, _ := fd.Get(gone.ID); got.Seeders != 0 {
+		t.Fatalf("release no longer listed: %d, want 0", got.Seeders)
+	}
+	if got, _ := fd.Get(other.ID); got.Seeders != -1 {
+		t.Fatalf("download without a title: %d", got.Seeders)
+	}
+	// Each is looked up once.
+	n := len(fs.calls)
+	tr.Pass(ctx)
+	if extra := len(fs.calls) - n; extra > 3 { // the pass's own searches, not lookups again
+		t.Fatalf("looked up again: %d calls (before %d)", extra, before)
 	}
 }

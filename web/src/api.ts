@@ -149,6 +149,7 @@ export type Download = {
   seeds: number;
   eta: number;
   ratio: number;
+  seeders: number; // the release's seeders when found; -1 = not known
 };
 export type DownloadSettings = {
   maxActive: number;
@@ -169,6 +170,7 @@ export type NewDownload = {
   titleType?: string;
   titleId?: string;
   titleName?: string;
+  seeders?: number;
 };
 
 export type SubtitleFile = { id: number; mediaFileId: number; lang: string; path: string; source: string; createdAt: string };

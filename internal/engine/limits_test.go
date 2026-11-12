@@ -135,3 +135,66 @@ func TestNotEnoughSpace(t *testing.T) {
 		t.Fatal("2-minute stall limit accepted")
 	}
 }
+
+// A download with no peers for 10 minutes is paused while others wait for
+// a slot, and the next one starts; with nobody waiting it keeps going.
+func TestNoPeersPaused(t *testing.T) {
+	ctx := context.Background()
+	e, _, c, _ := newClockedEngine(t, 1<<40)
+	e.SetSettings(ctx, Settings{MaxActive: 1, StallMinutes: 30})
+	a, _ := e.Add(ctx, AddRequest{InfoHash: "5555555555555555555555555555555555555555", Name: "A"})
+	b, _ := e.Add(ctx, AddRequest{InfoHash: "6666666666666666666666666666666666666666", Name: "B"})
+	waitFor(t, e, a.ID, "A runs", func(s Status) bool { return s.State == store.StateMetadata })
+	state := func(id int64) Status { s, _ := e.Get(id); return *s }
+
+	c.Add(9 * time.Minute)
+	time.Sleep(150 * time.Millisecond)
+	if s := state(a.ID); s.State != store.StateMetadata {
+		t.Fatalf("A paused too early: %+v", s)
+	}
+	c.Add(2 * time.Minute)
+	waitFor(t, e, b.ID, "B runs", func(s Status) bool { return s.State == store.StateMetadata })
+	if s := state(a.ID); s.State != store.StatePaused || s.Error != NoPeersMsg {
+		t.Fatalf("A: %+v", s)
+	}
+	// Nobody waits behind B: it keeps its slot past 10 minutes.
+	c.Add(12 * time.Minute)
+	time.Sleep(150 * time.Millisecond)
+	if s := state(b.ID); s.State != store.StateMetadata {
+		t.Fatalf("B paused with nobody waiting: %+v", s)
+	}
+	// Resuming A queues it again, with the note cleared.
+	if s, err := e.Resume(ctx, a.ID); err != nil || s.State != store.StateQueued || s.Error != "" {
+		t.Fatalf("resume A: %+v %v", s, err)
+	}
+}
+
+// The queue starts the best-seeded downloads first, then those with an
+// unknown count, then those known to have no seeders.
+func TestQueueBySeeders(t *testing.T) {
+	ctx := context.Background()
+	e, _, _, _ := newClockedEngine(t, 1<<40)
+	e.SetSettings(ctx, Settings{MaxActive: 1, StallMinutes: 30})
+	n := func(v int) *int { return &v }
+	first, _ := e.Add(ctx, AddRequest{InfoHash: "7000000000000000000000000000000000000000", Name: "first"})
+	waitFor(t, e, first.ID, "first runs", func(s Status) bool { return s.State == store.StateMetadata })
+	unknown, _ := e.Add(ctx, AddRequest{InfoHash: "7100000000000000000000000000000000000000", Name: "unknown"})
+	few, _ := e.Add(ctx, AddRequest{InfoHash: "7200000000000000000000000000000000000000", Name: "few", Seeders: n(5)})
+	none, _ := e.Add(ctx, AddRequest{InfoHash: "7300000000000000000000000000000000000000", Name: "none", Seeders: n(0)})
+	many, _ := e.Add(ctx, AddRequest{InfoHash: "7400000000000000000000000000000000000000", Name: "many", Seeders: n(50)})
+	if s, _ := e.Get(few.ID); s.Seeders != 5 {
+		t.Fatalf("seeders not kept: %+v", s)
+	}
+	// Learned later: the unknown one turns out to be the best.
+	if err := e.SetSeeders(ctx, unknown.ID, 80); err != nil {
+		t.Fatal(err)
+	}
+	prev := first.ID
+	for _, want := range []int64{unknown.ID, many.ID, few.ID, none.ID} {
+		if _, err := e.Pause(ctx, prev); err != nil {
+			t.Fatal(err)
+		}
+		waitFor(t, e, want, "next by seeders", func(s Status) bool { return s.State == store.StateMetadata })
+		prev = want
+	}
+}

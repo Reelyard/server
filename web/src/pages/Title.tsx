@@ -38,6 +38,7 @@ function DownloadButton({ c, title }: { c: Candidate; title: TitleRef }) {
         titleType: title.type,
         titleId: title.id,
         titleName: title.name,
+        seeders: c.stream.seeders >= 0 ? c.stream.seeders : undefined,
       });
       setState("added");
     } catch (e) {
