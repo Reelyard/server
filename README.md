@@ -138,7 +138,7 @@ If a download is removed, fails, or turns out to have the wrong audio language (
 ffprobe when the profile requires one), that release is put on a blocklist for that title
 and Reelyard picks the next best.
 
-Only download content you have the rights to.
+Only download content you have the rights to (see [Legal notice](#legal-notice)).
 
 ## Folders
 
@@ -263,6 +263,19 @@ make cross                     # all six OS/arch binaries into dist/
 Layout: `cmd/reelyard` (CLI), `internal/config`, `internal/logging`, `internal/store`
 (SQLite + migrations), `internal/auth`, `internal/api` (HTTP + embedded UI),
 `internal/app` (lifecycle), `web/` (React + Vite + Tailwind, embedded with `go:embed`).
+
+## Legal notice
+
+**Reelyard does not condone piracy.** Reelyard is software you run on your own machine. We do
+not host, store, index, link to or distribute any movies, series or other media, legal or
+illegal, and this repository, our releases, Docker images, app stores and website contain none.
+Reelyard ships with no content sources: it only finds what the third-party addons you choose to
+add give it, and we neither run nor endorse any addon.
+
+You decide what Reelyard downloads and shares, and you are responsible for it. Torrents share
+what you download with others while they run. Only download and share content you have the
+rights to (public-domain or openly licensed works, for example), and follow the laws where you
+live. If you believe something in this repository infringes your rights, open an issue.
 
 ## License
 
