@@ -32,8 +32,7 @@ system, with these changes:
 
 **Linux packages, Windows and macOS**: download the `.deb`, `.rpm` or archive
 for your system from the beta release and follow the
-[README's install section](../README.md#install). The archives include an
-`INSTALL.txt`.
+[install guide](install.md). The archives include an `INSTALL.txt`.
 
 ## What to try
 

@@ -11,40 +11,24 @@ library to TVs over DLNA. One binary for Linux, macOS and Windows.
 > Jellyfin/Emby/Plex refresh, packages for Linux, macOS, Windows and Docker, and a first-run
 > setup work; see [PLAN.md](PLAN.md).
 
+Website and docs: <https://reelyard.github.io/server/> (source in [`site/`](site), published by
+the Website workflow).
+
 ## Install
 
-Downloads are on the [releases page](https://github.com/reelyard/server/releases). After
-installing, open <http://localhost:8787>: the first visit creates your account and walks
-you through folders and suppliers.
+Downloads are on the [releases page](https://github.com/reelyard/server/releases). The
+**[install guide](docs/install.md)** covers installing, updating and uninstalling on each
+system, where your data lives, and the ports to open.
 
-**Debian, Ubuntu, Raspberry Pi OS** (`.deb`) or **Fedora, RHEL, openSUSE** (`.rpm`):
+| You have… | Install |
+|---|---|
+| A NAS (ZimaOS/CasaOS, Unraid, TrueNAS, Synology, QNAP, OpenMediaVault) | Docker image: [NAS guide](docs/nas.md) |
+| A Raspberry Pi 4 / 5 | Ready-made image: [Raspberry Pi guide](docs/raspberry-pi.md) |
+| Docker on Linux | `ghcr.io/reelyard/server`: [Docker](docs/install.md#docker) |
+| Debian, Ubuntu, Fedora, RHEL, openSUSE | `.deb` / `.rpm`: [Linux packages](docs/install.md#linux-deb-and-rpm) |
+| Windows, macOS, other Linux | Archive with `INSTALL.txt`: [install guide](docs/install.md#windows) |
 
-```sh
-sudo apt install ./reelyard_*_amd64.deb      # or: sudo dnf install ./reelyard-*.x86_64.rpm
-```
-
-The package creates a `reelyard` user, stores everything in `/var/lib/reelyard`, and starts
-the `reelyard` systemd service (`systemctl status reelyard`). Install `ffmpeg` too for
-language checks, thumbnails and TV transcoding. To keep media elsewhere, change the
-folders in the setup wizard, then give the service access to them with
-`sudo systemctl edit reelyard` → `[Service]` `ReadWritePaths=/srv/media`. Removing the
-package keeps your data.
-
-**macOS** (Homebrew):
-
-```sh
-brew install --cask reelyard/tap/reelyard
-reelyard install --user && reelyard start --user    # start now and at every login
-```
-
-Or download the `darwin` archive and run `xattr -d com.apple.quarantine reelyard` once:
-the binaries aren't notarized.
-
-**Windows:** download the `windows` zip and follow `INSTALL.txt` inside: double-click
-`reelyard.exe` to try it, or install it as a Windows service from an administrator
-terminal (`reelyard.exe install`, `reelyard.exe start`), plus the firewall rules listed there.
-
-**Docker** (NAS and home servers):
+Quickest start with Docker:
 
 ```sh
 docker run -d --name reelyard --network host --restart unless-stopped \
@@ -53,41 +37,9 @@ docker run -d --name reelyard --network host --restart unless-stopped \
   ghcr.io/reelyard/server:latest
 ```
 
-`/data` holds `downloads/` and `library/`; keeping both on that one volume lets imports
-use hardlinks instead of copies. `--network host` is needed for DLNA discovery (TVs find
-servers by multicast); without DLNA you can publish ports instead:
-`-p 8787:8787 -p 42069:42069 -p 42069:42069/udp`. `PUID`/`PGID` set the user that owns
-your files (default 1000) and `UMASK` their permissions (default `002`); the image
-includes ffmpeg. Docker Compose:
-
-```yaml
-services:
-  reelyard:
-    image: ghcr.io/reelyard/server:latest
-    network_mode: host
-    restart: unless-stopped
-    volumes:
-      - reelyard-config:/config
-      - /srv/media:/data
-volumes:
-  reelyard-config:
-```
-
-**NAS systems** (ZimaOS/CasaOS app store, Unraid, TrueNAS SCALE, Synology, QNAP,
-OpenMediaVault): see [docs/nas.md](docs/nas.md).
-
-**Raspberry Pi:** flash the ready-made Pi 4 / Pi 5 image from the release, or install the
-arm64 `.deb` on Raspberry Pi OS: see [docs/raspberry-pi.md](docs/raspberry-pi.md).
-
-**From source** (Go 1.25+, Node 20+):
-
-```sh
-make web && make build
-bin/reelyard serve
-```
-
-Without `make` (e.g. on Windows): `cd web && npm ci && npm run build && cd ..`, then
-`go build -o reelyard.exe ./cmd/reelyard` and `reelyard.exe serve`.
+Then open <http://localhost:8787>: the first visit creates your account and walks you
+through folders and suppliers. Building from source: see
+[Development](#development) and the [install guide](docs/install.md#from-source).
 
 ## Running as a service
 
