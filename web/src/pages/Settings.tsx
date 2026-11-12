@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type APIKey, type BlockedRelease, type Device, type DownloadSettings, type Language, type NetworkStatus, type User } from "../api";
 import { DlnaOptions, MediaServers } from "../components/Playback";
+import { Viewers } from "../components/Viewers";
 
 function fmt(d?: string) {
   return d ? new Date(d).toLocaleString() : "never";
@@ -451,6 +452,7 @@ export default function Settings({ user }: { user: User }) {
       </header>
       <LibraryOptions />
       <DlnaOptions />
+      <Viewers />
       <MediaServers />
       <DownloadOptions />
       <Blocklist />

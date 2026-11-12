@@ -9,7 +9,10 @@
 //     directory), so the front picks the right file in the preferred
 //     language order,
 //   - tells Samsung TVs where the subtitle is (CaptionInfo.sec),
-//   - shares watched marks and resume points (see progress.go).
+//   - shares watched marks and resume points (see progress.go),
+//   - runs one more server per viewer (family member) with their own
+//     titles and resume points, shown only on the TVs chosen for them
+//     (see viewers.go).
 package dlna
 
 import (
@@ -18,6 +21,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"mime"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -25,6 +29,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -58,6 +63,18 @@ type Status struct {
 	// and durations need them).
 	FFmpeg  bool `json:"ffmpeg"`
 	FFprobe bool `json:"ffprobe"`
+	// Servers are the main server and one per viewer, as TVs list them.
+	Servers []ServerStatus `json:"servers"`
+}
+
+// ServerStatus is one of the DLNA servers Reelyard announces.
+type ServerStatus struct {
+	Name string `json:"name"`
+	Port int    `json:"port"`
+	// ViewerID is the viewer the server belongs to (0: the main server).
+	ViewerID int64  `json:"viewerId,omitempty"`
+	Running  bool   `json:"running"`
+	Error    string `json:"error,omitempty"`
 }
 
 // Interface is a network the server can announce on.
@@ -74,9 +91,10 @@ type Server struct {
 
 	mu     sync.Mutex
 	set    Settings
-	run    *running
+	runs   []*running
 	status Status
 	ffmpeg string
+	tvs    *tvRegistry
 }
 
 type running struct {
@@ -87,6 +105,13 @@ type running struct {
 	root   *os.Root
 	thumbs *thumbs
 	done   chan struct{}
+	// viewer owns this server (nil: the main server, the admin's).
+	viewer *store.Viewer
+	// tvs are the TV addresses allowed to use the server; empty: every TV.
+	tvs []string
+	// transport reaches dms over the pipe (set by front).
+	transport http.RoundTripper
+	vis       visCache
 }
 
 // New loads the saved settings. Call Start to begin serving.
@@ -97,7 +122,7 @@ func New(ctx context.Context, opts Options) *Server {
 	if opts.SubtitleLangs == nil {
 		opts.SubtitleLangs = func() []string { return nil }
 	}
-	return &Server{opts: opts, set: LoadSettings(ctx, opts.Store)}
+	return &Server{opts: opts, set: LoadSettings(ctx, opts.Store), tvs: loadTVs(ctx, opts.Store, opts.Log)}
 }
 
 // Start serves with the saved settings. A failure (port in use, no
@@ -134,6 +159,7 @@ func (s *Server) Status() Status {
 	defer s.mu.Unlock()
 	st := s.status
 	st.Addresses = slices.Clone(st.Addresses)
+	st.Servers = slices.Clone(st.Servers)
 	return st
 }
 
@@ -191,23 +217,99 @@ func ipv4s(ifc net.Interface) []string {
 	return out
 }
 
-// restart stops any running server and starts one with s.set. Caller holds s.mu.
+// restart stops the running servers and starts the main one and one per
+// viewer with s.set. Caller holds s.mu.
 func (s *Server) restart() {
 	s.stop()
 	ffmpeg, ffmpegErr := exec.LookPath("ffmpeg")
 	s.ffmpeg = ffmpeg
 	_, ffprobeErr := exec.LookPath("ffprobe")
-	s.status = Status{Addresses: []string{}, FFmpeg: ffmpegErr == nil, FFprobe: ffprobeErr == nil}
+	s.status = Status{Addresses: []string{}, Servers: []ServerStatus{}, FFmpeg: ffmpegErr == nil, FFprobe: ffprobeErr == nil}
 	if !s.set.Enabled {
 		return
 	}
-	if err := s.start(); err != nil {
+	ifcs, err := s.interfaces()
+	if err != nil {
 		s.status.Error = err.Error()
 		s.opts.Log.Warn("dlna: not started", "err", err)
+		return
+	}
+	for i, spec := range s.specs() {
+		ss := ServerStatus{Name: spec.name, Port: spec.port}
+		if spec.viewer != nil {
+			ss.ViewerID = spec.viewer.ID
+		}
+		r, err := s.start(spec, ifcs)
+		if err != nil {
+			ss.Error = err.Error()
+			s.opts.Log.Warn("dlna: not started", "name", spec.name, "err", err)
+			if i == 0 {
+				s.status.Error = err.Error()
+			}
+		} else {
+			ss.Running = true
+			s.runs = append(s.runs, r)
+			if i == 0 {
+				s.status.Running = true
+				for _, ifc := range ifcs {
+					for _, ip := range ipv4s(ifc) {
+						s.status.Addresses = append(s.status.Addresses, fmt.Sprintf("http://%s:%d/", ip, spec.port))
+					}
+				}
+			}
+		}
+		s.status.Servers = append(s.status.Servers, ss)
 	}
 }
 
-func (s *Server) start() error {
+// specs are the servers to run: the main one, then one per viewer with DLNA.
+// Caller holds s.mu.
+func (s *Server) specs() []serverSpec {
+	specs := []serverSpec{{name: s.set.Name, port: s.set.Port, tvs: s.set.TVs}}
+	viewers, err := s.opts.Store.ListViewers(context.Background())
+	if err != nil {
+		s.opts.Log.Warn("dlna: viewers", "err", err)
+	}
+	for _, v := range viewers {
+		if v.DLNA {
+			specs = append(specs, serverSpec{name: s.set.Name + " · " + v.Name, port: s.set.Port + v.Slot, tvs: v.TVs, viewer: v})
+		}
+	}
+	return specs
+}
+
+// ViewersChanged applies changed viewers. Servers restart only when one is
+// added, removed or renamed (TVs then see a different list); changes to
+// titles or TVs apply to the running servers.
+func (s *Server) ViewersChanged() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if !s.set.Enabled || s.status.Servers == nil {
+		return // off, or never started
+	}
+	specs := s.specs()
+	same := len(specs) == len(s.status.Servers)
+	for i := 0; same && i < len(specs); i++ {
+		have := s.status.Servers[i]
+		same = have.Name == specs[i].name && have.Port == specs[i].port
+	}
+	if !same {
+		s.restart()
+		return
+	}
+	s.refresh()
+}
+
+// serverSpec describes one DLNA server to start.
+type serverSpec struct {
+	name   string
+	port   int
+	tvs    []string
+	viewer *store.Viewer
+}
+
+// interfaces are the networks to announce on. Caller holds s.mu.
+func (s *Server) interfaces() ([]net.Interface, error) {
 	var ifcs []net.Interface
 	for _, ifc := range candidates(s.opts.ExcludeInterface) {
 		if len(s.set.Interfaces) == 0 && !virtual(ifc.Name) || slices.Contains(s.set.Interfaces, ifc.Name) {
@@ -216,23 +318,32 @@ func (s *Server) start() error {
 	}
 	if len(ifcs) == 0 {
 		if len(s.set.Interfaces) > 0 {
-			return fmt.Errorf("none of the chosen networks (%s) is available", strings.Join(s.set.Interfaces, ", "))
+			return nil, fmt.Errorf("none of the chosen networks (%s) is available", strings.Join(s.set.Interfaces, ", "))
 		}
-		return errors.New("no local network to announce on")
+		return nil, errors.New("no local network to announce on")
+	}
+	return ifcs, nil
+}
+
+// start runs one DLNA server. Caller holds s.mu.
+func (s *Server) start(spec serverSpec, ifcs []net.Interface) (*running, error) {
+	if spec.port > 65535 {
+		return nil, fmt.Errorf("port %d is out of range; lower the DLNA port", spec.port)
 	}
 	root, err := os.OpenRoot(s.opts.LibraryDir)
 	if err != nil {
-		return fmt.Errorf("open library: %w", err)
+		return nil, fmt.Errorf("open library: %w", err)
 	}
-	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", s.set.Port))
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", spec.port))
 	if err != nil {
 		root.Close()
-		return fmt.Errorf("port %d is in use; pick another in the DLNA settings", s.set.Port)
+		return nil, fmt.Errorf("port %d is in use; pick another in the DLNA settings", spec.port)
 	}
 	pipe := newPipeListener(ln.Addr())
 	d := &dms.Server{
+		FS:               libraryFS(s.opts.LibraryDir),
 		HTTPConn:         pipe,
-		FriendlyName:     s.set.Name,
+		FriendlyName:     spec.name,
 		Interfaces:       ifcs,
 		RootObjectPath:   s.opts.LibraryDir,
 		Logger:           slog.New(minLevel{s.opts.Log.With("component", "dlna").Handler(), slog.LevelWarn}),
@@ -247,9 +358,10 @@ func (s *Server) start() error {
 	if err := d.Init(); err != nil {
 		ln.Close()
 		root.Close()
-		return fmt.Errorf("start dlna: %w", err)
+		return nil, fmt.Errorf("start dlna: %w", err)
 	}
-	r := &running{set: s.set, dms: d, pipe: pipe, root: root, thumbs: newThumbs(s.ffmpeg), done: make(chan struct{})}
+	r := &running{set: s.set, dms: d, pipe: pipe, root: root, thumbs: newThumbs(s.ffmpeg), done: make(chan struct{}),
+		viewer: spec.viewer, tvs: spec.tvs}
 	r.front = &http.Server{Handler: s.front(r), ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		if err := d.Run(); err != nil {
@@ -262,48 +374,40 @@ func (s *Server) start() error {
 			s.opts.Log.Warn("dlna: http stopped", "err", err)
 		}
 	}()
-	s.run = r
-	s.status.Running = true
-	for _, ifc := range ifcs {
-		for _, ip := range ipv4s(ifc) {
-			s.status.Addresses = append(s.status.Addresses, fmt.Sprintf("http://%s:%d/", ip, s.set.Port))
-		}
-	}
-	s.opts.Log.Info("dlna: serving library", "name", s.set.Name, "port", s.set.Port, "interfaces", len(ifcs))
-	return nil
+	s.opts.Log.Info("dlna: serving library", "name", spec.name, "port", spec.port, "interfaces", len(ifcs))
+	return r, nil
 }
 
-// stop shuts the server down. Caller holds s.mu.
+// stop shuts the servers down. Caller holds s.mu.
 func (s *Server) stop() {
-	r := s.run
-	if r == nil {
-		return
-	}
-	s.run = nil
+	runs := s.runs
+	s.runs = nil
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	_ = r.front.Shutdown(ctx)
-	<-r.done
-	_ = r.dms.Close() // closes the pipe listener and stops SSDP (sends byebye)
-	r.root.Close()
+	for _, r := range runs {
+		_ = r.front.Shutdown(ctx)
+		<-r.done
+		_ = r.dms.Close() // closes the pipe listener and stops SSDP (sends byebye)
+		r.root.Close()
+	}
 }
 
 // front answers local devices, serves subtitles, and passes the rest to dms.
 func (s *Server) front(r *running) http.Handler {
+	r.transport = &http.Transport{
+		DialContext:        r.pipe.dial,
+		DisableCompression: true,
+		MaxIdleConns:       16,
+		IdleConnTimeout:    time.Minute,
+	}
 	proxy := &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.Out.URL.Scheme = "http"
 			pr.Out.URL.Host = "dms"
 			pr.Out.Host = pr.In.Host // dms builds item URLs from it
 		},
-		Transport: &http.Transport{
-			DialContext:        r.pipe.dial,
-			DisableCompression: true,
-			MaxIdleConns:       16,
-			IdleConnTimeout:    time.Minute,
-		},
-		FlushInterval:  -1,
-		ModifyResponse: s.annotateResponse(r),
+		Transport:     r.transport,
+		FlushInterval: -1,
 		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
 			if !errors.Is(err, context.Canceled) {
 				s.opts.Log.Debug("dlna: proxy", "err", err)
@@ -316,9 +420,27 @@ func (s *Server) front(r *running) http.Handler {
 			http.Error(w, "only devices on the local network may use this server", http.StatusForbidden)
 			return
 		}
+		ip := clientIP(req.RemoteAddr)
+		if s.tvs != nil {
+			s.tvs.seen(ip, req.UserAgent())
+		}
+		if !s.tvAllowed(req.Context(), r, ip) {
+			http.Error(w, "this server isn't shown on this TV", http.StatusForbidden)
+			return
+		}
+		// A viewer limited to some titles can't open the others' files.
+		if p := req.URL.Query().Get("path"); p != "" && (req.URL.Path == "/res" || req.URL.Path == "/subtitle" || req.URL.Path == "/icon") {
+			if !s.visibility(req.Context(), r).allows(cleanRel(p)) {
+				http.NotFound(w, req)
+				return
+			}
+		}
 		switch req.URL.Path {
 		case controlPath:
-			if r.set.TrackProgress && s.serveProgressAction(w, req) {
+			if r.set.TrackProgress && s.serveProgressAction(w, req, r) {
+				return
+			}
+			if s.serveBrowse(w, req, r) {
 				return
 			}
 		case "/subtitle":
@@ -419,6 +541,15 @@ var localNets = func() []*net.IPNet {
 	return out
 }()
 
+// clientIP is the IP part of a remote address ("ip:port").
+func clientIP(addr string) string {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return addr
+	}
+	return host
+}
+
 // localClient reports whether addr ("ip:port") is on a private network.
 func localClient(addr string) bool {
 	host, _, err := net.SplitHostPort(addr)
@@ -503,3 +634,27 @@ func (h minLevel) WithAttrs(a []slog.Attr) slog.Handler {
 	return minLevel{h.Handler.WithAttrs(a), h.min}
 }
 func (h minLevel) WithGroup(g string) slog.Handler { return minLevel{h.Handler.WithGroup(g), h.min} }
+
+// libraryFS is the library for dms. dms joins paths with filepath.Join
+// (backslashes on Windows) and then opens them through an fs.FS, which only
+// takes forward slashes: without this, Windows couldn't stream any file.
+func libraryFS(dir string) fs.FS { return slashFS{os.DirFS(dir)} }
+
+type slashFS struct{ fsys fs.FS }
+
+func (f slashFS) Open(name string) (fs.File, error) {
+	return f.fsys.Open(filepath.ToSlash(name))
+}
+
+// Video types TVs need to see, registered here because the system's table
+// may not have them (Windows, Alpine without /etc/mime.types); dms would
+// otherwise guess from the file's first bytes.
+func init() {
+	for ext, typ := range map[string]string{
+		".mkv": "video/x-matroska", ".mp4": "video/mp4", ".m4v": "video/mp4", ".avi": "video/avi",
+		".mov": "video/quicktime", ".webm": "video/webm", ".ts": "video/mp2t", ".m2ts": "video/mp2t",
+		".mpg": "video/mpeg", ".mpeg": "video/mpeg", ".wmv": "video/x-ms-wmv",
+	} {
+		_ = mime.AddExtensionType(ext, typ)
+	}
+}

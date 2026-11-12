@@ -211,6 +211,7 @@ to go back.
 | 8787/tcp | Web UI and API |
 | 42069/tcp+udp | Torrents (peers connect here) |
 | 8200/tcp, 1900/udp | DLNA (TVs on your network) |
+| 8201/tcp and up | One per [viewer](../README.md#viewers-a-server-per-family-member) with their own DLNA server |
 
 **Commands** (any install except Docker): `reelyard status`, `stop`,
 `start`, `restart`, `uninstall`, `reset-password`, `version`. Add `--user` for

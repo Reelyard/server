@@ -138,6 +138,7 @@ func (s *Server) Handler() http.Handler {
 	s.routesPlayback(mux)
 	s.routesOnboarding(mux)
 	s.routesClients(mux)
+	s.routesViewers(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "no such API endpoint")
 	})
