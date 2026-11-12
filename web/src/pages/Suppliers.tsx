@@ -179,7 +179,7 @@ export default function Suppliers() {
           <input
             id="addon-url"
             className="input min-w-0 flex-1 font-mono"
-            placeholder="https://torrentio.strem.fun/manifest.json"
+            placeholder="https://addon.example.com/manifest.json"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             autoComplete="off"
@@ -194,7 +194,7 @@ export default function Suppliers() {
       {list === null && !error && <p className="text-muted">Loading suppliers…</p>}
       {list && list.length === 0 && (
         <div className="card border-dashed p-6 text-muted">
-          No suppliers yet. Paste a torrent addon such as Torrentio for streams, or browse the catalog below for subtitle addons like OpenSubtitles.
+          No suppliers yet. Paste the manifest link of a torrent addon you trust for streams, or browse the catalog below for subtitle addons like OpenSubtitles. Only download content you have the rights to.
         </div>
       )}
       {list && list.length > 0 && (
