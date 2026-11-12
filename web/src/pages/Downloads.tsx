@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { api, type Download, type NetworkStatus } from "../api";
 import { bytes, duration, rate } from "../format";
 import { useDownloads } from "../useDownloads";
+import { TabPanel, Tabs, useTab, type Tab } from "../components/Tabs";
 
 const STATE: Record<Download["state"], { label: string; cls: string }> = {
   queued: { label: "Queued", cls: "bg-bg text-muted" },
@@ -159,7 +160,14 @@ function episodeOf(id: string) {
 export default function Downloads() {
   const { downloads, error } = useDownloads();
   const active = downloads?.filter((d) => d.state !== "seeding" && d.state !== "done") ?? [];
-  const done = downloads?.filter((d) => d.state === "seeding" || d.state === "done") ?? [];
+  const seeding = downloads?.filter((d) => d.state === "seeding") ?? [];
+  const finished = downloads?.filter((d) => d.state === "done") ?? [];
+  const tabs: Tab[] = [
+    { id: "downloading", label: "Downloading", count: active.length },
+    { id: "seeding", label: "Seeding", count: seeding.length },
+    { id: "finished", label: "Finished", count: finished.length },
+  ];
+  const [tab, setTab] = useTab(tabs);
   const [net, setNet] = useState<NetworkStatus | null>(null);
   const [free, setFree] = useState(-1);
   useEffect(() => {
@@ -170,6 +178,12 @@ export default function Downloads() {
   }, []);
   const down = downloads?.reduce((a, d) => a + d.downRate, 0) ?? 0;
   const up = downloads?.reduce((a, d) => a + d.upRate, 0) ?? 0;
+  const shown = tab === "seeding" ? seeding : tab === "finished" ? finished : active;
+  const limits = (
+    <Link to="/settings?tab=downloads" className="text-deep underline">
+      Settings → Downloads
+    </Link>
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -192,20 +206,29 @@ export default function Downloads() {
           Nothing here yet. Open a title from <Link to="/search" className="text-deep underline">Search</Link> and press Download on one of its streams.
         </div>
       )}
-      {active.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <h2 className="font-semibold">In progress</h2>
-          <ul className="card divide-y divide-line">{active.map((d) => <Row key={d.id} d={d} />)}</ul>
-        </section>
-      )}
-      {done.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <h2 className="font-semibold">Finished</h2>
-          <p className="text-sm text-muted">
-            Finished files are shared until the profile's ratio or time limit (or the one in Settings → Downloads), then sharing stops. Once a file is in your library, its download copy is deleted.
-          </p>
-          <ul className="card divide-y divide-line">{done.map((d) => <Row key={d.id} d={d} />)}</ul>
-        </section>
+      {downloads && downloads.length > 0 && (
+        <>
+          <Tabs tabs={tabs} current={tab} onChange={setTab} label="Downloads by state" />
+          <TabPanel id={tab}>
+            <div className="flex flex-col gap-2">
+              {tab === "downloading" && <p className="text-sm text-muted">Downloading, waiting their turn, paused or failed.</p>}
+              {tab === "seeding" && (
+                <p className="text-sm text-muted">
+                  Finished and shared with other peers until the profile's ratio or time limit (or the one in {limits}). Once a file is in your library, its download copy is
+                  deleted when sharing stops.
+                </p>
+              )}
+              {tab === "finished" && <p className="text-sm text-muted">Done and no longer shared.</p>}
+              {shown.length === 0 ? (
+                <div className="card border-dashed p-6 text-sm text-muted">
+                  {tab === "downloading" ? "Nothing downloading right now." : tab === "seeding" ? "Nothing being shared right now." : "Nothing finished yet."}
+                </div>
+              ) : (
+                <ul className="card divide-y divide-line">{shown.map((d) => <Row key={d.id} d={d} />)}</ul>
+              )}
+            </div>
+          </TabPanel>
+        </>
       )}
     </div>
   );
