@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"time"
 
@@ -136,6 +137,9 @@ type Probe struct {
 	DurationSec  int
 	AudioLangs   []string
 	EmbeddedSubs []string
+	// AudioCodecs lists the audio streams' codecs (ffprobe names, e.g.
+	// "aac", "eac3"), never nil after a successful probe.
+	AudioCodecs []string
 }
 
 // ProbeFile runs ffprobe if it is installed. ok is false when it isn't.
@@ -170,6 +174,7 @@ func ProbeFile(ctx context.Context, p string) (pr Probe, ok bool, err error) {
 	if err := json.Unmarshal(out, &body); err != nil {
 		return pr, true, fmt.Errorf("ffprobe output: %w", err)
 	}
+	pr.AudioCodecs = []string{}
 	for _, s := range body.Streams {
 		l := lang.Normalize(s.Tags.Language)
 		switch s.CodecType {
@@ -179,6 +184,9 @@ func ProbeFile(ctx context.Context, p string) (pr Probe, ok bool, err error) {
 				pr.Resolution = resolutionFor(s.Width, s.Height)
 			}
 		case "audio":
+			if s.CodecName != "" && !slices.Contains(pr.AudioCodecs, s.CodecName) {
+				pr.AudioCodecs = append(pr.AudioCodecs, s.CodecName)
+			}
 			if l != "" {
 				pr.AudioLangs = lang.Merge(pr.AudioLangs, []string{l})
 			}

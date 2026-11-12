@@ -11,75 +11,35 @@ library to TVs over DLNA. One binary for Linux, macOS and Windows.
 > Jellyfin/Emby/Plex refresh, packages for Linux, macOS, Windows and Docker, and a first-run
 > setup work; see [PLAN.md](PLAN.md).
 
+Website and docs: <https://reelyard.github.io/server/> (source in [`site/`](site), published by
+the Website workflow).
+
 ## Install
 
-Downloads are on the [releases page](https://github.com/reelyard/server/releases). After
-installing, open <http://localhost:8787>: the first visit creates your account and walks
-you through folders and suppliers.
+Downloads are on the [releases page](https://github.com/reelyard/server/releases). The
+**[install guide](docs/install.md)** covers installing, updating and uninstalling on each
+system, where your data lives, and the ports to open.
 
-**Debian, Ubuntu, Raspberry Pi OS** (`.deb`) or **Fedora, RHEL, openSUSE** (`.rpm`):
+| You have… | Install |
+|---|---|
+| A NAS (ZimaOS/CasaOS, Unraid, TrueNAS, Synology, QNAP, OpenMediaVault) | Docker image: [NAS guide](docs/nas.md) |
+| A Raspberry Pi 4 / 5 | Ready-made image: [Raspberry Pi guide](docs/raspberry-pi.md) |
+| Docker on Linux | `ghcr.io/reelyard/server`: [Docker](docs/install.md#docker) |
+| Debian, Ubuntu, Fedora, RHEL, openSUSE | `.deb` / `.rpm`: [Linux packages](docs/install.md#linux-deb-and-rpm) |
+| Windows, macOS, other Linux | Archive with `INSTALL.txt`: [install guide](docs/install.md#windows) |
 
-```sh
-sudo apt install ./reelyard_*_amd64.deb      # or: sudo dnf install ./reelyard-*.x86_64.rpm
-```
-
-The package creates a `reelyard` user, stores everything in `/var/lib/reelyard`, and starts
-the `reelyard` systemd service (`systemctl status reelyard`). Install `ffmpeg` too for
-language checks, thumbnails and TV transcoding. To keep media elsewhere, change the
-folders in the setup wizard, then give the service access to them with
-`sudo systemctl edit reelyard` → `[Service]` `ReadWritePaths=/srv/media`. Removing the
-package keeps your data.
-
-**macOS** (Homebrew):
-
-```sh
-brew install --cask reelyard/tap/reelyard
-reelyard install --user && reelyard start --user    # start now and at every login
-```
-
-Or download the `darwin` archive and run `xattr -d com.apple.quarantine reelyard` once:
-the binaries aren't notarized.
-
-**Windows:** download the `windows` zip and follow `INSTALL.txt` inside: double-click
-`reelyard.exe` to try it, or install it as a Windows service from an administrator
-terminal (`reelyard.exe install`, `reelyard.exe start`), plus the firewall rules listed there.
-
-**Docker** (NAS and home servers):
+Quickest start with Docker:
 
 ```sh
 docker run -d --name reelyard --network host --restart unless-stopped \
+  -e PUID=1000 -e PGID=1000 \
   -v reelyard-config:/config -v /srv/media:/data \
   ghcr.io/reelyard/server:latest
 ```
 
-`/data` holds `downloads/` and `library/`; keeping both on that one volume lets imports
-use hardlinks instead of copies. `--network host` is needed for DLNA discovery (TVs find
-servers by multicast); without DLNA you can publish ports instead:
-`-p 8787:8787 -p 42069:42069 -p 42069:42069/udp`. The image runs as user 1000 and
-includes ffmpeg. Docker Compose:
-
-```yaml
-services:
-  reelyard:
-    image: ghcr.io/reelyard/server:latest
-    network_mode: host
-    restart: unless-stopped
-    volumes:
-      - reelyard-config:/config
-      - /srv/media:/data
-volumes:
-  reelyard-config:
-```
-
-**From source** (Go 1.25+, Node 20+):
-
-```sh
-make web && make build
-bin/reelyard serve
-```
-
-Without `make` (e.g. on Windows): `cd web && npm ci && npm run build && cd ..`, then
-`go build -o reelyard.exe ./cmd/reelyard` and `reelyard.exe serve`.
+Then open <http://localhost:8787>: the first visit creates your account and walks you
+through folders and suppliers. Building from source: see
+[Development](#development) and the [install guide](docs/install.md#from-source).
 
 ## Running as a service
 
@@ -117,6 +77,24 @@ subtitle-language order (Samsung TVs get them too). Thumbnails need `ffmpeg`, du
 - It uses TCP port **8200** and SSDP (UDP 1900, multicast); allow both in your firewall.
 - Only devices on private networks (192.168.x, 10.x, 172.16–31.x, link-local) can connect.
 - It isn't announced on your VPN interface or, unless you choose them, on Docker/VM bridges.
+
+### Viewers: a server per family member
+
+TVs don't sign in, so each person who watches gets their own server in the TV's sources:
+**Settings → Viewers → Add viewer** creates, say, "Reelyard · Kids" next to the main
+"Reelyard". On a viewer's server:
+
+- watched marks and resume points are theirs, and a **Continue watching** folder at the top
+  lists what they're halfway through (the main server has one for your account too);
+- **Only titles I choose** limits it to the films and series you tick: other folders don't
+  appear, and their files can't be opened from that server;
+- **Show on these TVs** shows it only on the TVs you tick (the main server has the same
+  option). TVs are listed once they've opened any Reelyard server, and are told apart by
+  address, so give each a fixed IP in your router.
+
+Each viewer's server uses the next port after the main one (8201, 8202, …); allow those in
+your firewall too. Anyone using a TV that shows a server can open it: hide the main server
+from a child's TV, and don't rely on this to keep someone determined out.
 
 ## Jellyfin, Emby and Plex
 
@@ -160,7 +138,7 @@ If a download is removed, fails, or turns out to have the wrong audio language (
 ffprobe when the profile requires one), that release is put on a blocklist for that title
 and Reelyard picks the next best.
 
-Only download content you have the rights to.
+Only download content you have the rights to (see [Legal notice](#legal-notice)).
 
 ## Folders
 
@@ -198,6 +176,7 @@ download_dir: /srv/reelyard/downloads
 library_dir: /srv/media
 torrent_port: 42069   # peers connect here (TCP+UDP); forward it in your router
 bind_interface: wg0   # optional: torrents only use this interface (e.g. your VPN)
+announce: true        # apps on the local network find Reelyard by multicast DNS
 log:
   level: info     # debug | info | warn | error
   format: text    # text | json
@@ -206,7 +185,7 @@ log:
 
 Environment variables override the file: `REELYARD_LISTEN`, `REELYARD_DATA_DIR`,
 `REELYARD_DOWNLOAD_DIR`, `REELYARD_LIBRARY_DIR`, `REELYARD_TORRENT_PORT`, `REELYARD_BIND_INTERFACE`, `REELYARD_LOG_LEVEL`,
-`REELYARD_LOG_FORMAT`, `REELYARD_LOG_FILE`.
+`REELYARD_LOG_FORMAT`, `REELYARD_LOG_FILE`, `REELYARD_ANNOUNCE`.
 
 Downloads land in `<download_dir>/<info hash>/…`. When one finishes, Reelyard links it into the
 library (a hardlink when both folders are on the same disk, so no extra space is used; a copy
@@ -239,18 +218,64 @@ Everything the UI does goes through `/api/v1`. Scripts can use an API key from
 curl -H "X-Api-Key: hbr_..." http://localhost:8787/api/v1/system
 ```
 
+`Authorization: Bearer hbr_...` works too.
+
+### Apps and devices
+
+Reelyard's apps for TVs, phones and computers ([Reelyard/clients](https://github.com/Reelyard/clients))
+sign in by pairing code instead of a password:
+
+1. The app calls `POST /api/v1/devices/pair` with `{"name": "Living room TV", "platform": "tizen"}`
+   and shows the `code` it gets back (e.g. `K7Q-4MD`).
+2. You enter that code under **Settings → Devices**.
+3. The app, polling `POST /api/v1/devices/pair/token` with its `pollSecret`, gets its own token
+   (`hbd_...`) and sends it as `Authorization: Bearer hbd_...`.
+
+Codes work for 10 minutes. **Settings → Devices** lists every device and signs any of them out.
+
+To play a file, an app asks `POST /api/v1/library/{id}/play` for a link to `/api/v1/play/{id}`
+that works for 8 hours without any header, so any video player can open it and seek. The answer
+also carries the file's subtitles as WebVTT links, where the user stopped last time, and — when
+the app says what its player can play — whether this file will play and why not.
+`GET /api/v1/home` gives the home screen (continue watching, next episode, recently added);
+`PUT /api/v1/progress/{itemId}` saves where the user is. `GET /api/v1/library/titles` lists the
+library by movie and series, with artwork served (and cached) by Reelyard;
+`GET /api/v1/library/titles/{imdbId}` gives a title's seasons, episodes and files.
+Apps on another origin (Samsung and LG TV apps) can call the API: it answers CORS requests
+that carry a token, never with cookies.
+
+Apps find Reelyard on the local network by multicast DNS (service `_reelyard._tcp`); set
+`announce: false` (or `REELYARD_ANNOUNCE=0`) to stop that. Reelyard doesn't announce itself when
+it only listens on this machine. The whole app API is described in OpenAPI at
+`/api/v1/openapi.yaml`.
+
 ## Development
 
 ```sh
 go run ./cmd/reelyard serve      # API on :8787
 cd web && npm run dev          # UI on :5173 with hot reload, /api proxied to :8787
 make test vet
+make ci                        # the CI checks locally: web build, gofmt/vet, tests, smoke test
+make hooks                     # run `make ci` before every git push (skip with --no-verify)
 make cross                     # all six OS/arch binaries into dist/
 ```
 
 Layout: `cmd/reelyard` (CLI), `internal/config`, `internal/logging`, `internal/store`
 (SQLite + migrations), `internal/auth`, `internal/api` (HTTP + embedded UI),
 `internal/app` (lifecycle), `web/` (React + Vite + Tailwind, embedded with `go:embed`).
+
+## Legal notice
+
+**Reelyard does not condone piracy.** Reelyard is software you run on your own machine. We do
+not host, store, index, link to or distribute any movies, series or other media, legal or
+illegal, and this repository, our releases, Docker images, app stores and website contain none.
+Reelyard ships with no content sources: it only finds what the third-party addons you choose to
+add give it, and we neither run nor endorse any addon.
+
+You decide what Reelyard downloads and shares, and you are responsible for it. Torrents share
+what you download with others while they run. Only download and share content you have the
+rights to (public-domain or openly licensed works, for example), and follow the laws where you
+live. If you believe something in this repository infringes your rights, open an issue.
 
 ## License
 

@@ -90,7 +90,8 @@ homebrew_casks:
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Casks
     # Published only once the tap repository and its token exist.
-    skip_upload: '{{ if not (index .Env "HOMEBREW_TAP_TOKEN") }}true{{ else }}false{{ end }}'
+    # Skipped without a tap token, and for betas (the tap is public).
+    skip_upload: '{{ if or (not (index .Env "HOMEBREW_TAP_TOKEN")) .Prerelease }}true{{ else }}false{{ end }}'
     hooks:
       post:
         # The binaries aren't notarized; let macOS run them.
@@ -108,11 +109,16 @@ dockers_v2:
   - id: reelyard
     ids: [reelyard]
     dockerfile: packaging/docker/Dockerfile
+    extra_files:
+      - packaging/docker/entrypoint.sh
     images:
       - ghcr.io/reelyard/server
     tags:
       - "{{ .Version }}"
       - "{{ if not .Prerelease }}latest{{ end }}"
+      # Betas (v0.1.0-beta.1, ...) get a moving "beta" tag instead, so
+      # testers can follow ghcr.io/reelyard/server:beta.
+      - "{{ if .Prerelease }}beta{{ end }}"
     platforms:
       - linux/amd64
       - linux/arm64

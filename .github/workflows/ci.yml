@@ -56,7 +56,9 @@ jobs:
         shell: bash
         run: |
           go build -o reelyard-bin ./cmd/reelyard
-          export REELYARD_DATA_DIR="$RUNNER_TEMP/reelyard" REELYARD_LISTEN=127.0.0.1:18787
+          # Torrent port 0 (any free port): under act the job shares the host
+          # network, where a running Reelyard may already hold 42069.
+          export REELYARD_DATA_DIR="$RUNNER_TEMP/reelyard" REELYARD_LISTEN=127.0.0.1:18787 REELYARD_TORRENT_PORT=0
           ./reelyard-bin serve &
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:18787/api/v1/health && break; sleep 1; done
           curl -fsS http://127.0.0.1:18787/ | grep -q '<div id="root">'

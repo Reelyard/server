@@ -1,0 +1,485 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Reelyard docs</title>
+<meta name="description" content="Install, configure and use Reelyard: suppliers, tracking, quality profiles, downloads, DLNA, Jellyfin/Emby/Plex, NAS, Raspberry Pi, configuration and the API.">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="style.css">
+<script>try{var t=localStorage.getItem("reelyard-theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="logo.svg" alt="">Reelyard</a>
+    <nav>
+      <a class="hide-sm" href="./#features">Features</a>
+      <a href="docs.html" aria-current="page">Docs</a>
+      <a href="https://github.com/reelyard/server">GitHub</a>
+      <button class="theme-btn" type="button" aria-label="Switch light or dark theme">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<div class="wrap docs">
+  <aside class="toc" aria-label="Contents">
+    <h4>Getting started</h4>
+    <ul>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#install">Install</a></li>
+      <li><a href="#nas">NAS systems</a></li>
+      <li><a href="#raspberry-pi">Raspberry Pi</a></li>
+      <li><a href="#first-run">First run</a></li>
+    </ul>
+    <h4>Using Reelyard</h4>
+    <ul>
+      <li><a href="#suppliers">Suppliers</a></li>
+      <li><a href="#tracking">Tracking &amp; profiles</a></li>
+      <li><a href="#downloads">Downloads</a></li>
+      <li><a href="#library">Library &amp; subtitles</a></li>
+      <li><a href="#dlna">Watching on a TV</a></li>
+      <li><a href="#media-servers">Jellyfin, Emby, Plex</a></li>
+      <li><a href="#vpn">Using a VPN</a></li>
+    </ul>
+    <h4>Running it</h4>
+    <ul>
+      <li><a href="#service">Service &amp; CLI</a></li>
+      <li><a href="#configuration">Configuration</a></li>
+      <li><a href="#folders">Folders</a></li>
+      <li><a href="#updating">Updating</a></li>
+      <li><a href="#harbor">Upgrading from Harbor</a></li>
+      <li><a href="#password">Forgot the password</a></li>
+    </ul>
+    <h4>Developers</h4>
+    <ul>
+      <li><a href="#api">API</a></li>
+      <li><a href="#devices">Apps &amp; devices</a></li>
+      <li><a href="#building">Building from source</a></li>
+      <li><a href="#help">Getting help</a></li>
+    </ul>
+    <h4>About</h4>
+    <ul>
+      <li><a href="#legal">Legal notice</a></li>
+    </ul>
+  </aside>
+
+  <article>
+    <details class="toc-mobile">
+      <summary>On this page</summary>
+      <div class="inner">
+        <a href="#overview">Overview</a><a href="#install">Install</a><a href="#nas">NAS systems</a>
+        <a href="#raspberry-pi">Raspberry Pi</a><a href="#first-run">First run</a><a href="#suppliers">Suppliers</a>
+        <a href="#tracking">Tracking &amp; profiles</a><a href="#downloads">Downloads</a><a href="#library">Library &amp; subtitles</a>
+        <a href="#dlna">Watching on a TV</a><a href="#media-servers">Jellyfin, Emby, Plex</a><a href="#vpn">Using a VPN</a>
+        <a href="#service">Service &amp; CLI</a><a href="#configuration">Configuration</a><a href="#folders">Folders</a>
+        <a href="#updating">Updating</a><a href="#harbor">Upgrading from Harbor</a><a href="#password">Forgot the password</a>
+        <a href="#api">API</a><a href="#devices">Apps &amp; devices</a><a href="#building">Building from source</a><a href="#help">Getting help</a><a href="#legal">Legal notice</a>
+      </div>
+    </details>
+
+    <h1>Reelyard documentation</h1>
+    <p class="lede">Everything you need to install Reelyard, set it up, and get your movies and series onto your TV.</p>
+
+    <!-- ============================================================ -->
+    <h2 id="overview">Overview</h2>
+    <p>Reelyard tracks the movies and TV series you want, finds torrents for them through Stremio addons (“suppliers”), downloads them with a built-in torrent engine, and puts them in a media library with Jellyfin/Plex naming and subtitles. It also serves the library to TVs over DLNA. It's one binary for Linux, macOS and Windows, with a web UI on port <code>8787</code>.</p>
+    <div class="note"><p><strong>Reelyard does not condone piracy, and we host no content.</strong> Only download content you have the rights to. Public-domain films such as <em>Night of the Living Dead</em> (1968) are good for testing. See the <a href="#legal">legal notice</a>.</p></div>
+
+    <!-- ============================================================ -->
+    <h2 id="install">Install</h2>
+    <p>Downloads are on the <a href="https://github.com/reelyard/server/releases">releases page</a>. After installing, open <a href="http://localhost:8787">http://localhost:8787</a>: the first visit creates your account and walks you through folders and suppliers.</p>
+    <p>Install <code>ffmpeg</code> alongside Reelyard where you can. It's used for audio-language checks, thumbnails and converting video for TVs that can't play a file. (The Docker image and Raspberry Pi images already include it.)</p>
+
+    <h3 id="install-linux">Debian, Ubuntu, Fedora, RHEL, openSUSE</h3>
+<pre><code>sudo apt install ./reelyard_*_amd64.deb      # or: sudo dnf install ./reelyard-*.x86_64.rpm</code></pre>
+    <p>The package creates a <code>reelyard</code> user, stores everything in <code>/var/lib/reelyard</code>, and starts the <code>reelyard</code> systemd service (<code>systemctl status reelyard</code>). Removing the package keeps your data.</p>
+    <p>To keep media somewhere else, change the folders in the setup wizard, then give the service access to them:</p>
+<pre><code>sudo systemctl edit reelyard
+# add:
+[Service]
+ReadWritePaths=/srv/media</code></pre>
+
+    <h3 id="install-macos">macOS</h3>
+<pre><code>brew install --cask reelyard/tap/reelyard
+reelyard install --user &amp;&amp; reelyard start --user    # start now and at every login</code></pre>
+    <p>Or download the <code>darwin</code> archive and run <code>xattr -d com.apple.quarantine reelyard</code> once: the binaries aren't notarized.</p>
+
+    <h3 id="install-windows">Windows</h3>
+    <p>Download the <code>windows</code> zip and follow <code>INSTALL.txt</code> inside. Double-click <code>reelyard.exe</code> to try it, or install it as a Windows service from an administrator terminal, then add the firewall rules listed in <code>INSTALL.txt</code>:</p>
+<pre><code>reelyard.exe install
+reelyard.exe start</code></pre>
+
+    <h3 id="install-docker">Docker</h3>
+<pre><code>docker run -d --name reelyard --network host --restart unless-stopped \
+  -e PUID=1000 -e PGID=1000 \
+  -v reelyard-config:/config -v /srv/media:/data \
+  ghcr.io/reelyard/server:latest</code></pre>
+    <p>Or with Docker Compose:</p>
+<pre><code>services:
+  reelyard:
+    image: ghcr.io/reelyard/server:latest
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - reelyard-config:/config
+      - /srv/media:/data
+volumes:
+  reelyard-config:</code></pre>
+    <ul>
+      <li><code>/data</code> holds <code>downloads/</code> and <code>library/</code>. Keeping both on that one volume lets imports use hardlinks instead of copies.</li>
+      <li><code>--network host</code> is needed for DLNA discovery, since TVs find servers by multicast. Without DLNA you can publish ports instead: <code>-p 8787:8787 -p 42069:42069 -p 42069:42069/udp</code>.</li>
+      <li><code>PUID</code>/<code>PGID</code> set the user that owns your files (default 1000) and <code>UMASK</code> their permissions (default <code>002</code>).</li>
+    </ul>
+
+    <!-- ============================================================ -->
+    <h2 id="nas">NAS systems</h2>
+    <p>Reelyard runs on any NAS that runs Docker containers, using the image <code>ghcr.io/reelyard/server</code>. On every system the same three things matter:</p>
+    <ul>
+      <li><strong>One media folder for downloads and library.</strong> Mount it at <code>/data</code> (or <code>/DATA</code> on ZimaOS). Keeping both on one share lets Reelyard hardlink finished files into the library instead of copying them.</li>
+      <li><strong>Host networking</strong> (<code>network_mode: host</code>), so TVs can find the DLNA server and Reelyard's apps can find Reelyard. Without those you can publish ports 8787 (web UI) and 42069 TCP+UDP (torrents) instead.</li>
+      <li><strong>PUID / PGID</strong>: the user and group that should own downloaded files. <code>UMASK</code> sets permissions for new files (default <code>002</code>).</li>
+    </ul>
+    <p>After installing, open <code>http://&lt;nas&gt;:8787</code>. The generic Compose file is <a href="https://github.com/reelyard/server/blob/main/deploy/compose.yaml"><code>deploy/compose.yaml</code></a>.</p>
+
+    <h3 id="zimaos">ZimaOS and CasaOS</h3>
+    <p>Reelyard has its own app store for ZimaOS and CasaOS (0.4.4 or newer).</p>
+    <ol>
+      <li>Open the <strong>App Store</strong>, choose to add a source (the <strong>+</strong> / <strong>App source</strong> menu), and paste <code>https://reelyard.github.io/server/zimaos/</code></li>
+      <li>Install <strong>Reelyard</strong> from that source.</li>
+    </ol>
+    <p>It uses <code>/DATA/AppData/reelyard/config</code> for its settings, keeps downloads in <code>/DATA/Downloads/Reelyard</code>, and adds <code>Movies/</code> and <code>TV/</code> to <code>/DATA/Media</code>, where ZimaOS's Jellyfin and Plex apps already look. Your ZimaOS user's PUID/PGID and time zone are filled in for you.</p>
+    <p>Without the store: <strong>App Store → Custom install → Import</strong>, and paste <a href="https://github.com/reelyard/server/blob/main/deploy/zimaos/Apps/Reelyard/docker-compose.yml"><code>deploy/zimaos/Apps/Reelyard/docker-compose.yml</code></a>.</p>
+
+    <h3 id="unraid">Unraid</h3>
+    <ol>
+      <li><strong>Docker</strong> tab → <strong>Add Container</strong> → paste this into <strong>Template</strong>: <code>https://raw.githubusercontent.com/reelyard/server/main/deploy/unraid/reelyard.xml</code> (or add it under <strong>Template repositories</strong> in Docker settings).</li>
+      <li>Check the two paths: <strong>Config</strong> (<code>/mnt/user/appdata/reelyard</code>) and <strong>Media</strong> (<code>/mnt/user/data/reelyard</code>, which will hold <code>downloads/</code> and <code>library/</code>), then <strong>Apply</strong>.</li>
+    </ol>
+    <p>PUID 99 / PGID 100 and UMASK 000 match Unraid's share permissions.</p>
+
+    <h3 id="truenas">TrueNAS SCALE (24.10 and newer)</h3>
+    <ol>
+      <li>Create datasets, for example <code>tank/apps/reelyard</code> and <code>tank/media</code>.</li>
+      <li><strong>Apps → Discover Apps → ⋮ → Install via YAML</strong>, name it <code>reelyard</code>, and paste:</li>
+    </ol>
+<pre><code>services:
+  reelyard:
+    image: ghcr.io/reelyard/server:latest
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      PUID: "568"        # TrueNAS's "apps" user
+      PGID: "568"
+      TZ: Etc/UTC
+    volumes:
+      - /mnt/tank/apps/reelyard:/config
+      - /mnt/tank/media:/data</code></pre>
+    <p>TrueNAS 25.10 requires the top-level <code>services:</code> key, as above. Give the <code>apps</code> user (568) write access to the media dataset, or use your own user's ids.</p>
+
+    <h3 id="synology">Synology DSM 7.2+</h3>
+    <ol>
+      <li>Install <strong>Container Manager</strong> from Package Center.</li>
+      <li>In <strong>File Station</strong>, create <code>docker/reelyard</code> and a media folder such as <code>media/reelyard</code>.</li>
+      <li><strong>Container Manager → Project → Create</strong>, path <code>docker/reelyard</code>, choose <strong>Create docker-compose.yml</strong>, and paste <code>deploy/compose.yaml</code> with the volumes changed to <code>/volume1/docker/reelyard:/config</code> and <code>/volume1/media/reelyard:/data</code>.</li>
+      <li>Set PUID/PGID to your DSM user (SSH: <code>id &lt;user&gt;</code>; usually 1026 / 100).</li>
+    </ol>
+
+    <h3 id="qnap">QNAP (Container Station 3)</h3>
+    <p><strong>Container Station → Applications → Create</strong>, name it <code>reelyard</code>, paste <code>deploy/compose.yaml</code> with the volumes changed to your shares (for example <code>/share/Container/reelyard:/config</code> and <code>/share/Multimedia/reelyard:/data</code>), and set PUID/PGID to your user (<code>id &lt;user&gt;</code> over SSH).</p>
+
+    <h3 id="omv">OpenMediaVault 7</h3>
+    <p>Install the <strong>openmediavault-compose</strong> plugin, then <strong>Services → Compose → Files → Add</strong>, paste <code>deploy/compose.yaml</code> with your shared folders' paths under <code>/srv/...</code>, save, and press <strong>Up</strong>.</p>
+
+    <h3 id="docker-any">Any Linux machine with Docker</h3>
+<pre><code>mkdir reelyard &amp;&amp; cd reelyard
+curl -LO https://raw.githubusercontent.com/reelyard/server/main/deploy/compose.yaml
+# edit the paths, PUID/PGID and TZ, then:
+docker compose up -d</code></pre>
+
+    <!-- ============================================================ -->
+    <h2 id="raspberry-pi">Raspberry Pi</h2>
+    <h3 id="pi-image">Ready-made image (Pi 4 and Pi 5)</h3>
+    <p>Each release has <code>reelyard-pi4.img.xz</code> and <code>reelyard-pi5.img.xz</code>: Debian Trixie (64-bit) with Reelyard and ffmpeg preinstalled and its service enabled.</p>
+    <ol>
+      <li>Download the image for your board.</li>
+      <li>In <strong>Raspberry Pi Imager</strong>, choose your device, then <strong>Choose OS → Use custom</strong> and pick the <code>.img.xz</code>, then your SD card or USB SSD.</li>
+      <li>Connect the Pi to your network with a cable and power it on.</li>
+      <li>After a minute or two, open <code>http://reelyard.local:8787</code> (or <code>http://&lt;the Pi's IP&gt;:8787</code>).</li>
+    </ol>
+    <ul>
+      <li><strong>Use a USB drive for media.</strong> An SD card is too small and too slow for downloads. Plug in a drive, then choose its folders in the setup wizard (for example <code>/media/usb/downloads</code> and <code>/media/usb/library</code>, on the same drive so imports are hardlinks).</li>
+      <li><strong>Wi-Fi, user and SSH from Imager's settings:</strong> the image includes cloud-init so Imager's customisation can apply, but this hasn't been confirmed on hardware yet. A network cable always works.</li>
+      <li>The Pi shows up on your TVs as <strong>Reelyard</strong> (DLNA) and at <code>reelyard.local</code>.</li>
+      <li>A Pi 4 or 5 with 2 GB or more is plenty. Pi 3 and Zero 2 W aren't supported.</li>
+    </ul>
+    <h3 id="pi-os">On an existing Raspberry Pi OS (64-bit)</h3>
+<pre><code>sudo apt install ./reelyard_*_arm64.deb ffmpeg</code></pre>
+    <p>The package creates a <code>reelyard</code> user and starts the <code>reelyard</code> service, as on any Debian system.</p>
+
+    <!-- ============================================================ -->
+    <h2 id="first-run">First run</h2>
+    <p>Open <code>http://&lt;your machine&gt;:8787</code>. The first visit:</p>
+    <ol>
+      <li>creates your account (password of at least 8 characters);</li>
+      <li>asks where downloads and the library should go (keep them on the same disk so imports are hardlinks);</li>
+      <li>helps you add your first <a href="#suppliers">suppliers</a>.</li>
+    </ol>
+    <p>Three <a href="#tracking">quality profiles</a> are created for you: <em>HD 1080p</em>, <em>4K</em> and <em>Small</em>. Then search for a title and press <strong>Track</strong>.</p>
+
+    <!-- ============================================================ -->
+    <h2 id="suppliers">Suppliers</h2>
+    <p>Suppliers are Stremio addons. Reelyard uses the ones that answer with torrent streams (an <code>infoHash</code>) and the ones that give subtitles.</p>
+    <ul>
+      <li>Add them in <strong>Suppliers</strong> by pasting the addon's <code>manifest.json</code> address, or pick one from <strong>Browse addons</strong>.</li>
+      <li>For configurable addons, configure them on their own site first and paste the address it gives you.</li>
+      <li><strong>Test</strong> shows whether an addon answers and how many of its streams Reelyard can use.</li>
+    </ul>
+    <div class="note info"><p>Addons that only return debrid or web links aren't usable: Reelyard needs torrent streams.</p></div>
+
+    <!-- ============================================================ -->
+    <h2 id="tracking">Tracking &amp; quality profiles</h2>
+    <p>Open a movie or series and press <strong>Track</strong>. Reelyard then looks for it by itself (every minute for new work, backing off from 15 minutes to a day when nothing fits), picks the best release for the title's <strong>quality profile</strong>, downloads it, and imports it. Series follow new episodes as they air; choose <em>all episodes</em>, <em>only new ones</em>, or <em>none</em>.</p>
+    <h3 id="profiles">Quality profiles</h3>
+    <p>A profile sets:</p>
+    <ul>
+      <li>the screen sizes allowed, best first;</li>
+      <li>file-size limits for movies and for episodes;</li>
+      <li>preferred or required audio languages, and subtitle languages;</li>
+      <li>words to avoid or prefer in release names;</li>
+      <li>the minimum number of seeders.</li>
+    </ul>
+    <p>Edit them under <strong>Quality profiles</strong>. On a tracked title's page every stream shows whether it fits the profile, and why not.</p>
+    <h3 id="blocklist">Blocklist</h3>
+    <p>If a download is removed, fails, or turns out to have the wrong audio language (checked with <code>ffprobe</code> when the profile requires one), that release is put on a blocklist for that title and Reelyard picks the next best.</p>
+
+    <!-- ============================================================ -->
+    <h2 id="downloads">Downloads</h2>
+    <h3 id="sharing">Sharing</h3>
+    <p>Finished downloads keep sharing until the title's profile ratio or time limit (for downloads you started by hand: <strong>Settings → Downloads</strong>), whichever comes first. Then sharing stops, and if the file is in your library its download copy is deleted. The library file stays: it's a hardlink or a copy.</p>
+    <h3 id="stalls">Stalls and disk space</h3>
+    <ul>
+      <li>Downloads that make no progress for 30 minutes (adjustable) fail; tracked titles then try another release.</li>
+      <li>Downloads that wouldn't fit on disk, keeping 2 GB free (adjustable), are refused.</li>
+      <li>Speed limits and how many downloads run at once are set in <strong>Settings → Downloads</strong>.</li>
+    </ul>
+    <h3 id="ports">Ports</h3>
+    <p>Peers connect on <code>torrent_port</code> (default <code>42069</code>, TCP and UDP). Forward it in your router for better speeds.</p>
+
+    <!-- ============================================================ -->
+    <h2 id="library">Library &amp; subtitles</h2>
+    <p>Downloads land in <code>&lt;download_dir&gt;/&lt;info hash&gt;/…</code>. When one finishes, Reelyard links it into the library: a hardlink when both folders are on the same disk (no extra space used), a copy otherwise. Files are named the way Jellyfin and Plex expect:</p>
+<pre><code>Movies/Night of the Living Dead (1968)/Night of the Living Dead (1968) - 720p.mp4
+Movies/Night of the Living Dead (1968)/Night of the Living Dead (1968) - 720p.en.srt
+TV/Breaking Bad (2008)/Season 01/Breaking Bad (2008) - S01E02 - Cat's in the Bag - 1080p.mkv</code></pre>
+    <p>Subtitles come from your subtitle suppliers (for example OpenSubtitles) for the languages chosen in <strong>Settings → Library</strong>. If <code>ffprobe</code> (from FFmpeg) is installed, Reelyard uses it to read the real resolution and to skip languages already built into the video.</p>
+
+    <!-- ============================================================ -->
+    <h2 id="dlna">Watching on a TV (DLNA)</h2>
+    <p>Reelyard has its own DLNA server, on by default. TVs, game consoles and players like VLC on your network list it as <strong>Reelyard</strong> (rename it in <strong>Settings → DLNA server</strong>) and play straight from the library, with seeking.</p>
+    <ul>
+      <li>Subtitles saved next to a video are offered with it, in your subtitle-language order (Samsung TVs get them too).</li>
+      <li>Thumbnails need <code>ffmpeg</code>; durations need <code>ffprobe</code>.</li>
+      <li>Turn on converted versions in the DLNA settings for TVs that can't play a file (needs <code>ffmpeg</code>).</li>
+      <li>Where you stopped and what you've watched are shared with TVs that support it.</li>
+    </ul>
+    <h3 id="dlna-network">Network</h3>
+    <ul>
+      <li>It uses TCP port <strong>8200</strong> and SSDP (UDP 1900, multicast); allow both in your firewall.</li>
+      <li>Only devices on private networks (192.168.x, 10.x, 172.16–31.x, link-local) can connect.</li>
+      <li>It isn't announced on your VPN interface or, unless you choose them, on Docker/VM bridges.</li>
+      <li>In Docker, use host networking; multicast doesn't cross Docker's bridge network.</li>
+    </ul>
+
+    <!-- ============================================================ -->
+    <h2 id="media-servers">Jellyfin, Emby and Plex</h2>
+    <p>Point your media server's Movies and Shows libraries at <code>library/Movies</code> and <code>library/TV</code>.</p>
+    <p>In <strong>Settings → Jellyfin, Emby and Plex</strong>, add the server's address and an API key (Jellyfin, Emby) or <code>X-Plex-Token</code> (Plex); <strong>Test connection</strong> checks both. Reelyard then asks it to rescan about 30 seconds after new files arrive (several imports close together share one rescan). Keys are stored in Reelyard's database and never sent back to the browser.</p>
+
+    <!-- ============================================================ -->
+    <h2 id="vpn">Using a VPN</h2>
+    <p>Set <code>bind_interface</code> to your VPN's network interface (<code>wg0</code>, <code>tun0</code>, …) and restart Reelyard. Every torrent connection (peers, DHT, trackers) is then bound to that interface's address, so torrent traffic can't leave by any other route.</p>
+    <ul>
+      <li>If the interface goes down, torrents pause and the Downloads page says so; they resume when it's back.</li>
+      <li>If the VPN comes back with a different address, Reelyard (when running as a service) restarts itself to use it.</li>
+    </ul>
+<pre><code>bind_interface: wg0       # in config.yaml
+# or: REELYARD_BIND_INTERFACE=wg0</code></pre>
+
+    <!-- ============================================================ -->
+    <h2 id="service">Service &amp; CLI</h2>
+    <p>The packages set the service up for you. With a plain binary:</p>
+<pre><code>sudo reelyard install          # system service: systemd (Linux), launchd (macOS)
+sudo reelyard start
+reelyard install --user        # or a per-user service, no root needed
+reelyard start --user</code></pre>
+    <p>On Windows, run <code>reelyard.exe install</code> and <code>reelyard.exe start</code> from an administrator terminal. <code>install</code> writes a config file into the data folder so the service and the CLI use the same locations.</p>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Command</th><th>What it does</th></tr></thead>
+      <tbody>
+        <tr><td><code>serve</code></td><td>Run Reelyard in the foreground.</td></tr>
+        <tr><td><code>install</code> / <code>uninstall</code></td><td>Add or remove the service (<code>--user</code> for a per-user one).</td></tr>
+        <tr><td><code>start</code> / <code>stop</code> / <code>restart</code></td><td>Control the service.</td></tr>
+        <tr><td><code>status</code></td><td>Show whether the service is installed and running.</td></tr>
+        <tr><td><code>reset-password</code></td><td>Set a new password (see <a href="#password">below</a>).</td></tr>
+        <tr><td><code>version</code></td><td>Print the version.</td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <!-- ============================================================ -->
+    <h2 id="configuration">Configuration</h2>
+    <p>Most settings live in the web UI. The rest are in <code>config.yaml</code> in the data folder (or pass <code>--config &lt;file&gt;</code>):</p>
+<pre><code>listen: ":8787"
+data_dir: /srv/reelyard
+download_dir: /srv/reelyard/downloads
+library_dir: /srv/media
+torrent_port: 42069   # peers connect here (TCP+UDP); forward it in your router
+bind_interface: wg0   # optional: torrents only use this interface (e.g. your VPN)
+announce: true        # apps on the local network find Reelyard by multicast DNS
+log:
+  level: info     # debug | info | warn | error
+  format: text    # text | json
+  file: true      # rotating file in &lt;data&gt;/logs</code></pre>
+    <p>Environment variables override the file:</p>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Variable</th><th>Setting</th></tr></thead>
+      <tbody>
+        <tr><td><code>REELYARD_LISTEN</code></td><td><code>listen</code></td></tr>
+        <tr><td><code>REELYARD_DATA_DIR</code></td><td><code>data_dir</code></td></tr>
+        <tr><td><code>REELYARD_DOWNLOAD_DIR</code></td><td><code>download_dir</code></td></tr>
+        <tr><td><code>REELYARD_LIBRARY_DIR</code></td><td><code>library_dir</code></td></tr>
+        <tr><td><code>REELYARD_TORRENT_PORT</code></td><td><code>torrent_port</code></td></tr>
+        <tr><td><code>REELYARD_BIND_INTERFACE</code></td><td><code>bind_interface</code></td></tr>
+        <tr><td><code>REELYARD_ANNOUNCE</code></td><td><code>announce</code></td></tr>
+        <tr><td><code>REELYARD_LOG_LEVEL</code></td><td><code>log.level</code></td></tr>
+        <tr><td><code>REELYARD_LOG_FORMAT</code></td><td><code>log.format</code></td></tr>
+        <tr><td><code>REELYARD_LOG_FILE</code></td><td><code>log.file</code></td></tr>
+      </tbody>
+    </table>
+    </div>
+
+    <!-- ============================================================ -->
+    <h2 id="folders">Folders</h2>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th></th><th>Linux</th><th>macOS</th><th>Windows</th></tr></thead>
+      <tbody>
+        <tr><td>Data (user)</td><td><code>~/.local/share/reelyard</code></td><td><code>~/Library/Application Support/Reelyard</code></td><td><code>%ProgramData%\Reelyard</code></td></tr>
+        <tr><td>Data (system service)</td><td><code>/var/lib/reelyard</code></td><td><code>/Library/Application Support/Reelyard</code></td><td><code>%ProgramData%\Reelyard</code></td></tr>
+        <tr><td>Docker</td><td colspan="3"><code>/config</code> (settings) and <code>/data</code> (downloads and library)</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Inside the data folder: <code>reelyard.db</code>, <code>logs/</code>, <code>downloads/</code>, <code>library/</code>. The download and library folders can live anywhere (<code>download_dir</code>, <code>library_dir</code>).</p>
+
+    <!-- ============================================================ -->
+    <h2 id="updating">Updating</h2>
+    <ul>
+      <li><strong>Packages:</strong> install the new <code>.deb</code> / <code>.rpm</code> over the old one; on macOS, <code>brew upgrade --cask reelyard</code>.</li>
+      <li><strong>Docker and NAS:</strong> pull the new image and recreate the container (most NAS systems have an <strong>Update</strong> or <strong>Pull</strong> action).</li>
+    </ul>
+    <p>Your settings live in the data (or config) folder and survive updates.</p>
+
+    <!-- ============================================================ -->
+    <h2 id="harbor">Upgrading from Harbor</h2>
+    <p>Reelyard was called Harbor before v0.1.0. An existing install keeps working as it is: if the Reelyard data folder doesn't exist yet, Reelyard uses the old one (for example <code>~/.local/share/harbor</code>) and its <code>harbor.db</code>, and still reads <code>HARBOR_*</code> variables. Swap the service once:</p>
+<pre><code>harbor uninstall --user                # the old binary removes the "harbor" service
+reelyard install --user &amp;&amp; reelyard start --user</code></pre>
+    <p><code>reelyard install</code> refuses to run while the old service is still installed, so the two never run on the same data. You'll need to sign in again once.</p>
+
+    <!-- ============================================================ -->
+    <h2 id="password">Forgot the password?</h2>
+<pre><code>reelyard reset-password                    # prompts for a new password
+echo 'new password' | reelyard reset-password --password-stdin</code></pre>
+
+    <!-- ============================================================ -->
+    <h2 id="api">API</h2>
+    <p>Everything the UI does goes through <code>/api/v1</code>. Scripts can use an API key from <strong>Settings → API keys</strong>, sent as the <code>X-Api-Key</code> header (<code>Authorization: Bearer hbr_...</code> works too):</p>
+<pre><code>curl -H "X-Api-Key: hbr_..." http://localhost:8787/api/v1/system</code></pre>
+    <p>The app API is described in OpenAPI at <code>/api/v1/openapi.yaml</code> on your own server. <code>/api/v1/health</code> reports the running version.</p>
+
+    <!-- ============================================================ -->
+    <h2 id="devices">Apps &amp; devices</h2>
+    <p>Reelyard's apps for TVs, phones and computers (<a href="https://github.com/Reelyard/clients">Reelyard/clients</a>) sign in with a pairing code instead of a password:</p>
+    <ol>
+      <li>The app calls <code>POST /api/v1/devices/pair</code> with <code>{"name": "Living room TV", "platform": "tizen"}</code> and shows the <code>code</code> it gets back (for example <code>K7Q-4MD</code>).</li>
+      <li>You enter that code under <strong>Settings → Devices</strong>.</li>
+      <li>The app, polling <code>POST /api/v1/devices/pair/token</code> with its <code>pollSecret</code>, gets its own token (<code>hbd_...</code>) and sends it as <code>Authorization: Bearer hbd_...</code>.</li>
+    </ol>
+    <p>Codes work for 10 minutes. <strong>Settings → Devices</strong> lists every device and signs any of them out.</p>
+    <h3 id="playback-api">Playback endpoints</h3>
+    <div class="table-scroll">
+    <table>
+      <thead><tr><th>Endpoint</th><th>Purpose</th></tr></thead>
+      <tbody>
+        <tr><td><code>GET /api/v1/home</code></td><td>Home screen: continue watching, next episode, recently added.</td></tr>
+        <tr><td><code>GET /api/v1/library/titles</code></td><td>The library by movie and series, with artwork served and cached by Reelyard.</td></tr>
+        <tr><td><code>GET /api/v1/library/titles/{imdbId}</code></td><td>A title's seasons, episodes and files.</td></tr>
+        <tr><td><code>POST /api/v1/library/{id}/play</code></td><td>A link to <code>/api/v1/play/{id}</code> that works for 8 hours without any header, plus WebVTT subtitle links, the resume point, and (if the app describes its player) whether the file will play.</td></tr>
+        <tr><td><code>PUT /api/v1/progress/{itemId}</code></td><td>Save where the user is.</td></tr>
+      </tbody>
+    </table>
+    </div>
+    <p>Apps on another origin (Samsung and LG TV apps) can call the API: it answers CORS requests that carry a token, never with cookies.</p>
+    <p>Apps find Reelyard on the local network by multicast DNS (service <code>_reelyard._tcp</code>). Set <code>announce: false</code> (or <code>REELYARD_ANNOUNCE=0</code>) to stop that. Reelyard doesn't announce itself when it only listens on this machine.</p>
+
+    <!-- ============================================================ -->
+    <h2 id="building">Building from source</h2>
+    <p>You need Go 1.25+ and Node 20+.</p>
+<pre><code>make web &amp;&amp; make build
+bin/reelyard serve</code></pre>
+    <p>Without <code>make</code> (for example on Windows): <code>cd web &amp;&amp; npm ci &amp;&amp; npm run build &amp;&amp; cd ..</code>, then <code>go build -o reelyard.exe ./cmd/reelyard</code> and <code>reelyard.exe serve</code>.</p>
+    <h3 id="development">Development</h3>
+<pre><code>go run ./cmd/reelyard serve      # API on :8787
+cd web &amp;&amp; npm run dev            # UI on :5173 with hot reload, /api proxied to :8787
+make test vet
+make ci                          # the CI checks locally
+make cross                       # all six OS/arch binaries into dist/</code></pre>
+    <p>Layout: <code>cmd/reelyard</code> (CLI), <code>internal/config</code>, <code>internal/store</code> (SQLite + migrations), <code>internal/auth</code>, <code>internal/api</code> (HTTP + embedded UI), <code>internal/app</code> (lifecycle), <code>web/</code> (React + Vite + Tailwind, embedded with <code>go:embed</code>).</p>
+
+    <!-- ============================================================ -->
+    <h2 id="help">Getting help</h2>
+    <p>Open an <a href="https://github.com/reelyard/server/issues/new/choose">issue on GitHub</a>: <strong>Something's wrong</strong> for bugs, <strong>Idea or feedback</strong> for the rest. Include the version from <code>http://&lt;your machine&gt;:8787/api/v1/health</code>.</p>
+    <div class="note"><p>Please don't post passwords, API keys, addon URLs that contain keys, or your list of titles. Trim log lines before pasting them.</p></div>
+    <!-- ============================================================ -->
+    <h2 id="legal">Legal notice</h2>
+    <p><strong>Reelyard does not condone piracy.</strong> We do not support or encourage downloading or sharing copyrighted material without the right holder's permission.</p>
+    <h3 id="legal-no-content">We host no content</h3>
+    <ul>
+      <li>Reelyard is software that you install and run on your own computer, NAS or Raspberry Pi. It is not a streaming service or a download site.</li>
+      <li>We do not host, store, upload, index, link to or distribute any movies, series or other media, legal or illegal. This website, our app stores, our Docker images, our releases and our repositories contain no media and no links to it.</li>
+      <li>Reelyard ships with no content sources. It only finds what the third-party addons (“suppliers”) <em>you</em> choose to add give it. We do not run, operate or endorse any addon, and we have no control over what they return.</li>
+      <li>Metadata such as titles, posters and episode lists comes from public catalogs and contains no media.</li>
+    </ul>
+    <h3 id="legal-your-responsibility">Your responsibility</h3>
+    <ul>
+      <li>You decide what Reelyard downloads and shares, and you alone are responsible for it.</li>
+      <li>Torrents share what you download with other people while they run. Downloading or sharing copyrighted material without permission is illegal in many countries.</li>
+      <li>Only download and share content you have the rights to: public-domain works, works under open licences, your own recordings, or content whose right holder allows it. Follow the laws of the country you live in.</li>
+    </ul>
+    <h3 id="legal-reports">Reports</h3>
+    <p>Because we host no media, there is nothing on our services to take down. If you believe something in this website, our repositories or our releases infringes your rights, <a href="https://github.com/reelyard/server/issues/new/choose">open an issue</a> and we will look at it promptly.</p>
+    <p>Reelyard is provided under the <a href="https://github.com/reelyard/server/blob/main/LICENSE">MIT licence</a>, “as is”, without warranty of any kind.</p>
+  </article>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>Reelyard · MIT licensed · formerly Harbor</span>
+    <span><a href="./">Home</a> · <a href="#legal">Legal</a> · <a href="https://github.com/reelyard/server">GitHub</a> · <a href="https://github.com/reelyard/server/issues/new/choose">Report a problem</a></span>
+  </div>
+</footer>
+
+<script src="site.js"></script>
+</body>
+</html>

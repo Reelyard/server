@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>Reelyard</Name>
+  <Repository>ghcr.io/reelyard/server:latest</Repository>
+  <Registry>https://github.com/reelyard/server/pkgs/container/server</Registry>
+  <Network>host</Network>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/reelyard/server/issues</Support>
+  <Project>https://github.com/reelyard/server</Project>
+  <Overview>Reelyard tracks the movies and TV series you want, finds releases through Stremio addons, downloads them with its built-in torrent engine and adds them to your library with Jellyfin/Plex names and subtitles. Its own DLNA server shows the library on your TVs, and it can ask Jellyfin, Emby or Plex to rescan when new files arrive. Host networking is needed for DLNA discovery. Only download content you have the rights to.</Overview>
+  <Category>MediaApp:Video Downloaders: MediaServer:Video</Category>
+  <WebUI>http://[IP]:[PORT:8787]/</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/reelyard/server/main/deploy/unraid/reelyard.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/reelyard/server/main/deploy/icon.png</Icon>
+  <ExtraParams/>
+  <PostArgs/>
+  <Config Name="Config" Target="/config" Default="/mnt/user/appdata/reelyard" Mode="rw" Description="Database, settings and logs." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/reelyard</Config>
+  <Config Name="Media" Target="/data" Default="/mnt/user/data/reelyard" Mode="rw" Description="Holds downloads/ and library/. Keep both on this one share so finished files are hardlinked instead of copied. Point Jellyfin or Plex at the library/ folder." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/data/reelyard</Config>
+  <Config Name="PUID" Target="PUID" Default="99" Mode="" Description="User id that owns downloaded files (99 = nobody on Unraid)." Type="Variable" Display="advanced" Required="true" Mask="false">99</Config>
+  <Config Name="PGID" Target="PGID" Default="100" Mode="" Description="Group id (100 = users on Unraid)." Type="Variable" Display="advanced" Required="true" Mask="false">100</Config>
+  <Config Name="UMASK" Target="UMASK" Default="000" Mode="" Description="Permissions for new files. 000 matches Unraid shares." Type="Variable" Display="advanced" Required="false" Mask="false">000</Config>
+  <Config Name="Time zone" Target="TZ" Default="" Mode="" Description="For example Europe/London. Empty uses UTC." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+  <Config Name="VPN interface" Target="REELYARD_BIND_INTERFACE" Default="" Mode="" Description="Optional: send torrent traffic only through this network interface (for example wg0). Torrents pause if it goes down." Type="Variable" Display="advanced" Required="false" Mask="false"/>
+</Container>

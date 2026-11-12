@@ -44,7 +44,10 @@ type Config struct {
 	// interface only (e.g. your VPN's "wg0" or "tun0"). If it goes down,
 	// torrents pause instead of using another connection.
 	BindInterface string `yaml:"bind_interface,omitempty"`
-	Log           Log    `yaml:"log"`
+	// Announce makes Reelyard findable by its apps on the local network
+	// (multicast DNS, service _reelyard._tcp).
+	Announce bool `yaml:"announce"`
+	Log      Log  `yaml:"log"`
 
 	// path is the file this config was read from ("" if none).
 	path string
@@ -89,6 +92,7 @@ func Defaults(system bool) Config {
 		DownloadDir: filepath.Join(data, "downloads"),
 		LibraryDir:  filepath.Join(data, "library"),
 		TorrentPort: 42069,
+		Announce:    true,
 		Log:         Log{Level: "info", Format: "text", File: true},
 	}
 }
@@ -219,6 +223,9 @@ func (c *Config) applyEnv() {
 	}
 	if v := Getenv("LOG_FILE"); v != "" {
 		c.Log.File = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
+	}
+	if v := Getenv("ANNOUNCE"); v != "" {
+		c.Announce = v == "1" || strings.EqualFold(v, "true") || strings.EqualFold(v, "yes")
 	}
 }
 

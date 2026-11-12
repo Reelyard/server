@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type DlnaState, type MediaServer, type MediaServerInput, type MediaServerKind } from "../api";
 import { ago } from "../format";
+import { TvPicker } from "./Viewers";
 
 type Msg = { ok: boolean; text: string } | null;
 
@@ -108,6 +109,7 @@ export function DlnaOptions() {
               </button>
             )}
           </fieldset>
+          <TvPicker value={s.tvs ?? []} onChange={(tvs) => set({ tvs })} idPrefix="dlna-main" />
           <label className="flex items-start gap-2 text-sm">
             <input id="dlna-transcode" type="checkbox" className="mt-1 accent-[var(--hb-deep)]" checked={s.transcode} disabled={!status?.ffmpeg && !s.transcode} onChange={(e) => set({ transcode: e.target.checked })} />
             <span>
@@ -115,6 +117,20 @@ export function DlnaOptions() {
               <span className="block text-xs text-muted">
                 {status?.ffmpeg ? "Uses ffmpeg and a lot of CPU while playing." : "Needs ffmpeg, which wasn't found on this computer."}
               </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm">
+            <input id="dlna-progress" type="checkbox" className="mt-1 accent-[var(--hb-deep)]" checked={s.trackProgress} onChange={(e) => set({ trackProgress: e.target.checked })} />
+            <span>
+              Share what's been watched and where to resume
+              <span className="block text-xs text-muted">TVs that support it see watched marks and resume points, and the places they stop at are saved to your account. Many TVs ignore this.</span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm">
+            <input id="dlna-mark" type="checkbox" className="mt-1 accent-[var(--hb-deep)]" checked={s.watchedMark} disabled={!s.trackProgress} onChange={(e) => set({ watchedMark: e.target.checked })} />
+            <span>
+              Put a ✓ before watched titles
+              <span className="block text-xs text-muted">Works on any TV, since it's part of the name.</span>
             </span>
           </label>
           {status?.running && status.addresses.length > 0 && (

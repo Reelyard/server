@@ -1,0 +1,533 @@
+openapi: 3.1.0
+info:
+  title: Reelyard API for apps
+  version: "1"
+  description: |
+    What Reelyard's apps (TVs, phones, computers) use: finding the server,
+    pairing, the library, playing, subtitles, artwork and resume points.
+    Served by Reelyard itself at /api/v1/openapi.yaml.
+
+    Apps sign in by pairing (see /devices/pair) and then send
+    `Authorization: Bearer hbd_…` on every request. Links Reelyard hands out
+    for players and images (play, subtitles, artwork) are signed and need
+    no header.
+
+    Apps find Reelyard on the local network with DNS-SD: service
+    `_reelyard._tcp`, TXT records `id`, `version` and `api` (the apiVersion).
+servers:
+  - url: /api/v1
+security:
+  - device: []
+tags:
+  - name: server
+  - name: devices
+  - name: library
+  - name: playback
+  - name: progress
+
+paths:
+  /health:
+    get:
+      tags: [server]
+      summary: Which server this is, and whether it is up
+      security: []
+      responses:
+        "200":
+          description: Up
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, version, apiVersion, id, name]
+                properties:
+                  status: { type: string, const: ok }
+                  version: { type: string, example: "0.2.0" }
+                  apiVersion: { type: integer, description: Goes up when apps must change, example: 1 }
+                  id: { type: string, description: Stays the same when the address changes, example: 3f9a1c0e5b7d2a46 }
+                  name: { type: string, example: Reelyard on nas }
+
+  /openapi.yaml:
+    get:
+      tags: [server]
+      summary: This document
+      security: []
+      responses:
+        "200":
+          description: OpenAPI 3.1
+          content:
+            application/yaml: {}
+
+  /devices/pair:
+    post:
+      tags: [devices]
+      summary: Start pairing; show the code to the person
+      description: |
+        The person enters `code` under Settings → Devices in Reelyard. Meanwhile
+        poll /devices/pair/token with `pollSecret` every `interval` seconds.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              additionalProperties: false
+              properties:
+                name: { type: string, maxLength: 64, example: Living room TV }
+                platform: { type: string, example: tizen, description: "tizen, webos, android, androidtv, ios, tvos, macos, windows, linux, web" }
+      responses:
+        "201":
+          description: Pairing started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code: { type: string, example: K7Q-4MD }
+                  pollSecret: { type: string, example: hbp_… }
+                  expiresIn: { type: integer, description: seconds, example: 600 }
+                  interval: { type: integer, description: seconds between polls, example: 3 }
+        "400": { $ref: "#/components/responses/Error" }
+        "429":
+          description: Too many pairings waiting; try after Retry-After seconds
+          headers:
+            Retry-After: { schema: { type: integer } }
+
+  /devices/pair/token:
+    post:
+      tags: [devices]
+      summary: Collect the device token once the pairing is approved
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pollSecret]
+              additionalProperties: false
+              properties:
+                pollSecret: { type: string }
+      responses:
+        "200":
+          description: Approved. The token is given once; keep it.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string, example: hbd_… }
+                  device: { $ref: "#/components/schemas/Device" }
+        "202":
+          description: Not approved yet; poll again after Retry-After seconds
+          headers:
+            Retry-After: { schema: { type: integer } }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /devices:
+    get:
+      tags: [devices]
+      summary: The user's devices, and pairings waiting for approval
+      responses:
+        "200":
+          description: Devices
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  devices: { type: array, items: { $ref: "#/components/schemas/Device" } }
+        "401": { $ref: "#/components/responses/Error" }
+
+  /devices/approve:
+    post:
+      tags: [devices]
+      summary: Approve a pairing code (what Settings → Devices does)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string, example: K7Q-4MD }
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  device: { $ref: "#/components/schemas/Device" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /devices/{id}:
+    delete:
+      tags: [devices]
+      summary: Sign a device out, or turn down a pairing
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Done }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /auth/me:
+    get:
+      tags: [devices]
+      summary: Who the token belongs to
+      responses:
+        "200":
+          description: The user
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    type: object
+                    properties:
+                      id: { type: integer }
+                      username: { type: string }
+        "401": { $ref: "#/components/responses/Error" }
+
+  /home:
+    get:
+      tags: [library]
+      summary: The home screen
+      description: |
+        `continueWatching`: films and episodes started but not finished, newest first.
+        `nextUp`: the next episode in the library after the last one watched, per series.
+        `recentlyAdded`: titles, newest import first. Each row has at most 20 entries.
+      responses:
+        "200":
+          description: Rows
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  continueWatching: { type: array, items: { $ref: "#/components/schemas/HomeItem" } }
+                  nextUp: { type: array, items: { $ref: "#/components/schemas/HomeItem" } }
+                  recentlyAdded: { type: array, items: { $ref: "#/components/schemas/Title" } }
+
+  /library/titles:
+    get:
+      tags: [library]
+      summary: Every movie and series with files in the library, newest import first
+      responses:
+        "200":
+          description: Titles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  titles: { type: array, items: { $ref: "#/components/schemas/Title" } }
+
+  /library/titles/{imdbId}:
+    get:
+      tags: [library]
+      summary: One title with its files, or its seasons and episodes
+      parameters:
+        - { name: imdbId, in: path, required: true, schema: { type: string, example: tt0903747 } }
+      responses:
+        "200":
+          description: The title
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  title: { $ref: "#/components/schemas/Title" }
+                  files:
+                    description: A film's files (empty for a series)
+                    type: array
+                    items: { $ref: "#/components/schemas/MediaFile" }
+                  progress:
+                    description: A film's progress (null for a series; see each episode)
+                    oneOf: [{ $ref: "#/components/schemas/Progress" }, { type: "null" }]
+                  seasons:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        season: { type: integer }
+                        episodes:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              season: { type: integer }
+                              episode: { type: integer }
+                              itemId: { type: string, example: "tt0903747:1:2" }
+                              name: { type: string }
+                              airDate: { type: string }
+                              files: { type: array, items: { $ref: "#/components/schemas/MediaFile" } }
+                              progress: { $ref: "#/components/schemas/Progress" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /library/{id}/play:
+    post:
+      tags: [playback]
+      summary: Get a link a player can open, with subtitles and where to resume
+      description: |
+        Say what the player can play and Reelyard answers whether this file
+        will: `playable` is true, false (with `problems`), or null when it
+        can't tell (the file hasn't been checked with ffprobe).
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer }, description: MediaFile id }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                supports:
+                  type: object
+                  description: ffprobe names; a list left out isn't checked
+                  additionalProperties: false
+                  properties:
+                    containers: { type: array, items: { type: string }, example: [mp4, webm] }
+                    videoCodecs: { type: array, items: { type: string }, example: [h264, vp9, av1] }
+                    audioCodecs: { type: array, items: { type: string }, example: [aac, opus, mp3] }
+      responses:
+        "200":
+          description: A link valid for 8 hours
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url: { type: string, example: "/api/v1/play/7?exp=1762900000&sig=…" }
+                  expiresAt: { type: string, format: date-time }
+                  contentType: { type: string, example: video/x-matroska }
+                  container: { type: string, example: mkv }
+                  playable: { type: [boolean, "null"] }
+                  problems: { type: array, items: { type: string } }
+                  subtitles:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer }
+                        lang: { type: string, example: pt-BR }
+                        name: { type: string, example: Portuguese (Brazil) }
+                        url: { type: string, description: WebVTT, signed like the play link }
+                  resume:
+                    description: Where the user stopped, or null
+                    oneOf: [{ $ref: "#/components/schemas/Progress" }, { type: "null" }]
+                  file: { $ref: "#/components/schemas/MediaFile" }
+        "404": { $ref: "#/components/responses/Error" }
+        "410": { $ref: "#/components/responses/Error" }
+
+  /play/{id}:
+    get:
+      tags: [playback]
+      summary: The video, with byte ranges
+      description: Open the signed `url` from /library/{id}/play, or send a token.
+      security: [{ device: [] }, { signedLink: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: exp, in: query, schema: { type: integer } }
+        - { name: sig, in: query, schema: { type: string } }
+        - { name: Range, in: header, schema: { type: string, example: bytes=0- } }
+      responses:
+        "200": { description: The whole file }
+        "206": { description: Part of the file }
+        "403": { $ref: "#/components/responses/Error" }
+        "410": { $ref: "#/components/responses/Error" }
+
+  /subtitles/{id}:
+    get:
+      tags: [playback]
+      summary: A subtitle as WebVTT
+      security: [{ device: [] }, { signedLink: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+        - { name: exp, in: query, schema: { type: integer } }
+        - { name: sig, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: WebVTT
+          content:
+            text/vtt: {}
+        "403": { $ref: "#/components/responses/Error" }
+
+  /art/{imdbId}/{kind}:
+    get:
+      tags: [library]
+      summary: Artwork, through Reelyard
+      description: Use the signed links in a title's `art`. 404 when the title has no such image.
+      security: [{ signedLink: [] }]
+      parameters:
+        - { name: imdbId, in: path, required: true, schema: { type: string } }
+        - { name: kind, in: path, required: true, schema: { type: string, enum: [poster, background, logo] } }
+        - { name: sig, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: The image
+          content:
+            image/*: {}
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+
+  /progress:
+    get:
+      tags: [progress]
+      summary: The user's resume points and watched marks, newest first
+      parameters:
+        - { name: title, in: query, schema: { type: string, example: tt0903747 }, description: Only this film or series }
+      responses:
+        "200":
+          description: Progress
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  progress: { type: array, items: { $ref: "#/components/schemas/Progress" } }
+
+  /progress/{itemId}:
+    put:
+      tags: [progress]
+      summary: Save where the user is (send every 10–30 s while playing, and on stop)
+      description: |
+        Past 90% of the duration counts as watched; a watched item resumes
+        from the start. `watched` sets the mark by hand.
+      parameters:
+        - { name: itemId, in: path, required: true, schema: { type: string, example: "tt0903747:1:2" } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                fileId: { type: integer }
+                positionSec: { type: integer, minimum: 0 }
+                durationSec: { type: integer, minimum: 0, description: Defaults to the file's duration }
+                watched: { type: boolean }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  progress: { $ref: "#/components/schemas/Progress" }
+        "400": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [progress]
+      summary: Forget the position and watched mark
+      parameters:
+        - { name: itemId, in: path, required: true, schema: { type: string } }
+      responses:
+        "204": { description: Done }
+
+components:
+  securitySchemes:
+    device:
+      type: http
+      scheme: bearer
+      description: A device token (hbd_…) from pairing, or an API key (hbr_…)
+    signedLink:
+      type: apiKey
+      in: query
+      name: sig
+      description: Signed links Reelyard hands out
+
+  responses:
+    Error:
+      description: Something went wrong; `error` says what, in words for people
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string }
+
+  schemas:
+    Device:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        platform: { type: string }
+        createdAt: { type: string, format: date-time }
+        approvedAt: { type: string, format: date-time }
+        lastUsedAt: { type: string, format: date-time }
+        lastIp: { type: string }
+        paired: { type: boolean, description: True once the device has its token }
+
+    Title:
+      type: object
+      properties:
+        imdbId: { type: string, example: tt0903747 }
+        type: { type: string, enum: [movie, series] }
+        name: { type: string }
+        year: { type: integer }
+        poster: { type: string, description: The poster at its source; prefer art.poster }
+        art:
+          type: object
+          description: Signed links to artwork through Reelyard
+          properties:
+            poster: { type: string }
+            background: { type: string }
+            logo: { type: string }
+        tracked: { type: boolean }
+        files: { type: integer }
+        episodes: { type: integer }
+        seasons: { type: array, items: { type: integer } }
+        lastImportedAt: { type: string, format: date-time }
+
+    MediaFile:
+      type: object
+      properties:
+        id: { type: integer }
+        titleType: { type: string, enum: [movie, series] }
+        titleId: { type: string, example: "tt0903747:1:2" }
+        titleName: { type: string }
+        path: { type: string }
+        size: { type: integer }
+        resolution: { type: string, example: 1080p }
+        videoCodec: { type: string, example: h264 }
+        audioCodecs: { type: [array, "null"], items: { type: string }, description: Null until checked with ffprobe }
+        durationSec: { type: integer }
+        audioLangs: { type: array, items: { type: string } }
+        embeddedSubs: { type: array, items: { type: string } }
+        importedAt: { type: string, format: date-time }
+        subtitles:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              lang: { type: string }
+
+    Progress:
+      type: object
+      properties:
+        itemId: { type: string, example: "tt0903747:1:2" }
+        fileId: { type: integer }
+        positionSec: { type: integer }
+        durationSec: { type: integer }
+        watched: { type: boolean }
+        updatedAt: { type: string, format: date-time }
+
+    HomeItem:
+      type: object
+      properties:
+        title: { $ref: "#/components/schemas/Title" }
+        itemId: { type: string }
+        season: { type: integer }
+        episode: { type: integer }
+        name: { type: string, description: The episode's name, when known }
+        file: { $ref: "#/components/schemas/MediaFile" }
+        progress: { $ref: "#/components/schemas/Progress" }

@@ -1,0 +1,105 @@
+name: Raspberry Pi image
+
+# Builds ready-to-flash Raspberry Pi 4 / Pi 5 images (Debian Trixie, 64-bit)
+# with Reelyard preinstalled, using Raspberry Pi's rpi-image-gen on an arm64
+# runner.
+#   - after the Release workflow: uses the release's arm64 .deb and attaches
+#     reelyard-pi4.img.xz / reelyard-pi5.img.xz to that (draft) release;
+#   - on PRs touching deploy/rpi: builds from a snapshot .deb (check only);
+#   - by hand: from a release tag, or a snapshot when none is given.
+
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+  pull_request:
+    paths: ["deploy/rpi/**", ".github/workflows/rpi-image.yml"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to build from (empty: snapshot of this branch)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write # upload images to the release
+
+env:
+  RPI_IMAGE_GEN_REF: master
+
+jobs:
+  image:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        board: [pi4, pi5]
+    env:
+      TAG: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_branch || inputs.tag }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
+          fetch-depth: 0
+
+      - name: Get the release .deb
+        if: env.TAG != ''
+        run: |
+          gh release download "$TAG" --pattern 'reelyard_*_arm64.deb' --dir /tmp/deb
+          cp /tmp/deb/reelyard_*_arm64.deb deploy/rpi/pkgs/reelyard.deb
+
+      - uses: actions/setup-node@v4
+        if: env.TAG == ''
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - uses: actions/setup-go@v5
+        if: env.TAG == ''
+        with:
+          go-version-file: go.mod
+      - name: Build a snapshot .deb
+        if: env.TAG == ''
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --snapshot --clean --skip=docker
+      - name: Use the snapshot .deb
+        if: env.TAG == ''
+        run: cp dist/reelyard_*_arm64.deb deploy/rpi/pkgs/reelyard.deb
+
+      - name: Install rpi-image-gen
+        run: |
+          sudo apt-get update
+          sudo chmod o+x /home/runner
+          git clone --depth 1 --branch "$RPI_IMAGE_GEN_REF" https://github.com/raspberrypi/rpi-image-gen.git /tmp/rpi-image-gen
+          cd /tmp/rpi-image-gen && sudo ./install_deps.sh
+
+      - name: Build the image
+        working-directory: /tmp/rpi-image-gen
+        run: ./rpi-image-gen build -S "$GITHUB_WORKSPACE/deploy/rpi" -c "$GITHUB_WORKSPACE/deploy/rpi/config/reelyard-${{ matrix.board }}.yaml"
+
+      - name: Compress
+        run: |
+          # rpi-image-gen writes it to work/image-<name>/<name>.img. (Don't
+          # search all of work/: the root-owned chroot makes find fail.)
+          img=/tmp/rpi-image-gen/work/image-reelyard-${{ matrix.board }}/reelyard-${{ matrix.board }}.img
+          test -f "$img" || { echo "image not found"; ls -l /tmp/rpi-image-gen/work/image-* || true; exit 1; }
+          mkdir -p out
+          xz -T0 -6 -c "$img" > "out/reelyard-${{ matrix.board }}.img.xz"
+          (cd out && sha256sum "reelyard-${{ matrix.board }}.img.xz" > "reelyard-${{ matrix.board }}.img.xz.sha256")
+          ls -lh out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reelyard-${{ matrix.board }}-image
+          path: out/*
+          retention-days: 7
+
+      - name: Attach to the release
+        if: env.TAG != ''
+        run: gh release upload "$TAG" out/* --clobber

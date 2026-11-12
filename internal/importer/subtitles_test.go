@@ -45,3 +45,18 @@ func TestPick(t *testing.T) {
 		t.Fatalf("normalizeLangs = %v", got)
 	}
 }
+
+func TestToVTT(t *testing.T) {
+	in := "\xef\xbb\xbf1\r\n00:00:01,000 --> 00:00:02,500\r\nHello\r\n<i>there</i>\r\n\r\n2\r\n00:01:02,003 --> 00:01:03,000\r\nA --> B\r\n"
+	got, err := ToVTT([]byte(in))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "WEBVTT\n\n00:00:01.000 --> 00:00:02.500\nHello\n<i>there</i>\n\n00:01:02.003 --> 00:01:03.000\nA -> B\n\n"
+	if string(got) != want {
+		t.Fatalf("got %q\nwant %q", got, want)
+	}
+	if _, err := ToVTT([]byte("not a subtitle")); err == nil {
+		t.Fatal("junk accepted")
+	}
+}

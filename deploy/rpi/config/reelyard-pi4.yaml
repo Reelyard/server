@@ -1,0 +1,16 @@
+# Reelyard appliance image for Raspberry Pi 4 (64-bit, Debian Trixie).
+# Built by .github/workflows/rpi-image.yml:
+#   rpi-image-gen build -S deploy/rpi -c config/reelyard-pi4.yaml
+include:
+  file: trixie-minbase.yaml
+
+device:
+  layer: rpi4
+  hostname: reelyard
+
+image:
+  layer: image-rpios
+  name: reelyard-pi4
+
+layer:
+  app: reelyard

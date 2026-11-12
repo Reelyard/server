@@ -155,3 +155,32 @@ func normalizeLangs(in []string) []string {
 	}
 	return out
 }
+
+// ToVTT returns a subtitle (SRT or WebVTT, any encoding ToSRT reads) as
+// WebVTT, the only format HTML video and TV web players take.
+func ToVTT(b []byte) ([]byte, error) {
+	srt, err := ToSRT(b)
+	if err != nil {
+		return nil, err
+	}
+	var out strings.Builder
+	out.WriteString("WEBVTT\n\n")
+	for _, block := range strings.Split(strings.TrimRight(string(srt), "\n"), "\n\n") {
+		lines := strings.Split(block, "\n")
+		if len(lines) < 2 {
+			continue
+		}
+		// Drop the cue number; "00:00:01,000" becomes "00:00:01.000".
+		out.WriteString(strings.ReplaceAll(lines[1], ",", "."))
+		out.WriteByte('\n')
+		for _, l := range lines[2:] {
+			if l == "" {
+				continue // a blank line would end the cue early
+			}
+			out.WriteString(strings.ReplaceAll(l, "-->", "->"))
+			out.WriteByte('\n')
+		}
+		out.WriteByte('\n')
+	}
+	return []byte(out.String()), nil
+}

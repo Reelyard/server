@@ -2,6 +2,9 @@
 package api
 
 import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -9,6 +12,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"runtime"
 	"runtime/debug"
 	"strconv"
@@ -53,6 +57,41 @@ type Server struct {
 
 	closeOnce sync.Once
 	closing   chan struct{}
+	links     *auth.StreamSigner
+	id        string
+}
+
+// APIVersion goes up when the API changes in a way apps must know about.
+const APIVersion = 1
+
+// ID identifies this Reelyard install, so an app knows it is the same
+// server when its address changes. Valid after Handler.
+func (s *Server) ID() string { return s.id }
+
+// Name is what apps show for this server.
+func (s *Server) Name() string {
+	h, err := os.Hostname()
+	if err != nil || h == "" {
+		return "Reelyard"
+	}
+	if i := strings.IndexByte(h, '.'); i > 0 {
+		h = h[:i]
+	}
+	return "Reelyard on " + h
+}
+
+const serverIDKey = "server_id"
+
+func (s *Server) loadID(ctx context.Context) {
+	if err := s.Store.GetSetting(ctx, serverIDKey, &s.id); err == nil && s.id != "" {
+		return
+	}
+	b := make([]byte, 8)
+	_, _ = rand.Read(b)
+	s.id = hex.EncodeToString(b)
+	if err := s.Store.SetSetting(ctx, serverIDKey, s.id); err != nil {
+		s.Log.Error("save server id", "err", err)
+	}
 }
 
 // Shutdown ends long-lived responses (the live event stream) so a graceful
@@ -69,6 +108,14 @@ func (s *Server) Handler() http.Handler {
 	}
 	s.started = time.Now()
 	s.closing = make(chan struct{})
+	signer, err := auth.NewStreamSigner(context.Background(), s.Store)
+	if err != nil {
+		// Signed links then fail closed: every check rejects them.
+		s.Log.Error("stream links unavailable", "err", err)
+		signer = &auth.StreamSigner{}
+	}
+	s.links = signer
+	s.loadID(context.Background())
 
 	mux := http.NewServeMux()
 	// Public.
@@ -90,6 +137,8 @@ func (s *Server) Handler() http.Handler {
 	s.routesTracking(mux)
 	s.routesPlayback(mux)
 	s.routesOnboarding(mux)
+	s.routesClients(mux)
+	s.routesViewers(mux)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "no such API endpoint")
 	})
@@ -97,12 +146,25 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("/", uiHandler(s.UI))
 
 	// Blocks cross-site POST/PUT/DELETE from browsers (CSRF); requests
-	// without browser fetch metadata (curl, scripts) pass.
+	// without browser fetch metadata (curl, scripts) pass. Requests that carry
+	// their own credential in a header (apps, scripts) can't be forged by
+	// another site, so they skip it, and so do the cookie-free pairing calls.
 	cop := http.NewCrossOriginProtection()
+	for _, p := range pairingRoutes {
+		cop.AddInsecureBypassPattern(p)
+	}
 	cop.SetDenyHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusForbidden, "cross-origin request blocked")
 	}))
-	return s.recoverer(s.logRequests(securityHeaders(cop.Handler(mux))))
+	protected := cop.Handler(mux)
+	csrf := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if auth.HeaderCredentials(r) {
+			mux.ServeHTTP(w, r)
+			return
+		}
+		protected.ServeHTTP(w, r)
+	})
+	return s.recoverer(s.logRequests(securityHeaders(cors(csrf))))
 }
 
 // ---- middleware ----
@@ -219,7 +281,9 @@ func remoteIP(r *http.Request) string {
 // ---- handlers ----
 
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "version": version.Version})
+	writeJSON(w, http.StatusOK, map[string]any{
+		"status": "ok", "version": version.Version, "apiVersion": APIVersion, "id": s.id, "name": s.Name(),
+	})
 }
 
 func (s *Server) setupStatus(w http.ResponseWriter, r *http.Request) {

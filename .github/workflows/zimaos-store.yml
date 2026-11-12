@@ -1,0 +1,96 @@
+name: ZimaOS store
+
+# Builds the ZimaOS/CasaOS app store in deploy/zimaos with ZimaOS's own build
+# action and publishes it to GitHub Pages (gh-pages branch), in two channels:
+#
+#   stable  https://reelyard.github.io/server/zimaos/
+#           on release tags (v0.1.0); the app pins that release's image.
+#   beta    https://reelyard.github.io/server/zimaos-beta/
+#           on beta tags (v0.1.0-beta.N); the app follows the moving
+#           ghcr.io/reelyard/server:beta image, so it is a separate app
+#           ("Reelyard (beta)") that never replaces a stable install.
+#
+# Pull requests build both without publishing. Run the workflow by hand
+# (Actions → ZimaOS store → Run workflow) to publish one channel now.
+
+on:
+  pull_request:
+    paths: ["deploy/zimaos/**", ".github/workflows/zimaos-store.yml"]
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Store to publish
+        type: choice
+        options: [beta, stable]
+        default: beta
+
+permissions:
+  contents: write # publish to the gh-pages branch
+
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+
+jobs:
+  store:
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [stable, beta]
+    runs-on: ubuntu-latest
+    env:
+      DIR: ${{ matrix.channel == 'beta' && 'zimaos-beta' || 'zimaos' }}
+      # Publish this channel? A tag publishes the channel it belongs to
+      # (betas have a "-" in the tag); a manual run publishes the one chosen.
+      PUBLISH: >-
+        ${{ (github.event_name == 'push' && (matrix.channel == 'beta') == contains(github.ref_name, '-'))
+         || (github.event_name == 'workflow_dispatch' && inputs.channel == matrix.channel) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare ${{ matrix.channel }} source
+        run: |
+          mkdir -p work
+          cp -r deploy/zimaos work/src
+          if [ "${{ matrix.channel }}" = beta ]; then
+            app=work/src/Apps/Reelyard/docker-compose.yml
+            sed -i -E \
+              -e 's#image: ghcr.io/reelyard/server:.*#image: ghcr.io/reelyard/server:beta#' \
+              -e 's#^  id: io.github.reelyard.server$#  id: io.github.reelyard.server.beta#' \
+              -e '/^  title:/{n;s#en_US: Reelyard$#en_US: Reelyard (beta)#}' \
+              -e 's#^    en_US: First release.$#    en_US: "Beta build, following the ghcr.io/reelyard/server:beta image."#' \
+              "$app"
+            sed -i -E \
+              -e 's#"store_id": "reelyard"#"store_id": "reelyard-beta"#' \
+              -e 's#"en_US": "Reelyard"#"en_US": "Reelyard (beta)"#' \
+              work/src/store-config.json
+            grep -q 'server:beta' "$app"
+            grep -q 'reelyard.server.beta' "$app"
+            grep -q 'Reelyard (beta)' "$app"
+            grep -q 'reelyard-beta' work/src/store-config.json
+          fi
+      - name: Build store
+        uses: IceWhaleTech/build-appstore-action@v1
+        with:
+          source: work/src
+          output: dist
+          base-url: https://reelyard.github.io/server/${{ env.DIR }}
+          report-json: out/report.json
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zimaos-store-${{ matrix.channel }}
+          path: |
+            dist
+            out/report.json
+          if-no-files-found: warn
+      - name: Publish to GitHub Pages
+        if: env.PUBLISH == 'true'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./dist
+          destination_dir: ${{ env.DIR }}
+          keep_files: true

@@ -2,6 +2,16 @@
 
 export type User = { id: number; username: string; createdAt: string };
 export type APIKey = { id: number; name: string; prefix: string; createdAt: string; lastUsedAt?: string };
+export type Device = {
+  id: number;
+  name: string;
+  platform?: string;
+  createdAt: string;
+  approvedAt?: string;
+  lastUsedAt?: string;
+  lastIp?: string;
+  paired: boolean;
+};
 export type SystemInfo = {
   version: string;
   commit: string;
@@ -242,8 +252,12 @@ export class ApiError extends Error {
   }
 }
 
-export type DlnaSettings = { enabled: boolean; name: string; port: number; interfaces: string[]; transcode: boolean };
-export type DlnaStatus = { running: boolean; addresses: string[]; error?: string; ffmpeg: boolean; ffprobe: boolean };
+export type DlnaSettings = { enabled: boolean; name: string; port: number; interfaces: string[]; transcode: boolean; trackProgress: boolean; watchedMark: boolean; tvs: string[] };
+export type DlnaServer = { name: string; port: number; viewerId?: number; running: boolean; error?: string };
+export type DlnaStatus = { running: boolean; addresses: string[]; error?: string; ffmpeg: boolean; ffprobe: boolean; servers: DlnaServer[] };
+export type TV = { address: string; name?: string; model: string; lastSeen: string };
+export type Viewer = { id: number; name: string; slot: number; allTitles: boolean; titles: string[]; dlna: boolean; tvs: string[]; createdAt: string };
+export type ViewerInput = { name: string; allTitles: boolean; titles: string[]; dlna: boolean; tvs: string[] };
 export type NetInterface = { name: string; addrs: string[]; virtual: boolean };
 export type DlnaState = { settings: DlnaSettings; status: DlnaStatus; interfaces: NetInterface[] };
 export type MediaServerKind = "jellyfin" | "emby" | "plex";
@@ -307,6 +321,9 @@ export const api = {
   listKeys: () => request<{ keys: APIKey[] }>("GET", "/auth/keys").then((r) => r.keys),
   createKey: (name: string) => request<{ key: APIKey; secret: string }>("POST", "/auth/keys", { name }),
   deleteKey: (id: number) => request<void>("DELETE", `/auth/keys/${id}`),
+  devices: () => request<{ devices: Device[] }>("GET", "/devices").then((r) => r.devices),
+  approveDevice: (code: string) => request<{ device: Device }>("POST", "/devices/approve", { code }).then((r) => r.device),
+  removeDevice: (id: number) => request<void>("DELETE", `/devices/${id}`),
   system: () => request<SystemInfo>("GET", "/system"),
 
   suppliers: () => request<{ suppliers: Supplier[] }>("GET", "/suppliers").then((r) => r.suppliers),
@@ -334,6 +351,12 @@ export const api = {
   finishOnboarding: () => request<void>("POST", "/onboarding/done"),
   dlna: () => request<DlnaState>("GET", "/settings/dlna"),
   saveDlna: (s: DlnaSettings) => request<DlnaState>("PUT", "/settings/dlna", s),
+  tvs: () => request<TV[]>("GET", "/dlna/tvs"),
+  nameTV: (address: string, name: string) => request<TV[]>("PUT", `/dlna/tvs/${encodeURIComponent(address)}`, { name }),
+  forgetTV: (address: string) => request<void>("DELETE", `/dlna/tvs/${encodeURIComponent(address)}`),
+  viewers: () => request<Viewer[]>("GET", "/viewers"),
+  saveViewer: (v: ViewerInput, id?: number) => request<Viewer>(id ? "PUT" : "POST", id ? `/viewers/${id}` : "/viewers", v),
+  deleteViewer: (id: number) => request<void>("DELETE", `/viewers/${id}`),
   mediaServers: () => request<MediaServer[]>("GET", "/mediaservers"),
   saveMediaServer: (m: MediaServerInput) =>
     m.id ? request<MediaServer>("PUT", `/mediaservers/${m.id}`, m) : request<MediaServer>("POST", "/mediaservers", m),

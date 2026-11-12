@@ -9,11 +9,13 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/reelyard/server/internal/api"
 	"github.com/reelyard/server/internal/auth"
 	"github.com/reelyard/server/internal/config"
+	"github.com/reelyard/server/internal/discovery"
 	"github.com/reelyard/server/internal/dlna"
 	"github.com/reelyard/server/internal/engine"
 	"github.com/reelyard/server/internal/events"
@@ -44,6 +46,7 @@ type App struct {
 	store  *store.Store
 	engine *engine.Engine
 	dlna   *dlna.Server
+	mdns   *discovery.Responder
 	http   *http.Server
 	cancel context.CancelFunc
 	done   chan struct{}
@@ -137,6 +140,7 @@ func (a *App) Start(ctx context.Context) error {
 		}
 	}()
 	a.dlna.Start()
+	a.announce(srv)
 	go a.housekeeping(runCtx)
 	go imp.Run(runCtx)
 	go trk.Run(runCtx)
@@ -161,6 +165,9 @@ func (a *App) Stop(timeout time.Duration) error {
 		err = a.http.Shutdown(ctx)
 		<-a.done
 	}
+	if a.mdns != nil {
+		a.mdns.Close()
+	}
 	if a.dlna != nil {
 		a.dlna.Close()
 	}
@@ -178,6 +185,27 @@ func (a *App) Stop(timeout time.Duration) error {
 	return err
 }
 
+// announce makes Reelyard findable by its apps on the local network, unless
+// it is turned off or only listens on this machine.
+func (a *App) announce(srv *api.Server) {
+	tcp, ok := a.addr.(*net.TCPAddr)
+	if !a.Config.Announce || !ok || tcp.IP.IsLoopback() {
+		return
+	}
+	id := srv.ID()
+	r, err := discovery.Start(discovery.Options{
+		Instance: srv.Name(), Host: "reelyard-" + id[:min(8, len(id))], Port: tcp.Port,
+		TXT:              []string{"id=" + id, "version=" + version.Version, "api=" + strconv.Itoa(api.APIVersion)},
+		ExcludeInterface: a.Config.BindInterface, Log: a.Log,
+	})
+	if err != nil {
+		a.Log.Warn("can't announce on the local network; apps will need the address", "err", err)
+		return
+	}
+	a.mdns = r
+	a.Log.Info("announced on the local network", "service", discovery.ServiceType, "name", srv.Name())
+}
+
 // housekeeping runs periodic cleanup until ctx ends.
 func (a *App) housekeeping(ctx context.Context) {
 	t := time.NewTicker(time.Hour)
@@ -187,6 +215,11 @@ func (a *App) housekeeping(ctx context.Context) {
 			a.Log.Warn("prune sessions", "err", err)
 		} else if n > 0 {
 			a.Log.Debug("pruned expired sessions", "count", n)
+		}
+		if n, err := a.store.PruneDevices(ctx); err != nil && ctx.Err() == nil {
+			a.Log.Warn("prune device pairings", "err", err)
+		} else if n > 0 {
+			a.Log.Debug("pruned expired device pairings", "count", n)
 		}
 		select {
 		case <-ctx.Done():

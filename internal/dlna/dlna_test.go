@@ -3,6 +3,7 @@ package dlna
 import (
 	"io"
 	"log/slog"
+	"mime"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -153,5 +154,18 @@ func TestIconFallback(t *testing.T) {
 	}
 	if n := len(deviceIcons()); n != 4 {
 		t.Fatalf("%d device icons", n)
+	}
+}
+
+// dms opens files with filepath.Join'd paths (backslashes on Windows).
+func TestLibraryFS(t *testing.T) {
+	root := library(t, "Movies/A (2001)/A (2001).mkv")
+	f, err := libraryFS(root.Name()).Open(filepath.Join("Movies", "A (2001)", "A (2001).mkv"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	if typ := mime.TypeByExtension(".mkv"); typ != "video/x-matroska" {
+		t.Fatalf(".mkv is %q", typ)
 	}
 }
