@@ -1,0 +1,33 @@
+name: Website
+
+# Publishes the product page and docs in site/ to GitHub Pages (gh-pages
+# branch, root folder) when they change on main. keep_files leaves the
+# ZimaOS store in zimaos/ alone.
+#
+#   https://reelyard.github.io/server/          product page
+#   https://reelyard.github.io/server/docs.html  documentation
+
+on:
+  push:
+    branches: [main]
+    paths: ["site/**", ".github/workflows/site.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write # publish to the gh-pages branch
+
+concurrency:
+  group: gh-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./site
+          keep_files: true
