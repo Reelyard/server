@@ -21,6 +21,7 @@ import (
 
 	"github.com/reelyard/server/internal/auth"
 	"github.com/reelyard/server/internal/store"
+	"github.com/reelyard/server/internal/stremio"
 )
 
 // addonKeysSetting holds each person's addon key, by user id.
@@ -40,6 +41,7 @@ func (s *Server) routesAddon(mux *http.ServeMux) {
 
 	mux.HandleFunc("GET /addon/{key}/manifest.json", s.addon(s.addonManifest))
 	mux.HandleFunc("GET /addon/{key}/catalog/{type}/{rest...}", s.addon(s.addonCatalog))
+	mux.HandleFunc("GET /addon/{key}/meta/{type}/{id}", s.addon(s.addonMeta))
 	mux.HandleFunc("GET /addon/{key}/stream/{type}/{id}", s.addon(s.addonStreams))
 	mux.HandleFunc("OPTIONS /addon/{key}/{rest...}", func(w http.ResponseWriter, r *http.Request) {
 		addonHeaders(w)
@@ -245,10 +247,12 @@ func (s *Server) addonManifest(w http.ResponseWriter, r *http.Request, v *addonV
 		"version":     "1.0.0",
 		"name":        name,
 		"description": "Films and series in your Reelyard library, played from your server.",
-		"resources":   []any{"catalog", map[string]any{"name": "stream", "types": []string{"movie", "series"}, "idPrefixes": []string{"tt"}}},
-		"types":       []string{"movie", "series"},
-		"idPrefixes":  []string{"tt"},
-		"catalogs":    catalogs,
+		"resources": []any{"catalog",
+			map[string]any{"name": "meta", "types": []string{"movie", "series"}, "idPrefixes": []string{"tt"}},
+			map[string]any{"name": "stream", "types": []string{"movie", "series"}, "idPrefixes": []string{"tt"}}},
+		"types":      []string{"movie", "series"},
+		"idPrefixes": []string{"tt"},
+		"catalogs":   catalogs,
 		"behaviorHints": map[string]any{
 			"configurable": false,
 		},
@@ -322,6 +326,100 @@ func (s *Server) addonCatalog(w http.ResponseWriter, r *http.Request, v *addonVi
 		metas = metas[skip:min(len(metas), skip+addonPage)]
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"metas": metas})
+}
+
+// addonMeta describes a title in the library: Cinemeta's details when it
+// answers (else what the library knows), with a series' episodes cut down
+// to the ones there are files for and the viewer may see. Apps like Nuvio
+// want the addon that listed a title to describe it too.
+func (s *Server) addonMeta(w http.ResponseWriter, r *http.Request, v *addonViewer) {
+	typ := r.PathValue("type")
+	imdb := strings.TrimSuffix(r.PathValue("id"), ".json")
+	if !strings.HasPrefix(imdb, "tt") || strings.Contains(imdb, ":") || (typ != "movie" && typ != "series") {
+		writeJSON(w, http.StatusOK, map[string]any{"meta": nil})
+		return
+	}
+	files, err := s.Store.ListMediaFiles(r.Context(), imdb)
+	if err != nil {
+		s.internal(w, "list library", err)
+		return
+	}
+	have := map[string]bool{} // item ids with files the viewer may see
+	name := ""
+	for _, f := range files {
+		if v.allowed(f.TitleID) {
+			have[f.TitleID] = true
+			name = f.TitleName
+		}
+	}
+	if len(have) == 0 {
+		writeJSON(w, http.StatusOK, map[string]any{"meta": nil})
+		return
+	}
+	base := baseURL(r)
+	art := s.artURLs(imdb)
+	out := map[string]any{
+		"id": imdb, "type": typ, "name": name, "posterShape": "poster",
+		"poster": base + art["poster"], "background": base + art["background"], "logo": base + art["logo"],
+	}
+	var videos []stremio.Video
+	if s.Meta != nil {
+		if m, err := s.Meta.Meta(r.Context(), typ, imdb); err == nil {
+			out["name"], out["description"], out["releaseInfo"], out["runtime"] = m.Name, m.Description, m.ReleaseInfo, m.Runtime
+			out["genres"], out["imdbRating"], out["released"] = m.Genres, m.IMDbRating, m.Released
+			if m.Poster != "" {
+				out["poster"] = m.Poster
+			}
+			if m.Background != "" {
+				out["background"] = m.Background
+			}
+			if m.Logo != "" {
+				out["logo"] = m.Logo
+			}
+			videos = m.Videos
+		} else {
+			s.Log.Debug("addon meta: no cinemeta details", "id", imdb, "err", err)
+		}
+	}
+	if typ == "series" {
+		list := []map[string]any{}
+		listed := map[string]bool{}
+		for _, vid := range videos {
+			id := imdb + ":" + strconv.Itoa(vid.Season) + ":" + strconv.Itoa(vid.Episode)
+			if !have[id] || listed[id] {
+				continue
+			}
+			listed[id] = true
+			e := map[string]any{"id": id, "season": vid.Season, "episode": vid.Episode, "title": vid.Title}
+			if vid.Overview != "" {
+				e["overview"] = vid.Overview
+			}
+			if vid.Thumbnail != "" {
+				e["thumbnail"] = vid.Thumbnail
+			}
+			if !vid.Released.IsZero() {
+				e["released"] = vid.Released
+			}
+			list = append(list, e)
+		}
+		// Episodes Cinemeta doesn't know (or when it didn't answer).
+		for id := range have {
+			_, se, ep, ok := splitItemID(id)
+			if !ok || listed[id] {
+				continue
+			}
+			list = append(list, map[string]any{"id": id, "season": se, "episode": ep, "title": "Episode " + strconv.Itoa(ep)})
+		}
+		sort.Slice(list, func(i, j int) bool {
+			a, b := list[i], list[j]
+			if a["season"].(int) != b["season"].(int) {
+				return a["season"].(int) < b["season"].(int)
+			}
+			return a["episode"].(int) < b["episode"].(int)
+		})
+		out["videos"] = list
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"meta": out})
 }
 
 func (s *Server) addonStreams(w http.ResponseWriter, r *http.Request, v *addonViewer) {

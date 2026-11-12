@@ -3,13 +3,17 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
 
+	"github.com/reelyard/server/internal/metadata"
 	"github.com/reelyard/server/internal/store"
+	"github.com/reelyard/server/internal/stremio"
 )
 
 func addonGet(t *testing.T, url string) (int, map[string]any) {
@@ -129,3 +133,68 @@ func TestAddon(t *testing.T) {
 }
 
 func i64(n int64) string { return strconv.FormatInt(n, 10) }
+
+func TestAddonMeta(t *testing.T) {
+	cinemeta := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/meta/series/tt0000002.json" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Write([]byte(`{"meta":{"id":"tt0000002","type":"series","name":"Some Series","description":"About it","poster":"https://img.test/p.jpg",
+			"videos":[{"id":"tt0000002:1:1","season":1,"episode":1,"name":"Pilot"},{"id":"tt0000002:1:2","season":1,"episode":2,"name":"Second"}]}}`))
+	}))
+	defer cinemeta.Close()
+	e := newClientsServer(t, func(s *Server) {
+		s.Meta = metadata.New(stremio.New("test"))
+		s.Meta.Base = cinemeta.URL
+	})
+	ctx := context.Background()
+	e.addFile("movie", "tt0063350", "Night of the Living Dead", "Films/notld.mkv", 100)
+	e.addFile("series", "tt0000002:1:1", "Some Series", "Series/s01e01.mp4", 100)
+	e.addFile("series", "tt0000002:2:5", "Some Series", "Series/s02e05.mp4", 100)
+	kid := &store.Viewer{Name: "Kid", Titles: []string{"tt0000002"}}
+	if err := e.st.CreateViewer(ctx, kid); err != nil {
+		t.Fatal(err)
+	}
+	_, body := e.do("GET", "/api/v1/addon", "")
+	me := int64(body["links"].([]any)[0].(map[string]any)["userId"].(float64))
+	_, body = e.do("POST", "/api/v1/addon/"+i64(me), "")
+	owner := strings.TrimSuffix(body["url"].(string), "/manifest.json")
+	_, body = e.do("POST", "/api/v1/addon/"+i64(kid.ID), "")
+	kidBase := strings.TrimSuffix(body["url"].(string), "/manifest.json")
+
+	_, m := addonGet(t, owner+"/manifest.json")
+	if !strings.Contains(fmt.Sprint(m["resources"]), "meta") {
+		t.Fatalf("manifest should offer meta: %v", m["resources"])
+	}
+
+	_, got := addonGet(t, owner+"/meta/series/tt0000002.json")
+	meta := got["meta"].(map[string]any)
+	if meta["name"] != "Some Series" || meta["description"] != "About it" || meta["poster"] != "https://img.test/p.jpg" {
+		t.Fatalf("series meta: %v", meta)
+	}
+	vids := meta["videos"].([]any)
+	if len(vids) != 2 {
+		t.Fatalf("want the 2 episodes with files (1x01 from Cinemeta, 2x05 from the library): %v", vids)
+	}
+	first, second := vids[0].(map[string]any), vids[1].(map[string]any)
+	if first["id"] != "tt0000002:1:1" || first["title"] != "Pilot" || second["id"] != "tt0000002:2:5" {
+		t.Fatalf("episodes: %v", vids)
+	}
+
+	// The film: library details when Cinemeta doesn't know it.
+	_, got = addonGet(t, owner+"/meta/movie/tt0063350.json")
+	if mm := got["meta"].(map[string]any); mm["name"] != "Night of the Living Dead" || !strings.Contains(mm["poster"].(string), "/api/v1/art/tt0063350/poster") {
+		t.Fatalf("movie meta: %v", mm)
+	}
+	// Viewers get nothing for titles they can't see.
+	if _, got := addonGet(t, kidBase+"/meta/movie/tt0063350.json"); got["meta"] != nil {
+		t.Fatalf("kid saw the film: %v", got)
+	}
+	if _, got := addonGet(t, kidBase+"/meta/series/tt0000002.json"); got["meta"] == nil {
+		t.Fatal("kid should see the series")
+	}
+	if _, got := addonGet(t, owner+"/meta/movie/tt9999999.json"); got["meta"] != nil {
+		t.Fatalf("not in the library: %v", got)
+	}
+}
