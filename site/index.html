@@ -33,7 +33,7 @@
 <main>
 <section class="hero">
   <div class="wrap">
-    <div>
+    <div class="hero-text">
       <span class="eyebrow">Self-hosted · Open source · MIT</span>
       <h1>Your watchlist, <em>downloaded</em> and ready to play.</h1>
       <p class="lede">Reelyard tracks the movies and TV series you want, finds releases through Stremio addons, downloads them with its own torrent engine, and files them into a Jellyfin/Plex-ready library with subtitles. Then it streams them to your TV.</p>
@@ -44,25 +44,8 @@
       <p class="platforms">One binary · Linux, macOS, Windows · Docker &amp; NAS · Raspberry Pi 4/5</p>
     </div>
 
-    <div class="mock" aria-hidden="true">
-      <div class="mock-bar"><i></i><i></i><i></i></div>
-      <div class="mock-body">
-        <div class="dl">
-          <div class="dl-top"><span>Night of the Living Dead (1968)</span><span>100%</span></div>
-          <div class="dl-meta">720p · 1.1 GB · <span class="tag">In library</span> · subtitles: en, pt</div>
-          <div class="bar done"><b style="width:100%"></b></div>
-        </div>
-        <div class="dl">
-          <div class="dl-top"><span>Show · S02E05</span><span>64% · 8.2 MB/s</span></div>
-          <div class="dl-meta">1080p · HD 1080p profile · 41 seeders</div>
-          <div class="bar"><b style="width:64%"></b></div>
-        </div>
-        <div class="dl">
-          <div class="dl-top"><span>Show · S02E06</span><span>Tracking</span></div>
-          <div class="dl-meta">Airs Thursday · <span class="tag orange">Waiting for release</span></div>
-          <div class="bar"><b style="width:0"></b></div>
-        </div>
-      </div>
+    <div class="hero-shot">
+      <figure class="frame"><a href="img/titles-light.webp" class="shot-link"><img class="shot shot-light" src="img/titles-light.webp" width="1600" height="1000" alt="Reelyard's Titles page: tracked movies and a series with their posters, showing which are in the library and which are downloading" loading="lazy" decoding="async"><img class="shot shot-dark" src="img/titles-dark.webp" width="1600" height="1000" alt="Reelyard's Titles page: tracked movies and a series with their posters, showing which are in the library and which are downloading" loading="lazy" decoding="async"></a></figure>
     </div>
   </div>
 </section>
@@ -79,6 +62,22 @@
       <div class="step"><h3>Download</h3><p>The built-in torrent engine fetches it, shares fairly, then cleans up. No separate client.</p></div>
       <div class="step"><h3>Watch</h3><p>Files land in your library with proper names and subtitles, ready for your TV, Jellyfin, Emby or Plex.</p></div>
     </div>
+  </div>
+</section>
+
+<section class="band" id="tour">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>A look inside</h2>
+      <p>The web UI runs on your own machine, at port 8787, and you open it in any browser.</p>
+    </div>
+    <div class="gallery">
+      <figure class="frame"><a href="img/downloads-light.webp" class="shot-link"><img class="shot shot-light" src="img/downloads-light.webp" width="1600" height="1000" alt="Downloads page with live speeds, peers and progress for each torrent" loading="lazy" decoding="async"><img class="shot shot-dark" src="img/downloads-dark.webp" width="1600" height="1000" alt="Downloads page with live speeds, peers and progress for each torrent" loading="lazy" decoding="async"></a><figcaption><strong>Downloads.</strong> Live speed, peers and time left, plus what's still being shared after it finishes.</figcaption></figure>
+      <figure class="frame"><a href="img/series-light.webp" class="shot-link"><img class="shot shot-light" src="img/series-light.webp" width="1600" height="1000" alt="A tracked series showing which episodes are in the library and which are downloading" loading="lazy" decoding="async"><img class="shot shot-dark" src="img/series-dark.webp" width="1600" height="1000" alt="A tracked series showing which episodes are in the library and which are downloading" loading="lazy" decoding="async"></a><figcaption><strong>Series follow themselves.</strong> Each episode shows whether it's in your library, downloading, or not out yet.</figcaption></figure>
+      <figure class="frame"><a href="img/movie-light.webp" class="shot-link"><img class="shot shot-light" src="img/movie-light.webp" width="1600" height="1000" alt="A movie's page: the library file with its subtitles, and the available releases checked against the quality profile" loading="lazy" decoding="async"><img class="shot shot-dark" src="img/movie-dark.webp" width="1600" height="1000" alt="A movie's page: the library file with its subtitles, and the available releases checked against the quality profile" loading="lazy" decoding="async"></a><figcaption><strong>Every release, explained.</strong> See which releases fit the profile and why, and the subtitles saved next to your file.</figcaption></figure>
+      <figure class="frame"><a href="img/profiles-light.webp" class="shot-link"><img class="shot shot-light" src="img/profiles-light.webp" width="1600" height="1000" alt="Quality profiles: HD 1080p, 4K and Small, with sizes, languages and seeders" loading="lazy" decoding="async"><img class="shot shot-dark" src="img/profiles-dark.webp" width="1600" height="1000" alt="Quality profiles: HD 1080p, 4K and Small, with sizes, languages and seeders" loading="lazy" decoding="async"></a><figcaption><strong>Quality profiles.</strong> Screen sizes, file sizes, audio and subtitle languages, and the minimum number of seeders.</figcaption></figure>
+    </div>
+    <p class="shots-note">Shown with public-domain and Creative Commons titles.</p>
   </div>
 </section>
 
