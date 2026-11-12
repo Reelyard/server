@@ -126,6 +126,24 @@ subtitle-language order (Samsung TVs get them too). Thumbnails need `ffmpeg`, du
 - Only devices on private networks (192.168.x, 10.x, 172.16–31.x, link-local) can connect.
 - It isn't announced on your VPN interface or, unless you choose them, on Docker/VM bridges.
 
+### Viewers: a server per family member
+
+TVs don't sign in, so each person who watches gets their own server in the TV's sources:
+**Settings → Viewers → Add viewer** creates, say, "Reelyard · Kids" next to the main
+"Reelyard". On a viewer's server:
+
+- watched marks and resume points are theirs, and a **Continue watching** folder at the top
+  lists what they're halfway through (the main server has one for your account too);
+- **Only titles I choose** limits it to the films and series you tick: other folders don't
+  appear, and their files can't be opened from that server;
+- **Show on these TVs** shows it only on the TVs you tick (the main server has the same
+  option). TVs are listed once they've opened any Reelyard server, and are told apart by
+  address, so give each a fixed IP in your router.
+
+Each viewer's server uses the next port after the main one (8201, 8202, …); allow those in
+your firewall too. Anyone using a TV that shows a server can open it: hide the main server
+from a child's TV, and don't rely on this to keep someone determined out.
+
 ## Jellyfin, Emby and Plex
 
 Point your media server's Movies and Shows libraries at `library/Movies` and `library/TV`.

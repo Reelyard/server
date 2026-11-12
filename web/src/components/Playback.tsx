@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { api, type DlnaState, type MediaServer, type MediaServerInput, type MediaServerKind } from "../api";
 import { ago } from "../format";
+import { TvPicker } from "./Viewers";
 
 type Msg = { ok: boolean; text: string } | null;
 
@@ -108,6 +109,7 @@ export function DlnaOptions() {
               </button>
             )}
           </fieldset>
+          <TvPicker value={s.tvs ?? []} onChange={(tvs) => set({ tvs })} idPrefix="dlna-main" />
           <label className="flex items-start gap-2 text-sm">
             <input id="dlna-transcode" type="checkbox" className="mt-1 accent-[var(--hb-deep)]" checked={s.transcode} disabled={!status?.ffmpeg && !s.transcode} onChange={(e) => set({ transcode: e.target.checked })} />
             <span>

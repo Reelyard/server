@@ -106,7 +106,7 @@ func TestAnnotateBrowse(t *testing.T) {
 	stranger := didlItem("Other/clip.mkv")
 	body := browseBody(didlItem(film), didlItem(episode), stranger)
 
-	didl := resultDIDL(t, s.annotateBrowse(ctx, body, true))
+	didl := resultDIDL(t, s.annotateBrowse(ctx, nil, body, true))
 	filmXML, epXML, _ := strings.Cut(didl, "</item>")
 	if !strings.Contains(filmXML, "<dc:title>"+watchedMark+"Night (1968).mkv</dc:title>") ||
 		!strings.Contains(filmXML, "<upnp:playbackCount>1</upnp:playbackCount>") ||
@@ -125,11 +125,11 @@ func TestAnnotateBrowse(t *testing.T) {
 		t.Errorf("stranger changed or sec namespace missing: %s", didl)
 	}
 
-	if got := resultDIDL(t, s.annotateBrowse(ctx, body, false)); strings.Contains(got, watchedMark) {
+	if got := resultDIDL(t, s.annotateBrowse(ctx, nil, body, false)); strings.Contains(got, watchedMark) {
 		t.Errorf("mark without WatchedMark: %s", got)
 	}
 	// Nothing Reelyard knows: the answer is left alone.
-	if plain := browseBody(stranger); string(s.annotateBrowse(ctx, plain, true)) != string(plain) {
+	if plain := browseBody(stranger); string(s.annotateBrowse(ctx, nil, plain, true)) != string(plain) {
 		t.Error("answer without library files changed")
 	}
 }
@@ -149,7 +149,7 @@ func TestProgressActions(t *testing.T) {
 	call := func(action, args string) (int, string) {
 		t.Helper()
 		w := httptest.NewRecorder()
-		if !s.serveProgressAction(w, soapRequest(action, args)) {
+		if !s.serveProgressAction(w, soapRequest(action, args), nil) {
 			t.Fatalf("%s not handled", action)
 		}
 		b, _ := io.ReadAll(w.Body)
@@ -201,7 +201,7 @@ func TestProgressActions(t *testing.T) {
 
 	// Other actions go on to dms untouched.
 	r := soapRequest("Browse", `<ObjectID>0</ObjectID>`)
-	if s.serveProgressAction(httptest.NewRecorder(), r) {
+	if s.serveProgressAction(httptest.NewRecorder(), r, nil) {
 		t.Error("Browse handled")
 	}
 	if b, _ := io.ReadAll(r.Body); len(b) == 0 {

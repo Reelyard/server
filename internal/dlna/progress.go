@@ -12,7 +12,8 @@ package dlna
 //     playbackCount and lastPlaybackPosition with it) are answered here
 //     and saved as the account's progress, instead of being dropped.
 //
-// DLNA devices don't sign in, so all of it is the first (admin) account's.
+// DLNA devices don't sign in: the main server's progress is the first
+// (admin) account's, and each viewer's server keeps that viewer's.
 
 import (
 	"bytes"
@@ -55,8 +56,12 @@ func cdsAction(r *http.Request) string {
 	return sa.Action
 }
 
-// progressUser is whose progress DLNA devices see and update.
-func (s *Server) progressUser(ctx context.Context) (int64, bool) {
+// progressUser is whose progress DLNA devices see and update on server r:
+// its viewer's, or the admin's on the main server (r may be nil).
+func (s *Server) progressUser(ctx context.Context, r *running) (int64, bool) {
+	if r != nil && r.viewer != nil {
+		return r.viewer.ID, true // fixed for the server's life
+	}
 	u, err := s.opts.Store.FirstUser(ctx)
 	if err != nil {
 		return 0, false
@@ -68,7 +73,7 @@ func (s *Server) progressUser(ctx context.Context) (int64, bool) {
 
 // annotateBrowse adds play state to the DIDL-Lite in a Browse SOAP answer.
 // Anything it can't make sense of is returned unchanged.
-func (s *Server) annotateBrowse(ctx context.Context, body []byte, mark bool) []byte {
+func (s *Server) annotateBrowse(ctx context.Context, r *running, body []byte, mark bool) []byte {
 	start := bytes.Index(body, []byte("<Result>"))
 	end := bytes.Index(body, []byte("</Result>"))
 	if start < 0 || end < start {
@@ -81,19 +86,32 @@ func (s *Server) annotateBrowse(ctx context.Context, body []byte, mark bool) []b
 	if err := xml.Unmarshal(append(append([]byte("<Result>"), inner...), "</Result>"...), &result); err != nil {
 		return body
 	}
-	uid, ok := s.progressUser(ctx)
-	if !ok {
+	didl, changed := s.annotateResult(ctx, r, result.DIDL, mark)
+	if !changed {
 		return body
+	}
+	escaped := escapeDIDL(didl)
+	out := make([]byte, 0, len(body)+len(escaped)-len(inner))
+	out = append(out, body[:start+len("<Result>")]...)
+	out = append(out, escaped...)
+	return append(out, body[end:]...)
+}
+
+// annotateResult adds the progress user's play state to a DIDL-Lite document.
+func (s *Server) annotateResult(ctx context.Context, r *running, didl string, mark bool) (string, bool) {
+	uid, ok := s.progressUser(ctx, r)
+	if !ok {
+		return didl, false
 	}
 	ps, err := s.opts.Store.ListProgress(ctx, uid, "", 0)
 	if err != nil {
-		return body
+		return didl, false
 	}
 	byItem := make(map[string]*store.Progress, len(ps))
 	for _, p := range ps {
 		byItem[p.ItemID] = p
 	}
-	didl, changed := annotateDIDL(result.DIDL, mark, func(rel string) (*store.Progress, bool) {
+	return annotateDIDL(didl, mark, func(rel string) (*store.Progress, bool) {
 		mf, err := s.opts.Store.MediaFileByPath(ctx, rel)
 		if err != nil {
 			return nil, false
@@ -103,17 +121,14 @@ func (s *Server) annotateBrowse(ctx context.Context, body []byte, mark bool) []b
 		}
 		return &store.Progress{ItemID: mf.TitleID}, true
 	})
-	if !changed {
-		return body
-	}
+}
+
+// escapeDIDL escapes DIDL-Lite for a SOAP <Result>.
+func escapeDIDL(didl string) []byte {
 	var esc bytes.Buffer
 	_ = xml.EscapeText(&esc, []byte(didl))
 	// dms un-escapes quotes in its answers for Samsung Frame TVs; keep that.
-	escaped := bytes.ReplaceAll(esc.Bytes(), []byte("&#34;"), []byte(`"`))
-	out := make([]byte, 0, len(body)+len(escaped)-len(inner))
-	out = append(out, body[:start+len("<Result>")]...)
-	out = append(out, escaped...)
-	return append(out, body[end:]...)
+	return bytes.ReplaceAll(esc.Bytes(), []byte("&#34;"), []byte(`"`))
 }
 
 // annotateDIDL adds play state to each video item lookup knows (by its
@@ -234,7 +249,7 @@ var (
 
 // serveProgressAction answers X_SetBookmark and UpdateObject. It returns
 // false (having read nothing) for any other request.
-func (s *Server) serveProgressAction(w http.ResponseWriter, r *http.Request) bool {
+func (s *Server) serveProgressAction(w http.ResponseWriter, r *http.Request, run *running) bool {
 	action := cdsAction(r)
 	if action != "X_SetBookmark" && action != "UpdateObject" {
 		return false
@@ -256,7 +271,7 @@ func (s *Server) serveProgressAction(w http.ResponseWriter, r *http.Request) boo
 		return true
 	}
 	rel, ok := objectPath(args.ObjectID)
-	if !ok {
+	if !ok || !s.visibility(r.Context(), run).allows(rel) {
 		writeSOAPFault(w, upnpav.NoSuchObjectErrorCode, "no such object")
 		return true
 	}
@@ -267,7 +282,7 @@ func (s *Server) serveProgressAction(w http.ResponseWriter, r *http.Request) boo
 			writeSOAPFault(w, upnp.ArgumentValueInvalidErrorCode, "PosSecond must be a number of seconds")
 			return true
 		}
-		err = s.savePlayState(r.Context(), rel, func(p *store.Progress, dur int) {
+		err = s.savePlayState(r.Context(), run, rel, func(p *store.Progress, dur int) {
 			if pos == 0 && p.Watched {
 				return // some TVs report 0 after the credits; keep the mark
 			}
@@ -290,7 +305,7 @@ func (s *Server) serveProgressAction(w http.ResponseWriter, r *http.Request) boo
 		if count < 0 && pos < 0 {
 			break // nothing Reelyard keeps
 		}
-		err = s.savePlayState(r.Context(), rel, func(p *store.Progress, dur int) {
+		err = s.savePlayState(r.Context(), run, rel, func(p *store.Progress, dur int) {
 			if pos >= 0 {
 				p.PositionSec = pos
 				p.Watched = watchedBy(pos, dur)
@@ -319,7 +334,7 @@ func watchedBy(pos, dur int) bool {
 
 // savePlayState loads the account's progress for a library file, lets
 // apply change it, and saves it. A watched item resumes from the start.
-func (s *Server) savePlayState(ctx context.Context, rel string, apply func(p *store.Progress, durationSec int)) error {
+func (s *Server) savePlayState(ctx context.Context, r *running, rel string, apply func(p *store.Progress, durationSec int)) error {
 	mf, err := s.opts.Store.MediaFileByPath(ctx, rel)
 	if errors.Is(err, store.ErrNotFound) {
 		return errNoSuchObject
@@ -327,7 +342,7 @@ func (s *Server) savePlayState(ctx context.Context, rel string, apply func(p *st
 	if err != nil {
 		return err
 	}
-	uid, ok := s.progressUser(ctx)
+	uid, ok := s.progressUser(ctx, r)
 	if !ok {
 		return errors.New("no account yet")
 	}
@@ -361,25 +376,4 @@ func writeSOAP(w http.ResponseWriter, code int, inner string) {
 func writeSOAPFault(w http.ResponseWriter, code uint, desc string) {
 	b, _ := xml.Marshal(soap.NewFault("UPnPError", upnp.Error{Code: code, Desc: desc}))
 	writeSOAP(w, http.StatusInternalServerError, string(b))
-}
-
-// annotateResponse is the proxy's ModifyResponse hook for Browse answers.
-func (s *Server) annotateResponse(r *running) func(*http.Response) error {
-	return func(resp *http.Response) error {
-		if !r.set.TrackProgress || resp.StatusCode != http.StatusOK || cdsAction(resp.Request) != "Browse" {
-			return nil
-		}
-		body, err := io.ReadAll(io.LimitReader(resp.Body, 64<<20))
-		resp.Body.Close()
-		if err != nil {
-			return err
-		}
-		body = s.annotateBrowse(resp.Request.Context(), body, r.set.WatchedMark)
-		resp.Body = io.NopCloser(bytes.NewReader(body))
-		resp.ContentLength = int64(len(body))
-		resp.Header.Set("Content-Length", strconv.Itoa(len(body)))
-		resp.Header.Del("Transfer-Encoding")
-		resp.TransferEncoding = nil
-		return nil
-	}
 }
