@@ -4,7 +4,8 @@ info:
   version: "1"
   description: |
     What Reelyard's apps (TVs, phones, computers) use: finding the server,
-    pairing, the library, playing, subtitles, artwork and resume points.
+    pairing, the library, playing, subtitles, artwork, resume points, and
+    finding new titles to track.
     Served by Reelyard itself at /api/v1/openapi.yaml.
 
     Apps sign in by pairing (see /devices/pair) and then send
@@ -24,6 +25,7 @@ tags:
   - name: library
   - name: playback
   - name: progress
+  - name: tracking
 
 paths:
   /health:
@@ -431,6 +433,90 @@ paths:
       responses:
         "204": { description: Done }
 
+  /metadata/search:
+    get:
+      tags: [tracking]
+      summary: Find movies and series by name, in or out of the library
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string, minLength: 2 } }
+        - { name: type, in: query, schema: { type: string, enum: [movie, series] }, description: Only this kind }
+      responses:
+        "200":
+          description: Matches, best first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results: { type: array, items: { $ref: "#/components/schemas/SearchResult" } }
+        "400": { $ref: "#/components/responses/Error" }
+        "502": { $ref: "#/components/responses/Error" }
+
+  /profiles:
+    get:
+      tags: [tracking]
+      summary: Quality profiles a title can be tracked with
+      responses:
+        "200":
+          description: Profiles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  profiles: { type: array, items: { $ref: "#/components/schemas/Profile" } }
+
+  /titles:
+    get:
+      tags: [tracking]
+      summary: Every tracked title
+      responses:
+        "200":
+          description: Tracked titles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  titles: { type: array, items: { $ref: "#/components/schemas/TrackedTitle" } }
+    post:
+      tags: [tracking]
+      summary: Track a title; Reelyard looks for it and keeps looking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [imdbId, type, profileId]
+              properties:
+                imdbId: { type: string, example: tt0903747 }
+                type: { type: string, enum: [movie, series] }
+                profileId: { type: integer }
+                monitor: { type: string, enum: [all, future, none], description: "Series: which episodes to get (default all)" }
+                seasons: { type: array, items: { type: integer }, description: "Series: only these seasons (default all)" }
+      responses:
+        "201":
+          description: Tracked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  title: { $ref: "#/components/schemas/TrackedTitle" }
+        "400": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+
+  /titles/{id}:
+    delete:
+      tags: [tracking]
+      summary: Stop tracking a title (files already in the library stay)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer } }
+      responses:
+        "204": { description: Done }
+        "404": { $ref: "#/components/responses/Error" }
+
 components:
   securitySchemes:
     device:
@@ -454,6 +540,40 @@ components:
               error: { type: string }
 
   schemas:
+    SearchResult:
+      type: object
+      properties:
+        id: { type: string, description: The IMDb id, example: tt0903747 }
+        type: { type: string, enum: [movie, series] }
+        name: { type: string }
+        year: { type: string, description: "As the source has it: 2008, or 2008–2013" }
+        poster: { type: string, description: A picture at its source (https) }
+
+    Profile:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        resolutions: { type: array, items: { type: string }, description: Best first }
+
+    TrackedTitle:
+      type: object
+      properties:
+        id: { type: integer }
+        imdbId: { type: string }
+        type: { type: string, enum: [movie, series] }
+        name: { type: string }
+        year: { type: integer }
+        poster: { type: string }
+        profileId: { type: integer }
+        monitor: { type: string, enum: [all, future, none] }
+        seasons: { type: array, items: { type: integer } }
+        addedAt: { type: string, format: date-time }
+        wanted: { type: integer, description: Monitored and not found yet }
+        downloading: { type: integer }
+        imported: { type: integer }
+        unaired: { type: integer }
+
     Device:
       type: object
       properties:
