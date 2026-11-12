@@ -24,10 +24,18 @@ type Settings struct {
 	// Transcode offers converted versions of videos for TVs that can't play
 	// the original. Needs ffmpeg and uses a lot of CPU.
 	Transcode bool `json:"transcode"`
+	// TrackProgress shares watched marks and resume points with TVs: they
+	// see what was watched in Reelyard, and resume points TVs report are
+	// saved to the Reelyard account.
+	TrackProgress bool `json:"trackProgress"`
+	// WatchedMark puts a check mark before watched titles, for TVs that
+	// ignore the DLNA watched fields (most of them).
+	WatchedMark bool `json:"watchedMark"`
 }
 
-// DefaultSettings: on, named "Reelyard", on minidlna's usual port.
-var DefaultSettings = Settings{Enabled: true, Name: "Reelyard", Port: 8200, Interfaces: []string{}}
+// DefaultSettings: on, named "Reelyard", on minidlna's usual port, sharing
+// watched marks.
+var DefaultSettings = Settings{Enabled: true, Name: "Reelyard", Port: 8200, Interfaces: []string{}, TrackProgress: true}
 
 // Validate checks the settings.
 func (s Settings) Validate() error {

@@ -8,7 +8,8 @@
 //     dms only looks for "Movie (1999).srt" (and relative to the working
 //     directory), so the front picks the right file in the preferred
 //     language order,
-//   - tells Samsung TVs where the subtitle is (CaptionInfo.sec).
+//   - tells Samsung TVs where the subtitle is (CaptionInfo.sec),
+//   - shares watched marks and resume points (see progress.go).
 package dlna
 
 import (
@@ -79,6 +80,7 @@ type Server struct {
 }
 
 type running struct {
+	set    Settings
 	dms    *dms.Server
 	front  *http.Server
 	pipe   *pipeListener
@@ -247,7 +249,7 @@ func (s *Server) start() error {
 		root.Close()
 		return fmt.Errorf("start dlna: %w", err)
 	}
-	r := &running{dms: d, pipe: pipe, root: root, thumbs: newThumbs(s.ffmpeg), done: make(chan struct{})}
+	r := &running{set: s.set, dms: d, pipe: pipe, root: root, thumbs: newThumbs(s.ffmpeg), done: make(chan struct{})}
 	r.front = &http.Server{Handler: s.front(r), ReadHeaderTimeout: 10 * time.Second}
 	go func() {
 		if err := d.Run(); err != nil {
@@ -300,7 +302,8 @@ func (s *Server) front(r *running) http.Handler {
 			MaxIdleConns:       16,
 			IdleConnTimeout:    time.Minute,
 		},
-		FlushInterval: -1,
+		FlushInterval:  -1,
+		ModifyResponse: s.annotateResponse(r),
 		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
 			if !errors.Is(err, context.Canceled) {
 				s.opts.Log.Debug("dlna: proxy", "err", err)
@@ -314,6 +317,10 @@ func (s *Server) front(r *running) http.Handler {
 			return
 		}
 		switch req.URL.Path {
+		case controlPath:
+			if r.set.TrackProgress && s.serveProgressAction(w, req) {
+				return
+			}
 		case "/subtitle":
 			s.serveSubtitle(w, req, r.root)
 			return
