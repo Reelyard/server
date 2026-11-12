@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"mime"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -28,6 +29,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
@@ -339,6 +341,7 @@ func (s *Server) start(spec serverSpec, ifcs []net.Interface) (*running, error) 
 	}
 	pipe := newPipeListener(ln.Addr())
 	d := &dms.Server{
+		FS:               libraryFS(s.opts.LibraryDir),
 		HTTPConn:         pipe,
 		FriendlyName:     spec.name,
 		Interfaces:       ifcs,
@@ -631,3 +634,27 @@ func (h minLevel) WithAttrs(a []slog.Attr) slog.Handler {
 	return minLevel{h.Handler.WithAttrs(a), h.min}
 }
 func (h minLevel) WithGroup(g string) slog.Handler { return minLevel{h.Handler.WithGroup(g), h.min} }
+
+// libraryFS is the library for dms. dms joins paths with filepath.Join
+// (backslashes on Windows) and then opens them through an fs.FS, which only
+// takes forward slashes: without this, Windows couldn't stream any file.
+func libraryFS(dir string) fs.FS { return slashFS{os.DirFS(dir)} }
+
+type slashFS struct{ fsys fs.FS }
+
+func (f slashFS) Open(name string) (fs.File, error) {
+	return f.fsys.Open(filepath.ToSlash(name))
+}
+
+// Video types TVs need to see, registered here because the system's table
+// may not have them (Windows, Alpine without /etc/mime.types); dms would
+// otherwise guess from the file's first bytes.
+func init() {
+	for ext, typ := range map[string]string{
+		".mkv": "video/x-matroska", ".mp4": "video/mp4", ".m4v": "video/mp4", ".avi": "video/avi",
+		".mov": "video/quicktime", ".webm": "video/webm", ".ts": "video/mp2t", ".m2ts": "video/mp2t",
+		".mpg": "video/mpeg", ".mpeg": "video/mpeg", ".wmv": "video/x-ms-wmv",
+	} {
+		_ = mime.AddExtensionType(ext, typ)
+	}
+}

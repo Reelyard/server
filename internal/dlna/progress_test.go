@@ -233,6 +233,7 @@ func TestProgressThroughDMS(t *testing.T) {
 	root := library(t, film, episode)
 	pipe := newPipeListener(&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 8200})
 	d := &dms.Server{
+		FS:             libraryFS(root.Name()),
 		HTTPConn:       pipe,
 		Interfaces:     []net.Interface{}, // no SSDP
 		RootObjectPath: root.Name(),

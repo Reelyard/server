@@ -31,6 +31,7 @@ func TestViewerServer(t *testing.T) {
 	root := library(t, film, episode)
 	pipe := newPipeListener(&net.TCPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 8201})
 	d := &dms.Server{
+		FS:             libraryFS(root.Name()),
 		HTTPConn:       pipe,
 		Interfaces:     []net.Interface{},
 		RootObjectPath: root.Name(),
