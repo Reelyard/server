@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { api, type DlnaServer, type TV, type Tracked, type Viewer, type ViewerInput } from "../api";
+import { Link } from "react-router";
 import { ago } from "../format";
 
 type Msg = { ok: boolean; text: string } | null;
@@ -226,7 +227,12 @@ export function Viewers() {
         </div>
         {editing === null && <button className="btn-ghost" onClick={() => setEditing("new")}>Add viewer</button>}
       </div>
-      {!dlnaOn && <Note msg={{ ok: false, text: "The DLNA server is off, so viewers' servers don't run. Turn it on above." }} />}
+      {!dlnaOn && (
+        <p role="status" className="rounded-lg bg-bad-soft px-3 py-2 text-sm text-bad">
+          The DLNA server is off, so viewers' servers don't run. Turn it on in{" "}
+          <Link to="/settings?tab=tv" className="underline">TVs (DLNA)</Link>.
+        </p>
+      )}
       {editing === "new" && <ViewerEditor start={blank} titles={titles} onDone={done} />}
       {viewers?.length === 0 && editing !== "new" && <p className="text-sm text-muted">No viewers yet. Everyone uses the main server and shares one set of resume points.</p>}
       <ul className="flex flex-col gap-3">

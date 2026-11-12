@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api, type APIKey, type BlockedRelease, type Device, type DownloadSettings, type Language, type NetworkStatus, type User } from "../api";
 import { DlnaOptions, MediaServers } from "../components/Playback";
 import { Viewers } from "../components/Viewers";
+import { TabPanel, Tabs, useTab, type Tab } from "../components/Tabs";
 
 function fmt(d?: string) {
   return d ? new Date(d).toLocaleString() : "never";
@@ -442,7 +443,17 @@ function Blocklist() {
   );
 }
 
+const TABS: Tab[] = [
+  { id: "library", label: "Library" },
+  { id: "tv", label: "TVs (DLNA)" },
+  { id: "viewers", label: "Viewers" },
+  { id: "downloads", label: "Downloads" },
+  { id: "apps", label: "Apps and API" },
+  { id: "account", label: "Account" },
+];
+
 export default function Settings({ user }: { user: User }) {
+  const [tab, setTab] = useTab(TABS);
   return (
     <div className="flex flex-col gap-6">
       <header>
@@ -450,15 +461,30 @@ export default function Settings({ user }: { user: User }) {
         <h1 className="mt-1 text-2xl font-semibold tracking-tight">Settings</h1>
         <p className="mt-1 text-muted">Signed in as <span className="font-medium text-ink">{user.username}</span>.</p>
       </header>
-      <LibraryOptions />
-      <DlnaOptions />
-      <Viewers />
-      <MediaServers />
-      <DownloadOptions />
-      <Blocklist />
-      <Devices />
-      <Password />
-      <ApiKeys />
+      <Tabs tabs={TABS} current={tab} onChange={setTab} label="Settings sections" />
+      <TabPanel id={tab}>
+        {tab === "library" && (
+          <>
+            <LibraryOptions />
+            <MediaServers />
+          </>
+        )}
+        {tab === "tv" && <DlnaOptions />}
+        {tab === "viewers" && <Viewers />}
+        {tab === "downloads" && (
+          <>
+            <DownloadOptions />
+            <Blocklist />
+          </>
+        )}
+        {tab === "apps" && (
+          <>
+            <Devices />
+            <ApiKeys />
+          </>
+        )}
+        {tab === "account" && <Password />}
+      </TabPanel>
     </div>
   );
 }
