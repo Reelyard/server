@@ -89,7 +89,7 @@ export default function AddonCatalog({ onAdded }: { onAdded: () => void }) {
       <div>
         <h2 className="text-lg font-semibold">Browse Stremio's addon catalog</h2>
         <p className="max-w-prose text-sm text-muted">
-          Official and community addons that offer streams or subtitles for movies and series. Community addons are run by third parties. Torrentio and most torrent addons aren't listed here; add those by pasting their link above.
+          Official and community addons that offer streams or subtitles for movies and series. Community addons are run by third parties. Most torrent addons aren't listed here; add one by pasting its link above.
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
