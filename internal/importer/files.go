@@ -140,6 +140,17 @@ type Probe struct {
 	// AudioCodecs lists the audio streams' codecs (ffprobe names, e.g.
 	// "aac", "eac3"), never nil after a successful probe.
 	AudioCodecs []string
+	// AudioTracks are the audio streams in file order.
+	AudioTracks []AudioTrack
+	// Streams are the codec types of every stream in file order
+	// ("video", "audio", "subtitle", "attachment", "data").
+	Streams []string
+}
+
+// AudioTrack is one audio stream.
+type AudioTrack struct {
+	Lang    string // normalized; "" when untagged
+	Default bool
 }
 
 // ProbeFile runs ffprobe if it is installed. ok is false when it isn't.
@@ -165,6 +176,7 @@ func ProbeFile(ctx context.Context, p string) (pr Probe, ok bool, err error) {
 			} `json:"tags"`
 			Disposition struct {
 				AttachedPic int `json:"attached_pic"`
+				Default     int `json:"default"`
 			} `json:"disposition"`
 		} `json:"streams"`
 		Format struct {
@@ -177,6 +189,7 @@ func ProbeFile(ctx context.Context, p string) (pr Probe, ok bool, err error) {
 	pr.AudioCodecs = []string{}
 	for _, s := range body.Streams {
 		l := lang.Normalize(s.Tags.Language)
+		pr.Streams = append(pr.Streams, s.CodecType)
 		switch s.CodecType {
 		case "video":
 			if pr.VideoCodec == "" && s.Disposition.AttachedPic == 0 {
@@ -190,6 +203,7 @@ func ProbeFile(ctx context.Context, p string) (pr Probe, ok bool, err error) {
 			if l != "" {
 				pr.AudioLangs = lang.Merge(pr.AudioLangs, []string{l})
 			}
+			pr.AudioTracks = append(pr.AudioTracks, AudioTrack{Lang: l, Default: s.Disposition.Default == 1})
 		case "subtitle":
 			if l != "" {
 				pr.EmbeddedSubs = lang.Merge(pr.EmbeddedSubs, []string{l})

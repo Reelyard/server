@@ -15,10 +15,14 @@ type Settings struct {
 	// SubtitleLangs are fetched for every imported file unless already
 	// embedded or saved. Quality profiles (M4) will override this per title.
 	SubtitleLangs []string `json:"subtitleLangs"`
+	// AudioFirst makes the profile's preferred audio language the track
+	// that plays first in files with several (a copy instead of a
+	// hardlink; needs ffmpeg).
+	AudioFirst bool `json:"audioFirst"`
 }
 
-// DefaultSettings fetch English subtitles.
-var DefaultSettings = Settings{SubtitleLangs: []string{"en"}}
+// DefaultSettings fetch English subtitles and put the preferred audio first.
+var DefaultSettings = Settings{SubtitleLangs: []string{"en"}, AudioFirst: true}
 
 // LoadSettings reads the saved settings or the defaults.
 func LoadSettings(ctx context.Context, st *store.Store) Settings {

@@ -22,8 +22,19 @@ function LangPicker({ id, value, all, onChange }: { id: string; value: string[];
   const name = (c: string) => all.find((l) => l.code === c)?.name ?? c;
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      {value.map((l) => (
-        <span key={l} className="flex items-center gap-1 rounded-full bg-deep-soft py-0.5 pr-1 pl-2.5 text-sm text-deep">
+      {value.map((l, i) => (
+        <span key={l} className={`flex items-center gap-1 rounded-full bg-deep-soft py-0.5 pr-1 text-sm text-deep ${i > 0 ? "pl-1" : "pl-2.5"}`}>
+          {i > 0 && (
+            <button
+              type="button"
+              className="grid h-5 w-5 place-items-center rounded-full hover:bg-surface"
+              aria-label={`Move ${name(l)} before ${name(value[i - 1])}`}
+              title="Prefer this one"
+              onClick={() => onChange([...value.slice(0, i - 1), l, value[i - 1], ...value.slice(i + 1)])}
+            >
+              ‹
+            </button>
+          )}
           {name(l)}
           <button type="button" className="grid h-5 w-5 place-items-center rounded-full hover:bg-surface" aria-label={`Remove ${name(l)}`} onClick={() => onChange(value.filter((x) => x !== l))}>×</button>
         </span>
@@ -102,7 +113,7 @@ function Editor({ start, resolutions, langs, onDone }: { start: Partial<Profile>
           <input id="pf-audio-req" type="checkbox" checked={p.audioRequired ?? false} onChange={(e) => set("audioRequired", e.target.checked)} className="accent-[var(--hb-deep)]" />
           Required: skip releases without one of these, and don't import a file whose audio turns out different
         </label>
-        <p className="text-xs text-muted">Releases that don't name a language are taken to be English.</p>
+        <p className="text-xs text-muted">Releases that don't name a language are taken to be English. Use ‹ to move a language earlier. In a file with several audio tracks, the first of these it has plays first (Settings → Library).</p>
       </div>
       <div className="flex flex-col gap-2">
         <span className="label">Subtitle languages</span>

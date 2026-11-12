@@ -22,7 +22,8 @@ Only download content you have the rights to.
 
 Builds are for amd64 (Intel/AMD) and arm64 (Apple Silicon, Raspberry Pi,
 ARM servers). **ffmpeg** is optional but recommended: Reelyard uses it to
-check audio languages, make thumbnails and convert video for TVs. The Docker
+check audio languages, put your preferred audio track first, make thumbnails
+and convert video for TVs. The Docker
 image and the Pi image include it.
 
 ## Docker

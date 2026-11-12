@@ -182,7 +182,7 @@ export type MediaFile = {
   titleName: string;
   path: string;
   size: number;
-  method: "hardlink" | "copy";
+  method: "hardlink" | "copy" | "remux";
   resolution?: string;
   videoCodec?: string;
   durationSec?: number;
@@ -193,7 +193,7 @@ export type MediaFile = {
 };
 export type SubtitleResult = { lang: string; status: "embedded" | "present" | "saved" | "none" | "failed"; path?: string; source?: string; error?: string };
 export type Activity = { id: number; time: string; level: "info" | "warn" | "error"; kind: string; titleId?: string; message: string };
-export type LibrarySettings = { subtitleLangs: string[] };
+export type LibrarySettings = { subtitleLangs: string[]; audioFirst: boolean };
 export type Language = { code: string; name: string };
 
 export type Profile = {
@@ -374,7 +374,7 @@ export const api = {
   fetchSubtitles: (id: number) => request<{ results: SubtitleResult[]; file: MediaFile }>("POST", `/library/${id}/subtitles`),
   activity: (limit = 200) => request<{ activity: Activity[] }>("GET", `/activity?limit=${limit}`).then((r) => r.activity),
   librarySettings: () => request<{ settings: LibrarySettings; libraryDir: string }>("GET", "/settings/library"),
-  saveLibrarySettings: (s: LibrarySettings) => request<{ settings: LibrarySettings; libraryDir: string }>("PUT", "/settings/library", s),
+  saveLibrarySettings: (s: Partial<LibrarySettings>) => request<{ settings: LibrarySettings; libraryDir: string }>("PUT", "/settings/library", s),
   languages: () => request<{ languages: Language[] }>("GET", "/languages").then((r) => r.languages),
 
   streams: (type: string, id: string, profileId?: number) =>

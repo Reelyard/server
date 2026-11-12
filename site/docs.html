@@ -96,7 +96,7 @@
     <!-- ============================================================ -->
     <h2 id="install">Install</h2>
     <p>Downloads are on the <a href="https://github.com/reelyard/server/releases">releases page</a>. After installing, open <a href="http://localhost:8787">http://localhost:8787</a>: the first visit creates your account and walks you through folders and suppliers.</p>
-    <p>Install <code>ffmpeg</code> alongside Reelyard where you can. It's used for audio-language checks, thumbnails and converting video for TVs that can't play a file. (The Docker image and Raspberry Pi images already include it.)</p>
+    <p>Install <code>ffmpeg</code> alongside Reelyard where you can. It's used for audio-language checks, putting your audio language first, thumbnails and converting video for TVs that can't play a file. (The Docker image and Raspberry Pi images already include it.)</p>
 
     <h3 id="install-linux">Debian, Ubuntu, Fedora, RHEL, openSUSE</h3>
 <pre><code>sudo apt install ./reelyard_*_amd64.deb      # or: sudo dnf install ./reelyard-*.x86_64.rpm</code></pre>
@@ -261,12 +261,20 @@ docker compose up -d</code></pre>
     <ul>
       <li>the screen sizes allowed, best first;</li>
       <li>file-size limits for movies and for episodes;</li>
-      <li>preferred or required audio languages, and subtitle languages;</li>
+      <li>audio languages in order of preference, optionally required, and subtitle languages;</li>
       <li>words to avoid or prefer in release names;</li>
       <li>the minimum number of seeders.</li>
     </ul>
     <p>Edit them under <strong>Quality profiles</strong>. On a tracked title's page every stream shows whether it fits the profile, and why not.</p>
     <figure class="frame"><a href="img/movie-main-light-1600.webp" class="shot-link"><img class="shot shot-light" src="img/movie-main-light-800.webp" srcset="img/movie-main-light-800.webp 800w, img/movie-main-light-1600.webp 1600w" sizes="(max-width: 880px) calc(100vw - 34px), 760px" width="800" height="615" alt="A movie's page with its library file, subtitles, and the releases checked against its profile" loading="lazy" decoding="async"><img class="shot shot-dark" src="img/movie-main-dark-800.webp" srcset="img/movie-main-dark-800.webp 800w, img/movie-main-dark-1600.webp 1600w" sizes="(max-width: 880px) calc(100vw - 34px), 760px" width="800" height="615" alt="A movie's page with its library file, subtitles, and the releases checked against its profile" loading="lazy" decoding="async"></a><figcaption>A movie's page: the file in your library and its subtitles, then each release checked against the <em>HD 1080p</em> profile.</figcaption></figure>
+    <h3 id="audio-tracks">Audio language and tracks</h3>
+    <p>List the profile's audio languages in the order you prefer them, for example <em>Portuguese</em> then <em>English</em> (use <strong>‹</strong> to move one earlier). Releases in the first language score highest, then the next. Tick <strong>Required</strong> to skip releases in none of them.</p>
+    <p>Many files have several audio tracks. TVs and players start with the one marked as the default, often English. When the profile prefers another language the file has, Reelyard puts that track first and marks it as the default in the library's copy, so it plays first everywhere.</p>
+    <ul>
+      <li>The download itself isn't changed, so it keeps sharing. The library gets a copy instead of a hardlink, which takes extra space until sharing stops and the download is deleted.</li>
+      <li>Nothing is re-encoded: the tracks are copied as they are, so it's quick and there's no loss of quality.</li>
+      <li>It needs <code>ffmpeg</code>, and works for MKV, MP4 and MOV files of tracked titles. Turn it off in <strong>Settings → Library</strong>.</li>
+    </ul>
     <h3 id="blocklist">Blocklist</h3>
     <p>If a download is removed, fails, or turns out to have the wrong audio language (checked with <code>ffprobe</code> when the profile requires one), that release is put on a blocklist for that title and Reelyard picks the next best.</p>
 
