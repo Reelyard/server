@@ -31,6 +31,8 @@ type Downloads interface {
 	Find(infoHash string, fileIdx int) (*engine.Status, bool)
 	Remove(ctx context.Context, id int64, deleteData bool) error
 	RoomFor(need int64) error
+	List() []engine.Status
+	SetSeeders(ctx context.Context, id int64, n int) error
 }
 
 // Streams finds candidates for a movie or episode.
@@ -53,9 +55,10 @@ type Options struct {
 
 // Tracker runs the automation loop.
 type Tracker struct {
-	o    Options
-	wake chan struct{}
-	mu   sync.Mutex // one pass at a time
+	o         Options
+	wake      chan struct{}
+	mu        sync.Mutex     // one pass at a time
+	seedTried map[int64]bool // queued downloads whose seeders were looked up
 }
 
 // New returns a tracker; call Run to start it.
@@ -110,6 +113,7 @@ func (t *Tracker) Pass(ctx context.Context) {
 		}
 	}
 	t.follow(ctx)
+	t.fillSeeders(ctx)
 	items, err := t.o.Store.DueItems(ctx, t.o.PerTick)
 	if err != nil {
 		return
@@ -401,9 +405,13 @@ func (t *Tracker) searchItem(ctx context.Context, it *store.Item) error {
 	if existing, ok := t.o.Downloads.Find(best.InfoHash, idx); ok {
 		d = existing
 	} else {
+		var seeders *int
+		if best.Stream.Seeders >= 0 {
+			seeders = &best.Stream.Seeders
+		}
 		d, err = t.o.Downloads.Add(ctx, engine.AddRequest{
 			InfoHash: best.InfoHash, FileIdx: best.FileIdx, Sources: best.Sources, Name: best.Stream.TorrentName,
-			TitleType: ti.Type, TitleID: it.ItemID, TitleName: ti.Name,
+			TitleType: ti.Type, TitleID: it.ItemID, TitleName: ti.Name, Seeders: seeders,
 		})
 		if err != nil {
 			return err
@@ -472,9 +480,59 @@ func (t *Tracker) follow(ctx context.Context) {
 		case d.State == store.StateFailed:
 			t.retry(ctx, it, d.InfoHash, d.FileIdx, d.Name, "download failed: "+d.Error)
 			_ = t.o.Downloads.Remove(ctx, d.ID, true)
+		case d.State == store.StatePaused && d.Error == engine.NoPeersMsg:
+			// Paused by the engine for having no peers: try another release.
+			t.retry(ctx, it, d.InfoHash, d.FileIdx, d.Name, "no peers for 10 minutes")
+			_ = t.o.Downloads.Remove(ctx, d.ID, true)
 		case d.ImportState == store.ImportFailed:
 			_ = t.o.Store.UpdateItem(ctx, it.ID, store.ItemUpdate{Note: ptr("Downloaded, but not imported: " + d.ImportError)})
 		}
+	}
+}
+
+// seedLookups is how many queued downloads per pass get their seeder count
+// looked up again (for downloads queued before counts were kept).
+const seedLookups = 3
+
+// fillSeeders looks up the seeder count of queued downloads that have none,
+// so the queue can start the best-seeded first. A release the addons no
+// longer list counts as 0 seeders. Caller holds t.mu.
+func (t *Tracker) fillSeeders(ctx context.Context) {
+	if t.seedTried == nil {
+		t.seedTried = map[int64]bool{}
+	}
+	done := 0
+	for _, d := range t.o.Downloads.List() {
+		if done == seedLookups || ctx.Err() != nil {
+			return
+		}
+		if d.State != store.StateQueued || d.Seeders >= 0 || d.TitleID == "" || t.seedTried[d.ID] {
+			continue
+		}
+		t.seedTried[d.ID] = true
+		done++
+		typ := "series"
+		if d.TitleType == "movie" {
+			typ = "movie"
+		}
+		res, err := t.o.Search.Streams(ctx, typ, d.TitleID)
+		if err != nil {
+			continue
+		}
+		n, found, counted := 0, false, false
+		for _, c := range res.Candidates {
+			if strings.EqualFold(c.InfoHash, d.InfoHash) {
+				found = true
+				if c.Stream.Seeders >= 0 {
+					counted = true
+					n = max(n, c.Stream.Seeders)
+				}
+			}
+		}
+		if found && !counted {
+			continue // listed, but no addon says how many: leave it unknown
+		}
+		_ = t.o.Downloads.SetSeeders(ctx, d.ID, n) // not listed any more: 0
 	}
 }
 

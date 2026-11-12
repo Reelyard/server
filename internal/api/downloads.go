@@ -47,6 +47,7 @@ func (s *Server) addDownload(w http.ResponseWriter, r *http.Request) {
 		TitleType string   `json:"titleType"`
 		TitleID   string   `json:"titleId"`
 		TitleName string   `json:"titleName"`
+		Seeders   *int     `json:"seeders"` // the release's seeders, if known
 	}
 	if !decode(w, r, &body) {
 		return
@@ -57,7 +58,7 @@ func (s *Server) addDownload(w http.ResponseWriter, r *http.Request) {
 	}
 	st, err := s.Engine.Add(r.Context(), engine.AddRequest{
 		InfoHash: body.InfoHash, FileIdx: body.FileIdx, Sources: body.Sources, Name: body.Name,
-		TitleType: body.TitleType, TitleID: body.TitleID, TitleName: body.TitleName,
+		TitleType: body.TitleType, TitleID: body.TitleID, TitleName: body.TitleName, Seeders: body.Seeders,
 	})
 	if err != nil {
 		s.downloadErr(w, "add download", err)

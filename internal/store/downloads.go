@@ -42,17 +42,19 @@ type Download struct {
 	ImportState string     `json:"importState,omitempty"`
 	DataRemoved bool       `json:"dataRemoved,omitempty"`
 	ImportError string     `json:"importError,omitempty"`
+	// Seeders the release had when it was found (-1: not known).
+	Seeders int `json:"seeders"`
 }
 
 const downloadCols = `id, info_hash, file_idx, name, file_path, sources, title_type, title_id, title_name,
-	state, error, size, done_bytes, uploaded, added_at, completed_at, updated_at, import_state, import_error, data_removed`
+	state, error, size, done_bytes, uploaded, added_at, completed_at, updated_at, import_state, import_error, data_removed, seeders`
 
 func scanDownload(row scanner) (*Download, error) {
 	var d Download
 	var sources, added, updated string
 	var completed sql.NullString
 	if err := row.Scan(&d.ID, &d.InfoHash, &d.FileIdx, &d.Name, &d.FilePath, &sources, &d.TitleType, &d.TitleID, &d.TitleName,
-		&d.State, &d.Error, &d.Size, &d.DoneBytes, &d.Uploaded, &added, &completed, &updated, &d.ImportState, &d.ImportError, &d.DataRemoved); err != nil {
+		&d.State, &d.Error, &d.Size, &d.DoneBytes, &d.Uploaded, &added, &completed, &updated, &d.ImportState, &d.ImportError, &d.DataRemoved, &d.Seeders); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -73,6 +75,7 @@ type NewDownload struct {
 	TitleType string
 	TitleID   string
 	TitleName string
+	Seeders   int // -1: not known
 }
 
 // CreateDownload inserts a queued download. It returns ErrDuplicate if
@@ -84,9 +87,9 @@ func (s *Store) CreateDownload(ctx context.Context, n NewDownload) (*Download, e
 	}
 	t := now()
 	res, err := s.DB.ExecContext(ctx,
-		`INSERT INTO downloads (info_hash, file_idx, name, sources, title_type, title_id, title_name, state, added_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		strings.ToLower(n.InfoHash), n.FileIdx, n.Name, string(src), n.TitleType, n.TitleID, n.TitleName, StateQueued, t, t)
+		`INSERT INTO downloads (info_hash, file_idx, name, sources, title_type, title_id, title_name, state, added_at, updated_at, seeders)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		strings.ToLower(n.InfoHash), n.FileIdx, n.Name, string(src), n.TitleType, n.TitleID, n.TitleName, StateQueued, t, t, n.Seeders)
 	if err != nil {
 		if strings.Contains(err.Error(), "UNIQUE") {
 			return nil, ErrDuplicate
@@ -131,6 +134,7 @@ type DownloadUpdate struct {
 	Uploaded    *int64
 	Completed   bool // set completed_at now (only if not set yet)
 	DataRemoved *bool
+	Seeders     *int
 }
 
 // UpdateDownload applies an update.
@@ -160,6 +164,9 @@ func (s *Store) UpdateDownload(ctx context.Context, id int64, u DownloadUpdate) 
 	}
 	if u.DataRemoved != nil {
 		add("data_removed", *u.DataRemoved)
+	}
+	if u.Seeders != nil {
+		add("seeders", *u.Seeders)
 	}
 	if u.Completed {
 		sets = append(sets, "completed_at = COALESCE(completed_at, ?)")

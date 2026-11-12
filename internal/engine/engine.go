@@ -316,6 +316,9 @@ type AddRequest struct {
 	TitleID   string
 	TitleName string
 	Peers     []string // host:port to connect to directly (tests, LAN)
+	// Seeders the release had when it was found (nil: not known). The
+	// queue starts the best-seeded downloads first.
+	Seeders *int
 }
 
 // Add queues a download.
@@ -332,9 +335,13 @@ func (e *Engine) Add(ctx context.Context, r AddRequest) (*Status, error) {
 	if name == "" {
 		name = ih
 	}
+	seeders := -1
+	if r.Seeders != nil && *r.Seeders >= 0 {
+		seeders = *r.Seeders
+	}
 	d, err := e.opts.Store.CreateDownload(ctx, store.NewDownload{
 		InfoHash: ih, FileIdx: idx, Name: name, Sources: trackersFrom(r.Sources),
-		TitleType: r.TitleType, TitleID: r.TitleID, TitleName: r.TitleName,
+		TitleType: r.TitleType, TitleID: r.TitleID, TitleName: r.TitleName, Seeders: seeders,
 	})
 	if errors.Is(err, store.ErrDuplicate) {
 		return nil, ErrDuplicate
@@ -856,19 +863,93 @@ func (e *Engine) loop(ctx context.Context) {
 	}
 }
 
-// schedule starts queued downloads while slots are free (oldest first).
+const noPeersAfter = 10 * time.Minute
+
+// NoPeersMsg is the note on a download paused for having no peers. The
+// tracker looks for another release for those.
+const NoPeersMsg = "Paused: no peers for 10 minutes. Resume to try again."
+
+// queueRank orders waiting downloads: known seeders, most first; then not
+// known; then known to have none.
+func queueRank(d store.Download) int {
+	switch {
+	case d.Seeders > 0:
+		return d.Seeders
+	case d.Seeders < 0:
+		return 0
+	default:
+		return -1
+	}
+}
+
+// SetSeeders records how many seeders a download's release has (n < 0: not
+// known), which moves it in the queue.
+func (e *Engine) SetSeeders(ctx context.Context, id int64, n int) error {
+	if n < 0 {
+		n = -1
+	}
+	e.mu.Lock()
+	j, err := e.get(id)
+	if err == nil {
+		j.d.Seeders = n
+	}
+	e.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	return e.opts.Store.UpdateDownload(ctx, id, store.DownloadUpdate{Seeders: &n})
+}
+
+// schedule gives slots to downloads that can use them: while downloads
+// wait for a slot, a running one that has had no peers for noPeersAfter is
+// paused; then queued downloads start while slots are free, best-seeded
+// first (oldest first among equals).
 func (e *Engine) schedule() {
-	active := 0
-	var queued []*job
+	now := e.opts.Now()
+	var running, queued []*job
 	for _, j := range e.jobs {
 		switch j.d.State {
 		case store.StateMetadata, store.StateDownloading:
-			active++
+			running = append(running, j)
 		case store.StateQueued:
 			queued = append(queued, j)
 		}
 	}
-	sort.Slice(queued, func(a, b int) bool { return queued[a].d.ID < queued[b].d.ID })
+	// Only downloads that won't get a free slot need one freed.
+	waiting := 0
+	if limit := e.settings.MaxActive; limit > 0 {
+		waiting = len(queued) - (limit - len(running))
+	}
+	if waiting > 0 && e.net.OK {
+		// Longest without a byte first.
+		sort.Slice(running, func(a, b int) bool { return running[a].lastProgress.Before(running[b].lastProgress) })
+		for _, j := range running {
+			if waiting == 0 {
+				break
+			}
+			if j.peers > 0 || now.Sub(j.lastProgress) < noPeersAfter {
+				continue
+			}
+			e.stopJob(j)
+			e.setState(j, store.StatePaused, NoPeersMsg)
+			e.opts.Log.Info("download paused: no peers", "id", j.d.ID, "name", j.d.Name)
+			e.activity("warn", j.d.TitleID, displayName(j.d)+": no peers for 10 minutes; paused so others can go")
+			waiting--
+		}
+	}
+	active := 0
+	for _, j := range e.jobs {
+		if j.d.State == store.StateMetadata || j.d.State == store.StateDownloading {
+			active++
+		}
+	}
+	sort.Slice(queued, func(a, b int) bool {
+		ra, rb := queueRank(queued[a].d), queueRank(queued[b].d)
+		if ra != rb {
+			return ra > rb
+		}
+		return queued[a].d.ID < queued[b].d.ID
+	})
 	for _, j := range queued {
 		if e.settings.MaxActive > 0 && active >= e.settings.MaxActive {
 			return

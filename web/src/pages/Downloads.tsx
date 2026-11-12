@@ -82,9 +82,10 @@ function Row({ d }: { d: Download }) {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted tabular-nums">
         <span>{bytes(d.doneBytes)} of {d.size ? bytes(d.size) : "?"} · {Math.floor(d.progress * 100)}%</span>
         {d.state === "downloading" && <span>{d.eta >= 0 ? `${duration(d.eta)} left` : "waiting for speed"}</span>}
+        {d.state === "queued" && <span title="Seeders when the release was found">{d.seeders > 0 ? `${d.seeders} seeders` : d.seeders === 0 ? "no seeders" : "seeders not known yet"}</span>}
         {(d.state === "seeding" || d.state === "done") && <span>Shared {bytes(d.uploaded)} · ratio {d.ratio.toFixed(2)}</span>}
         {d.state === "done" && <span>{d.dataRemoved ? "Download copy deleted; the library file stays" : "Stopped sharing; file kept in the download folder"}</span>}
-        {d.error && <span className="text-bad">{d.error}</span>}
+        {d.error && <span className={d.error.startsWith("Paused: no peers") ? "" : "text-bad"}>{d.error}</span>}
         <ImportStatus d={d} />
         {error && <span role="alert" className="text-bad">{error}</span>}
         <span className="ml-auto flex items-center gap-2">
@@ -159,11 +160,17 @@ function episodeOf(id: string) {
 
 export default function Downloads() {
   const { downloads, error } = useDownloads();
-  const active = downloads?.filter((d) => d.state !== "seeding" && d.state !== "done") ?? [];
+  const active = downloads?.filter((d) => d.state === "downloading" || d.state === "metadata") ?? [];
+  // In the order they start: most seeders first, then not known, then none.
+  const rank = (d: Download) => (d.seeders > 0 ? d.seeders : d.seeders < 0 ? 0 : -1);
+  const queue = (downloads?.filter((d) => d.state === "queued") ?? []).sort((a, b) => rank(b) - rank(a) || a.id - b.id);
+  const paused = downloads?.filter((d) => d.state === "paused" || d.state === "failed") ?? [];
   const seeding = downloads?.filter((d) => d.state === "seeding") ?? [];
   const finished = downloads?.filter((d) => d.state === "done") ?? [];
   const tabs: Tab[] = [
     { id: "downloading", label: "Downloading", count: active.length },
+    { id: "queue", label: "Queue", count: queue.length },
+    { id: "paused", label: "Paused", count: paused.length },
     { id: "seeding", label: "Seeding", count: seeding.length },
     { id: "finished", label: "Finished", count: finished.length },
   ];
@@ -178,7 +185,7 @@ export default function Downloads() {
   }, []);
   const down = downloads?.reduce((a, d) => a + d.downRate, 0) ?? 0;
   const up = downloads?.reduce((a, d) => a + d.upRate, 0) ?? 0;
-  const shown = tab === "seeding" ? seeding : tab === "finished" ? finished : active;
+  const shown = tab === "seeding" ? seeding : tab === "finished" ? finished : tab === "queue" ? queue : tab === "paused" ? paused : active;
   const limits = (
     <Link to="/settings?tab=downloads" className="text-deep underline">
       Settings → Downloads
@@ -211,7 +218,19 @@ export default function Downloads() {
           <Tabs tabs={tabs} current={tab} onChange={setTab} label="Downloads by state" />
           <TabPanel id={tab}>
             <div className="flex flex-col gap-2">
-              {tab === "downloading" && <p className="text-sm text-muted">Downloading, waiting their turn, paused or failed.</p>}
+              {tab === "downloading" && <p className="text-sm text-muted">Downloading now.</p>}
+              {tab === "paused" && (
+                <p className="text-sm text-muted">
+                  Paused by you or for having no peers, and failed downloads. Resume one to put it back in the queue.
+                </p>
+              )}
+              {tab === "queue" && (
+                <p className="text-sm text-muted">
+                  Waiting for a free slot, in the order they'll start: most seeders first (as reported when the release was found), then unknown, then none. How many run
+                  at once is set in {limits}. A download that has no peers for 10 minutes is paused so the next one can start; for tracked titles, Reelyard then looks for
+                  another release.
+                </p>
+              )}
               {tab === "seeding" && (
                 <p className="text-sm text-muted">
                   Finished and shared with other peers until the profile's ratio or time limit (or the one in {limits}). Once a file is in your library, its download copy is
@@ -221,7 +240,15 @@ export default function Downloads() {
               {tab === "finished" && <p className="text-sm text-muted">Done and no longer shared.</p>}
               {shown.length === 0 ? (
                 <div className="card border-dashed p-6 text-sm text-muted">
-                  {tab === "downloading" ? "Nothing downloading right now." : tab === "seeding" ? "Nothing being shared right now." : "Nothing finished yet."}
+                  {tab === "downloading"
+                    ? "Nothing downloading right now."
+                    : tab === "queue"
+                      ? "Nothing waiting."
+                      : tab === "paused"
+                        ? "Nothing paused or failed."
+                      : tab === "seeding"
+                        ? "Nothing being shared right now."
+                        : "Nothing finished yet."}
                 </div>
               ) : (
                 <ul className="card divide-y divide-line">{shown.map((d) => <Row key={d.id} d={d} />)}</ul>
