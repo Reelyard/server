@@ -79,3 +79,28 @@ func TestTitleAllowed(t *testing.T) {
 		}
 	}
 }
+
+func TestSetViewerTitle(t *testing.T) {
+	ctx := context.Background()
+	s := openTest(t)
+	v := &Viewer{Name: "Kids", Titles: []string{"tt1"}}
+	if err := s.CreateViewer(ctx, v); err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range []struct {
+		id   string
+		on   bool
+		want int
+	}{{"tt2", true, 2}, {"tt2", true, 2}, {"tt1", false, 1}, {"tt9", false, 1}} {
+		if err := s.SetViewerTitle(ctx, v.ID, step.id, step.on); err != nil {
+			t.Fatal(err)
+		}
+		got, _ := s.GetViewer(ctx, v.ID)
+		if len(got.Titles) != step.want {
+			t.Fatalf("after %+v: %v", step, got.Titles)
+		}
+	}
+	if err := s.SetViewerTitle(ctx, 999, "tt1", true); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unknown viewer: %v", err)
+	}
+}

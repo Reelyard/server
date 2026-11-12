@@ -4,6 +4,7 @@ import { ApiError, api, type Candidate, type Item, type Meta, type Profile, type
 import { bytes, episodeCode, langName } from "../format";
 import LibraryFiles from "../components/LibraryFiles";
 import TrackPanel from "../components/TrackPanel";
+import { TitleViewers } from "../components/Viewers";
 import { Poster } from "./Search";
 
 const RES_ORDER = ["2160p", "1080p", "720p", "576p", "480p", "360p"];
@@ -318,6 +319,9 @@ export default function Title() {
           {meta.description && <p className="max-w-prose text-sm">{meta.description}</p>}
           <div className="mt-1">
             <TrackPanel imdbId={meta.id} type={meta.type} seasons={seasons} refreshKey={refreshKey} onChange={(t, it, ps) => (setTracked(t), setItems(it), setProfiles(ps))} />
+            <div className="mt-2">
+              <TitleViewers titleId={meta.id} />
+            </div>
           </div>
         </div>
       </header>
