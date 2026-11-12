@@ -77,6 +77,9 @@ subtitle-language order (Samsung TVs get them too). Thumbnails need `ffmpeg`, du
 - It uses TCP port **8200** and SSDP (UDP 1900, multicast); allow both in your firewall.
 - Only devices on private networks (192.168.x, 10.x, 172.16–31.x, link-local) can connect.
 - It isn't announced on your VPN interface or, unless you choose them, on Docker/VM bridges.
+- Give each Reelyard on your network its own name (for example "Reelyard NAS" and "Reelyard PC"):
+  TVs tell servers apart by a device ID made from the name, so two called "Reelyard" get mixed
+  up. Reelyard warns in the DLNA settings when it finds a twin.
 
 ### Viewers: a server per family member
 
