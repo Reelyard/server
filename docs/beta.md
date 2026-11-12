@@ -19,10 +19,11 @@ system, with these changes:
 
 - **Any Compose file** (Docker, TrueNAS, Synology, QNAP, OpenMediaVault):
   change the image line to `image: ghcr.io/reelyard/server:beta`.
-- **ZimaOS / CasaOS**: the Reelyard app store opens with the public release.
-  For now use **App Store → Custom install → Import**, paste
-  [`deploy/zimaos/Apps/Reelyard/docker-compose.yml`](../deploy/zimaos/Apps/Reelyard/docker-compose.yml),
-  and change its image to `ghcr.io/reelyard/server:beta`.
+- **ZimaOS / CasaOS**: add the beta app store,
+  `https://reelyard.github.io/server/zimaos-beta/`, as an app source (see
+  the [NAS guide](nas.md#zimaos-and-casaos)) and install **Reelyard (beta)**.
+  It follows `ghcr.io/reelyard/server:beta`, so it is a separate app from
+  the stable **Reelyard** in `…/server/zimaos/`.
 - **Unraid**: add the template as the guide says, then set **Repository** to
   `ghcr.io/reelyard/server:beta`.
 
