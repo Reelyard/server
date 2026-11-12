@@ -357,6 +357,7 @@ export const api = {
   viewers: () => request<Viewer[]>("GET", "/viewers"),
   saveViewer: (v: ViewerInput, id?: number) => request<Viewer>(id ? "PUT" : "POST", id ? `/viewers/${id}` : "/viewers", v),
   deleteViewer: (id: number) => request<void>("DELETE", `/viewers/${id}`),
+  setViewerTitle: (id: number, titleId: string, on: boolean) => request<Viewer>(on ? "PUT" : "DELETE", `/viewers/${id}/titles/${encodeURIComponent(titleId)}`),
   mediaServers: () => request<MediaServer[]>("GET", "/mediaservers"),
   saveMediaServer: (m: MediaServerInput) =>
     m.id ? request<MediaServer>("PUT", `/mediaservers/${m.id}`, m) : request<MediaServer>("POST", "/mediaservers", m),

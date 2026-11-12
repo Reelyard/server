@@ -234,3 +234,26 @@ func TitleAllowed(titles []string, itemID string) bool {
 	}
 	return false
 }
+
+// SetViewerTitle lets a viewer see a title (a film's or series' id), or
+// stops them.
+func (s *Store) SetViewerTitle(ctx context.Context, viewerID int64, titleID string, on bool) error {
+	titleID = strings.TrimSpace(titleID)
+	if titleID == "" {
+		return errors.New("no title")
+	}
+	var n int
+	if err := s.DB.QueryRowContext(ctx, `SELECT COUNT(*) FROM viewers WHERE user_id = ?`, viewerID).Scan(&n); err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	var err error
+	if on {
+		_, err = s.DB.ExecContext(ctx, `INSERT OR IGNORE INTO viewer_titles (user_id, title_id) VALUES (?, ?)`, viewerID, titleID)
+	} else {
+		_, err = s.DB.ExecContext(ctx, `DELETE FROM viewer_titles WHERE user_id = ? AND title_id = ?`, viewerID, titleID)
+	}
+	return err
+}

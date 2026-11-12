@@ -275,3 +275,63 @@ function ServerLine({ v, server }: { v: Viewer; server?: DlnaServer }) {
     </span>
   );
 }
+
+// TitleViewers shows, on a title's page, which viewers can see it, and lets
+// you add or remove it for viewers limited to chosen titles.
+export function TitleViewers({ titleId }: { titleId: string }) {
+  const [viewers, setViewers] = useState<Viewer[] | null>(null);
+  const [busy, setBusy] = useState<number | null>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    api.viewers().then(setViewers).catch(() => setViewers([]));
+  }, []);
+
+  if (!viewers || viewers.length === 0) return null;
+
+  async function toggle(v: Viewer) {
+    const on = !v.titles.includes(titleId);
+    setBusy(v.id);
+    setError("");
+    try {
+      const saved = await api.setViewerTitle(v.id, titleId, on);
+      setViewers((vs) => vs?.map((x) => (x.id === v.id ? saved : x)) ?? null);
+    } catch (e) {
+      setError(errText(e, "Couldn't change that."));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5 text-sm">
+      <span className="text-xs text-muted">Viewers who can see this:</span>
+      {viewers.map((v) => {
+        const sees = v.allTitles || v.titles.includes(titleId);
+        if (v.allTitles) {
+          return (
+            <span key={v.id} title={`${v.name} sees the whole library`} className="rounded-full border border-line bg-bg px-2.5 py-0.5 text-xs text-muted">
+              {v.name} · all
+            </span>
+          );
+        }
+        return (
+          <button
+            key={v.id}
+            type="button"
+            aria-pressed={sees}
+            disabled={busy === v.id}
+            onClick={() => toggle(v)}
+            title={sees ? `Hide from ${v.name}` : `Let ${v.name} see this`}
+            className={`rounded-full border px-2.5 py-0.5 text-xs ${sees ? "border-deep bg-deep-soft text-deep" : "border-line text-muted hover:text-ink"}`}
+          >
+            {sees ? "✓ " : ""}
+            {v.name}
+          </button>
+        );
+      })}
+      <Link to="/settings?tab=viewers" className="text-xs text-deep underline">Manage</Link>
+      {error && <span role="alert" className="text-xs text-bad">{error}</span>}
+    </div>
+  );
+}

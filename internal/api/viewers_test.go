@@ -75,6 +75,20 @@ func TestViewersAPI(t *testing.T) {
 	if code, _ := c.do("POST", "/api/v1/auth/login", `{"username":"Kids","password":""}`); code != 401 {
 		t.Fatalf("viewer login: %d", code)
 	}
+	// One title at a time, from a title's page.
+	code, body = c.do("PUT", "/api/v1/viewers/"+id+"/titles/tt0063350", "")
+	if code != 200 || len(body["titles"].([]any)) != 1 || body["titles"].([]any)[0] != "tt0063350" {
+		t.Fatalf("add title: %d %v", code, body)
+	}
+	if code, _ := c.do("PUT", "/api/v1/viewers/"+id+"/titles/tt1:1:1", ""); code != 400 {
+		t.Fatalf("episode id: %d", code)
+	}
+	if code, _ := c.do("PUT", "/api/v1/viewers/999/titles/tt1", ""); code != 404 {
+		t.Fatalf("unknown viewer: %d", code)
+	}
+	if code, body := c.do("DELETE", "/api/v1/viewers/"+id+"/titles/tt0063350", ""); code != 200 || len(body["titles"].([]any)) != 0 {
+		t.Fatalf("remove title: %d %v", code, body)
+	}
 	if code, _ := c.do("DELETE", "/api/v1/viewers/"+id, ""); code != 204 {
 		t.Fatalf("delete: %d", code)
 	}

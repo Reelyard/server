@@ -19,6 +19,8 @@ func (s *Server) routesViewers(mux *http.ServeMux) {
 	mux.Handle("POST /api/v1/viewers", s.authed(s.saveViewer))
 	mux.Handle("PUT /api/v1/viewers/{id}", s.authed(s.saveViewer))
 	mux.Handle("DELETE /api/v1/viewers/{id}", s.authed(s.deleteViewer))
+	mux.Handle("PUT /api/v1/viewers/{id}/titles/{title}", s.authed(s.viewerTitle(true)))
+	mux.Handle("DELETE /api/v1/viewers/{id}/titles/{title}", s.authed(s.viewerTitle(false)))
 	mux.Handle("GET /api/v1/dlna/tvs", s.authed(s.listTVs))
 	mux.Handle("PUT /api/v1/dlna/tvs/{address}", s.authed(s.nameTV))
 	mux.Handle("DELETE /api/v1/dlna/tvs/{address}", s.authed(s.forgetTV))
@@ -130,6 +132,39 @@ func (s *Server) deleteViewer(w http.ResponseWriter, r *http.Request) {
 		s.DLNA.ViewersChanged()
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// viewerTitle lets a viewer see one title (a film or series id), or stops
+// them, and answers with the viewer.
+func (s *Server) viewerTitle(on bool) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, ok := pathID(w, r)
+		if !ok {
+			return
+		}
+		title := r.PathValue("title")
+		if !strings.HasPrefix(title, "tt") || strings.Contains(title, ":") {
+			writeError(w, http.StatusBadRequest, "title must be a film or series IMDb id")
+			return
+		}
+		if err := s.Store.SetViewerTitle(r.Context(), id, title, on); err != nil {
+			if errors.Is(err, store.ErrNotFound) {
+				writeError(w, http.StatusNotFound, "no such viewer")
+				return
+			}
+			s.internal(w, "viewer title", err)
+			return
+		}
+		v, err := s.Store.GetViewer(r.Context(), id)
+		if err != nil {
+			s.internal(w, "read viewer", err)
+			return
+		}
+		if s.DLNA != nil {
+			s.DLNA.ViewersChanged()
+		}
+		writeJSON(w, http.StatusOK, v)
+	}
 }
 
 func (s *Server) listTVs(w http.ResponseWriter, r *http.Request) {
