@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -183,14 +184,19 @@ func (t *Tracker) Track(ctx context.Context, r TrackRequest) (*store.Title, erro
 	return t.o.Store.GetTitle(ctx, ti.ID)
 }
 
-// Update changes a title's profile and monitoring, and re-applies the
-// monitoring to its episodes.
+// Update changes a title's profile and monitoring. When the monitoring
+// (episodes or seasons) changed, it's re-applied to every episode; a
+// profile-only change keeps episodes picked by hand.
 func (t *Tracker) Update(ctx context.Context, id, profileID int64, monitor string, seasons []int) (*store.Title, error) {
 	if monitor != "all" && monitor != "future" && monitor != "none" {
 		return nil, ErrBadMonitor
 	}
 	if _, err := t.o.Store.GetProfile(ctx, profileID); err != nil {
 		return nil, fmt.Errorf("profile: %w", err)
+	}
+	before, err := t.o.Store.GetTitle(ctx, id)
+	if err != nil {
+		return nil, err
 	}
 	if err := t.o.Store.UpdateTitle(ctx, id, profileID, monitor, seasons); err != nil {
 		return nil, err
@@ -199,18 +205,44 @@ func (t *Tracker) Update(ctx context.Context, id, profileID int64, monitor strin
 	if err != nil {
 		return nil, err
 	}
-	items, err := t.o.Store.ItemsOfTitle(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-	for _, it := range items {
-		if want := monitored(ti, it); want != it.Monitored {
-			_ = t.o.Store.SetMonitored(ctx, it.ID, want)
+	if ti.Monitor != before.Monitor || !slices.Equal(ti.Seasons, before.Seasons) {
+		items, err := t.o.Store.ItemsOfTitle(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		for _, it := range items {
+			if want := monitored(ti, it); want != it.Monitored {
+				_ = t.o.Store.SetMonitored(ctx, it.ID, want)
+			}
 		}
 	}
 	_ = t.o.Store.SearchSoon(ctx, id, 0)
 	t.Kick()
 	return t.o.Store.GetTitle(ctx, id)
+}
+
+// SetSeasonMonitored turns every episode of one season of a title on or off
+// (by hand, like single episodes) and returns how many changed.
+func (t *Tracker) SetSeasonMonitored(ctx context.Context, titleID int64, season int, on bool) (int, error) {
+	items, err := t.o.Store.ItemsOfTitle(ctx, titleID)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, it := range items {
+		if it.Season != season || it.Monitored == on {
+			continue
+		}
+		if err := t.o.Store.SetMonitored(ctx, it.ID, on); err != nil {
+			return n, err
+		}
+		n++
+	}
+	if on && n > 0 {
+		_ = t.o.Store.SearchSoon(ctx, titleID, 0)
+		t.Kick()
+	}
+	return n, nil
 }
 
 // SearchNow makes a title's missing items (or one item) due and runs a pass.

@@ -391,4 +391,6 @@ export const api = {
   searchTitleNow: (id: number) => request<void>("POST", `/titles/${id}/search`),
   searchItemNow: (id: number) => request<void>("POST", `/items/${id}/search`),
   setItemMonitored: (id: number, monitored: boolean) => request<{ item: Item }>("PATCH", `/items/${id}`, { monitored }),
+  setSeasonMonitored: (titleId: number, season: number, monitored: boolean) =>
+    request<{ title: Tracked; items: Item[] }>("PATCH", `/titles/${titleId}/seasons/${season}`, { monitored }),
 };

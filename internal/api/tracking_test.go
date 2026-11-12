@@ -121,6 +121,19 @@ func TestProfilesAndTracking(t *testing.T) {
 	if code, body := c.do("PATCH", "/api/v1/titles/"+tid, `{"profileId":1,"monitor":"all"}`); code != 200 || body["title"].(map[string]any)["profileId"].(float64) != 1 {
 		t.Fatalf("update: %d %v", code, body)
 	}
+	// Whole-season switch: validation and unknown titles.
+	if code, _ := c.do("PATCH", "/api/v1/titles/"+tid+"/seasons/x", `{"monitored":true}`); code != 400 {
+		t.Fatalf("bad season: %d", code)
+	}
+	if code, _ := c.do("PATCH", "/api/v1/titles/"+tid+"/seasons/1", `{}`); code != 400 {
+		t.Fatalf("nothing to change: %d", code)
+	}
+	if code, _ := c.do("PATCH", "/api/v1/titles/99999/seasons/1", `{"monitored":true}`); code != 404 {
+		t.Fatalf("unknown title: %d", code)
+	}
+	if code, body := c.do("PATCH", "/api/v1/titles/"+tid+"/seasons/1", `{"monitored":false}`); code != 200 || body["title"] == nil {
+		t.Fatalf("season switch: %d %v", code, body)
+	}
 	if code, _ := c.do("POST", "/api/v1/titles/"+tid+"/search", ""); code != 202 {
 		t.Fatalf("search now: %d", code)
 	}

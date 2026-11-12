@@ -245,6 +245,9 @@ export default function Title() {
   const [tracked, setTracked] = useState<Tracked | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [pickError, setPickError] = useState("");
+  const [busySeason, setBusySeason] = useState(false);
 
   useEffect(() => {
     let live = true;
@@ -274,6 +277,34 @@ export default function Title() {
 
   const now = Date.now();
   void profiles;
+  const seasonItems = episodes.map((v) => itemByID.get(v.id)).filter((x): x is Item => !!x && x.state !== "imported");
+  const seasonOn = seasonItems.filter((x) => x.monitored).length;
+
+  async function pickEpisode(it: Item, on: boolean) {
+    setPickError("");
+    setItems((xs) => xs.map((x) => (x.id === it.id ? { ...x, monitored: on } : x)));
+    try {
+      await api.setItemMonitored(it.id, on);
+      setRefreshKey((k) => k + 1);
+    } catch (e) {
+      setItems((xs) => xs.map((x) => (x.id === it.id ? { ...x, monitored: !on } : x)));
+      setPickError(e instanceof Error ? e.message : "Couldn't change that episode.");
+    }
+  }
+  async function pickSeason(on: boolean) {
+    if (!tracked) return;
+    setPickError("");
+    setBusySeason(true);
+    try {
+      const r = await api.setSeasonMonitored(tracked.id, season, on);
+      setItems(r.items);
+      setRefreshKey((k) => k + 1);
+    } catch (e) {
+      setPickError(e instanceof Error ? e.message : "Couldn't change the season.");
+    } finally {
+      setBusySeason(false);
+    }
+  }
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-5 sm:flex-row">
@@ -286,7 +317,7 @@ export default function Title() {
           </p>
           {meta.description && <p className="max-w-prose text-sm">{meta.description}</p>}
           <div className="mt-1">
-            <TrackPanel imdbId={meta.id} type={meta.type} onChange={(t, it, ps) => (setTracked(t), setItems(it), setProfiles(ps))} />
+            <TrackPanel imdbId={meta.id} type={meta.type} seasons={seasons} refreshKey={refreshKey} onChange={(t, it, ps) => (setTracked(t), setItems(it), setProfiles(ps))} />
           </div>
         </div>
       </header>
@@ -313,17 +344,44 @@ export default function Title() {
             >
               {seasons.map((s) => <option key={s} value={s}>{s === 0 ? "Specials" : `Season ${s}`}</option>)}
             </select>
+            {tracked && seasonItems.length > 0 && (
+              <span className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-muted">{seasonOn} of {seasonItems.length} to get</span>
+                {seasonOn < seasonItems.length && (
+                  <button className="btn-ghost py-1" disabled={busySeason} onClick={() => pickSeason(true)}>Get whole season</button>
+                )}
+                {seasonOn > 0 && (
+                  <button className="btn-ghost py-1" disabled={busySeason} onClick={() => pickSeason(false)}>Skip season</button>
+                )}
+              </span>
+            )}
           </div>
+          {pickError && <p role="alert" className="text-sm text-bad">{pickError}</p>}
           <ol className="card divide-y divide-line">
             {episodes.map((v) => {
               const aired = new Date(v.released).getTime() <= now;
               const active = v.id === episodeId;
               const it = itemByID.get(v.id);
               return (
-                <li key={v.id}>
+                <li key={v.id} className={`flex items-center ${active ? "bg-deep-soft" : ""}`}>
+                  {tracked && (
+                    <span className="flex w-10 shrink-0 justify-center pl-2">
+                      {it && it.state !== "imported" ? (
+                        <input
+                          type="checkbox"
+                          id={`get-${v.id}`}
+                          aria-label={`Get ${episodeCode(v.season, v.episode)}`}
+                          title="Get this episode automatically"
+                          checked={it.monitored}
+                          onChange={(e) => pickEpisode(it, e.target.checked)}
+                          className="accent-[var(--hb-deep)]"
+                        />
+                      ) : null}
+                    </span>
+                  )}
                   <button
                     onClick={() => setParams({ s: String(season), ep: v.id })}
-                    className={`flex w-full items-baseline gap-3 px-4 py-2.5 text-left text-sm hover:bg-bg ${active ? "bg-deep-soft" : ""}`}
+                    className={`flex min-w-0 flex-1 items-baseline gap-3 py-2.5 pr-4 text-left text-sm hover:bg-bg ${tracked ? "pl-1" : "pl-4"}`}
                     aria-current={active}
                   >
                     <span className="w-16 shrink-0 font-mono text-xs text-muted">{episodeCode(v.season, v.episode)}</span>
@@ -340,7 +398,9 @@ export default function Title() {
           {picked ? (
             <section className="flex flex-col gap-3">
               <LibraryFiles key={picked.id} titleId={meta.id} episodeId={picked.id} />
-              {itemByID.get(picked.id) && <ItemStatus it={itemByID.get(picked.id)!} onSearch={refreshItems} />}
+              {itemByID.get(picked.id) && (
+                <ItemStatus key={`${picked.id}-${itemByID.get(picked.id)!.monitored}`} it={itemByID.get(picked.id)!} onSearch={() => (refreshItems(), setRefreshKey((k) => k + 1))} />
+              )}
               <h3 className="font-semibold">Streams for {episodeCode(picked.season, picked.episode)} · {picked.title}</h3>
               <Streams type="series" id={picked.id} name={meta.name} profileId={tracked?.profileId} />
             </section>

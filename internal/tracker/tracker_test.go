@@ -316,3 +316,58 @@ func TestCheckAudio(t *testing.T) {
 		t.Fatalf("SubtitleLangs = %v %v", l, ok)
 	}
 }
+
+// Picking part of a series: chosen seasons only, whole seasons switched by
+// hand, and hand-picked episodes kept when only the profile changes.
+func TestPickEpisodes(t *testing.T) {
+	ctx := context.Background()
+	tr, st, _, _ := setup(t)
+	ti, err := tr.Track(ctx, TrackRequest{IMDbID: "tt0903747", Type: "series", ProfileID: 1, Monitor: "all", Seasons: []int{2}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := func() map[int]int {
+		items, _ := st.ItemsOfTitle(ctx, ti.ID)
+		on := map[int]int{}
+		for _, it := range items {
+			if it.Monitored {
+				on[it.Season]++
+			}
+		}
+		return on
+	}
+	if on := count(); on[1] != 0 || on[2] == 0 || on[3] != 0 {
+		t.Fatalf("season 2 only: %v", on)
+	}
+
+	// Add season 1 by hand, and drop one episode of it.
+	if n, err := tr.SetSeasonMonitored(ctx, ti.ID, 1, true); err != nil || n == 0 {
+		t.Fatalf("season 1 on: %d %v", n, err)
+	}
+	e3, _ := st.ItemByItemID(ctx, "tt0903747:1:3")
+	if err := st.SetMonitored(ctx, e3.ID, false); err != nil {
+		t.Fatal(err)
+	}
+	picked := count()
+
+	// A profile-only save keeps those choices…
+	if _, err := tr.Update(ctx, ti.ID, 1, "all", []int{2}); err != nil {
+		t.Fatal(err)
+	}
+	if on := count(); on[1] != picked[1] || on[2] != picked[2] {
+		t.Fatalf("profile-only save changed picks: %v, was %v", on, picked)
+	}
+	// …changing the seasons re-applies the rule.
+	if _, err := tr.Update(ctx, ti.ID, 1, "all", []int{3}); err != nil {
+		t.Fatal(err)
+	}
+	if on := count(); on[1] != 0 || on[2] != 0 || on[3] == 0 {
+		t.Fatalf("after choosing season 3: %v", on)
+	}
+	if n, _ := tr.SetSeasonMonitored(ctx, ti.ID, 3, false); n == 0 {
+		t.Fatal("season 3 off changed nothing")
+	}
+	if on := count(); on[3] != 0 {
+		t.Fatalf("season 3 still on: %v", on)
+	}
+}
