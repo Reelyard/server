@@ -49,6 +49,9 @@ type Options struct {
 	// and a check that rejects a file whose audio the profile can't use.
 	SubtitleLangsFor func(ctx context.Context, itemID string) ([]string, bool)
 	CheckAudio       func(ctx context.Context, itemID string, audio []string) error
+	// AudioLangsFor gives a tracked title's audio languages, preferred
+	// first; the preferred one present is made the track that plays first.
+	AudioLangsFor func(ctx context.Context, itemID string) ([]string, bool)
 	// AfterImport runs after each import attempt (e.g. to wake the tracker).
 	AfterImport func()
 	// OnImported runs after a successful import (e.g. to refresh Jellyfin).
@@ -178,9 +181,22 @@ func (im *Importer) Import(ctx context.Context, id int64) (err error) {
 		return err
 	}
 	dst := filepath.Join(im.o.LibraryDir, filepath.FromSlash(rel))
-	method, err := Place(src, dst)
+	var prefs []string
+	if probed && im.o.AudioLangsFor != nil && LoadSettings(ctx, im.o.Store).AudioFirst {
+		prefs, _ = im.o.AudioLangsFor(ctx, d.TitleID)
+	}
+	method, lead, audioNote, err := placeAudioFirst(ctx, src, dst, probe, prefs)
 	if err != nil {
 		return err
+	}
+	if audioNote != "" {
+		im.o.Log.Warn("audio order", "file", src, "err", audioNote)
+	}
+	if method == MethodRemux {
+		// The track order changed: describe the new file.
+		if p2, ok, err := ProbeFile(ctx, dst); ok && err == nil {
+			probe.AudioLangs, probe.AudioCodecs, probe.EmbeddedSubs = p2.AudioLangs, p2.AudioCodecs, p2.EmbeddedSubs
+		}
 	}
 	fi, err := os.Stat(dst)
 	if err != nil {
@@ -201,12 +217,18 @@ func (im *Importer) Import(ctx context.Context, id int64) (err error) {
 		return err
 	}
 	how := "linked"
-	if method == MethodCopy {
+	switch method {
+	case MethodCopy:
 		how = "copied"
+	case MethodRemux:
+		how = "copied with the " + lang.Name(lead) + " audio first"
 	}
 	note := ""
-	if !probed {
+	switch {
+	case !probed:
 		note = " (install ffprobe to check languages and quality of imported files)"
+	case audioNote != "":
+		note = " (" + audioNote + ")"
 	}
 	im.activity(ctx, "info", "import", d.TitleID, fmt.Sprintf("Imported %s → %s (%s)%s", d.TitleName, rel, how, note))
 	im.o.Log.Info("imported", "download", id, "path", rel, "method", method)

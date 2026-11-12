@@ -329,6 +329,7 @@ function DownloadOptions() {
 
 function LibraryOptions() {
   const [langs, setLangs] = useState<string[] | null>(null);
+  const [audioFirst, setAudioFirst] = useState<boolean | null>(null);
   const [all, setAll] = useState<Language[]>([]);
   const [dir, setDir] = useState("");
   const [pick, setPick] = useState("");
@@ -336,19 +337,20 @@ function LibraryOptions() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    api.librarySettings().then((r) => (setLangs(r.settings.subtitleLangs), setDir(r.libraryDir))).catch((e) => setMsg({ ok: false, text: e.message }));
+    api.librarySettings().then((r) => (setLangs(r.settings.subtitleLangs), setAudioFirst(r.settings.audioFirst), setDir(r.libraryDir))).catch((e) => setMsg({ ok: false, text: e.message }));
     api.languages().then(setAll).catch(() => {});
   }, []);
 
   const name = (c: string) => all.find((l) => l.code === c)?.name ?? c;
 
-  async function save(next: string[]) {
+  async function save(change: { subtitleLangs?: string[]; audioFirst?: boolean }) {
     setBusy(true);
     setMsg(null);
     try {
-      const r = await api.saveLibrarySettings({ subtitleLangs: next });
+      const r = await api.saveLibrarySettings(change);
       setLangs(r.settings.subtitleLangs);
-      setMsg({ ok: true, text: "Saved. Applies to the next imports and to “Find subtitles”." });
+      setAudioFirst(r.settings.audioFirst);
+      setMsg({ ok: true, text: change.subtitleLangs ? "Saved. Applies to the next imports and to “Find subtitles”." : "Saved. Applies to the next imports." });
     } catch (err) {
       setMsg({ ok: false, text: err instanceof Error ? err.message : "Couldn't save." });
     } finally {
@@ -377,7 +379,7 @@ function LibraryOptions() {
                 className="grid h-5 w-5 place-items-center rounded-full hover:bg-surface"
                 aria-label={`Remove ${name(l)}`}
                 disabled={busy}
-                onClick={() => save(langs.filter((_, j) => j !== i))}
+                onClick={() => save({ subtitleLangs: langs.filter((_, j) => j !== i) })}
               >
                 ×
               </button>
@@ -392,8 +394,23 @@ function LibraryOptions() {
               <option key={l.code} value={l.code}>{l.name}</option>
             ))}
           </select>
-          <button type="button" className="btn-ghost" disabled={!pick || busy || !langs} onClick={() => (save([...(langs ?? []), pick]), setPick(""))}>Add</button>
+          <button type="button" className="btn-ghost" disabled={!pick || busy || !langs} onClick={() => (save({ subtitleLangs: [...(langs ?? []), pick] }), setPick(""))}>Add</button>
         </div>
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="accent-[var(--hb-deep)]"
+            checked={audioFirst ?? false}
+            disabled={busy || audioFirst === null}
+            onChange={(e) => save({ audioFirst: e.target.checked })}
+          />
+          Play the preferred audio language first
+        </label>
+        <p className="text-xs text-muted">
+          When a file has several audio tracks, the first language from the title's quality profile that it has becomes the track TVs and players start with. The library gets a copy with the tracks reordered instead of a link, so it takes extra space until sharing stops. Needs ffmpeg.
+        </p>
       </div>
       {msg && <p role="status" className={`rounded-lg px-3 py-2 text-sm ${msg.ok ? "bg-ok-soft text-ok" : "bg-bad-soft text-bad"}`}>{msg.text}</p>}
     </section>

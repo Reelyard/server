@@ -141,6 +141,14 @@ If a download is removed, fails, or turns out to have the wrong audio language (
 ffprobe when the profile requires one), that release is put on a blocklist for that title
 and Reelyard picks the next best.
 
+The profile's audio languages are in order of preference (use ‹ to move one earlier), for
+example Portuguese then English. When a file has several audio tracks, Reelyard makes the
+first of those languages it has the track that plays first: the library gets a copy with
+that track first and marked as the default, so TVs and players start with it. The download
+itself isn't changed, so it keeps sharing; the copy takes extra space until sharing stops
+and the download is deleted. Needs ffmpeg; turn it off in **Settings → Library**. Files in
+AVI or TS, and titles you didn't track, are linked as they are.
+
 Only download content you have the rights to (see [Legal notice](#legal-notice)).
 
 ## Folders

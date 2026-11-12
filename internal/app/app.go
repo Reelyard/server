@@ -95,7 +95,7 @@ func (a *App) Start(ctx context.Context) error {
 	imp := importer.New(importer.Options{
 		Store: st, Downloads: eng, Meta: meta, Suppliers: sup, Client: client, Bus: bus, Log: a.Log,
 		LibraryDir: a.Config.LibraryDir, DownloadDir: a.Config.DownloadDir,
-		SubtitleLangsFor: trk.SubtitleLangs, CheckAudio: trk.CheckAudio, AfterImport: trk.Kick,
+		SubtitleLangsFor: trk.SubtitleLangs, CheckAudio: trk.CheckAudio, AudioLangsFor: trk.AudioLangs, AfterImport: trk.Kick,
 		OnImported: media.Kick,
 	})
 	a.dlna = dlna.New(ctx, dlna.Options{

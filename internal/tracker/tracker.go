@@ -571,6 +571,16 @@ func (t *Tracker) SubtitleLangs(ctx context.Context, itemID string) ([]string, b
 	return p.SubtitleLangs, true
 }
 
+// AudioLangs returns the profile's audio languages, preferred first, for a
+// tracked item.
+func (t *Tracker) AudioLangs(ctx context.Context, itemID string) ([]string, bool) {
+	p, ok := t.ProfileFor(ctx, itemID)
+	if !ok || len(p.AudioLangs) == 0 {
+		return nil, false
+	}
+	return p.AudioLangs, true
+}
+
 // CheckAudio rejects a file whose audio languages (from ffprobe) don't
 // include one the profile requires.
 func (t *Tracker) CheckAudio(ctx context.Context, itemID string, audio []string) error {

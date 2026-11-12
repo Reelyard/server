@@ -97,7 +97,8 @@ func (s *Server) getLibrarySettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) putLibrarySettings(w http.ResponseWriter, r *http.Request) {
-	var body importer.Settings
+	// Fields left out keep their saved values.
+	body := importer.LoadSettings(r.Context(), s.Store)
 	if !decode(w, r, &body) {
 		return
 	}

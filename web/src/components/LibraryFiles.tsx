@@ -42,7 +42,7 @@ function FileRow({ f, onChange }: { f: MediaFile; onChange: (f: MediaFile) => vo
           <p className="truncate font-mono text-xs text-muted" title={f.path}>{parts.slice(0, -1).join("/")}/</p>
         </div>
         <span className="shrink-0 text-xs tabular-nums text-muted">
-          {[f.resolution, f.videoCodec, bytes(f.size), f.method === "hardlink" ? "linked (no extra space)" : "copied"].filter(Boolean).join(" · ")}
+          {[f.resolution, f.videoCodec, bytes(f.size), f.method === "hardlink" ? "linked (no extra space)" : f.method === "remux" ? "copied, preferred audio first" : "copied"].filter(Boolean).join(" · ")}
         </span>
       </div>
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
