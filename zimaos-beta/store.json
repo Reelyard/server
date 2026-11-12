@@ -1,0 +1,8 @@
+{
+  "version": 2,
+  "store_id": "reelyard-beta",
+  "name": "Reelyard (beta)",
+  "description": "Reelyard: tracks movies and series, downloads them into your media library with subtitles, and serves it to your TVs.",
+  "maintainer": "Reelyard",
+  "url": "https://github.com/reelyard/server"
+}

@@ -1,0 +1,32 @@
+{
+  "tagline": "Track movies and series, download them with subtitles, watch on your TV",
+  "description": "**Your movies and series, delivered.** Reelyard tracks the movies and TV series you want, finds releases through Stremio addons, downloads them with its built-in torrent engine and adds them to your media library with Jellyfin/Plex-friendly names and subtitles in your languages.\n\n**Quality profiles** decide screen size, file size and audio and subtitle languages. New episodes are fetched as they air.\n\n**Watch anywhere.** Reelyard's own DLNA server shows the library on smart TVs and game consoles, and it can ask Jellyfin, Emby or Plex to rescan when new files arrive.\n\nOnly download content you have the rights to.\n",
+  "author": "Reelyard",
+  "developer": "Reelyard",
+  "category": "Media",
+  "architectures": [
+    "amd64",
+    "arm64"
+  ],
+  "tips": {
+    "before_install": "Open Reelyard after installing: the first visit creates your account.\n\n| Name | Path |\n| ---- | ---- |\n| Library | `/DATA/Media` (`Movies/`, `TV/`) |\n| Downloads | `/DATA/Downloads/Reelyard` |\n\nPoint Jellyfin or Plex at `/DATA/Media`, or open **Reelyard** in your TV's media menu (DLNA).\n"
+  },
+  "update_at": "2026-11-11",
+  "website": "https://github.com/reelyard/server",
+  "repo": "https://github.com/reelyard/server",
+  "support": "https://github.com/reelyard/server/issues",
+  "docs": "https://github.com/reelyard/server#readme",
+  "title": "Reelyard (beta)",
+  "release_note": "Beta build, following the ghcr.io/reelyard/server:beta image.",
+  "base_url": "https://reelyard.github.io/server/zimaos-beta",
+  "id": "io.github.reelyard.server.beta",
+  "version": "0.1.0",
+  "categories": [
+    "media"
+  ],
+  "min_memory": 134217728,
+  "min_image_size": {
+    "amd64": 0,
+    "arm64": 0
+  }
+}

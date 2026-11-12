@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "updated_at": "2026-11-12T09:33:31Z",
+  "app_count": 1,
+  "base_url": "https://reelyard.github.io/server/zimaos-beta",
+  "apps": [
+    {
+      "id": "io.github.reelyard.server.beta",
+      "title": "Reelyard (beta)",
+      "tagline": "Track movies and series, download them with subtitles, watch on your TV",
+      "category": "Media",
+      "categories": [
+        "media"
+      ],
+      "author": "Reelyard",
+      "developer": "Reelyard",
+      "architectures": [
+        "amd64",
+        "arm64"
+      ],
+      "icon": "/apps/io.github.reelyard.server.beta/assets/icon.svg",
+      "thumbnail": "",
+      "compose_url": "/apps/io.github.reelyard.server.beta/docker-compose.yml",
+      "meta_url": "/apps/io.github.reelyard.server.beta/meta.json",
+      "content_hash": "444fd9e6",
+      "version": "0.1.0"
+    }
+  ]
+}

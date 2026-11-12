@@ -1,0 +1,36 @@
+name: reelyard
+services:
+  reelyard:
+    image: ghcr.io/reelyard/server:beta
+    container_name: reelyard
+    environment:
+      PUID: $PUID
+      PGID: $PGID
+      TZ: $TZ
+      UMASK: "002"
+      REELYARD_DOWNLOAD_DIR: /DATA/Downloads/Reelyard
+      REELYARD_LIBRARY_DIR: /DATA/Media
+    deploy:
+      resources:
+        reservations:
+          memory: "128M"
+    # Host networking lets TVs on your network find Reelyard's DLNA server.
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: /DATA/AppData/$AppID/config
+        target: /config
+      - type: bind
+        source: /DATA
+        target: /DATA
+x-casaos:
+  id: io.github.reelyard.server.beta
+  main: reelyard
+  index: /
+  port_map: "8787"
+  scheme: http
+  icon: https://reelyard.github.io/server/zimaos-beta/apps/io.github.reelyard.server.beta/assets/icon.svg
+  title:
+    en_US: Reelyard (beta)
+  version: "0.1.0"
