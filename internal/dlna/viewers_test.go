@@ -71,8 +71,13 @@ func TestViewerServer(t *testing.T) {
 	if w := send("192.168.1.9", httptest.NewRequest("GET", "/rootDesc.xml", nil)); w.Code != http.StatusForbidden {
 		t.Fatalf("other TV: %d", w.Code)
 	}
-	if tvs := s.TVs(); len(tvs) != 1 || tvs[0].Address != "192.168.1.9" || tvs[0].Model != "Samsung Q80 Series (55)" {
+	if tvs := s.TVs(); len(tvs) != 1 || tvs[0].Address != "192.168.1.9" || tvs[0].Model != "Samsung Q80 Series (55)" || tvs[0].Agent == "" {
 		t.Fatalf("seen TVs: %+v", tvs)
+	}
+	// This machine isn't a TV.
+	send("127.0.0.1", httptest.NewRequest("GET", "/rootDesc.xml", nil))
+	if tvs := s.TVs(); len(tvs) != 1 {
+		t.Fatalf("loopback recorded: %+v", tvs)
 	}
 
 	// Root: only the series' folder, no films.
@@ -120,6 +125,11 @@ func TestViewerServer(t *testing.T) {
 	if _, res = browse(continueID, "BrowseMetadata", 0, 0); !strings.Contains(res.DIDL, "<dc:title>Continue watching</dc:title>") {
 		t.Fatalf("continue metadata: %+v", res)
 	}
+	// The folder reports the library's UpdateID (TVs reload when it differs).
+	_, rootRes := browse("0", "BrowseDirectChildren", 0, 0)
+	if res.UpdateID == "" || res.UpdateID == "0" && rootRes.UpdateID != "0" || res.UpdateID != rootRes.UpdateID {
+		t.Fatalf("continue UpdateID %q, library %q", res.UpdateID, rootRes.UpdateID)
+	}
 	// Paging counts what the viewer can see.
 	if _, res = browse("0", "BrowseDirectChildren", 1, 1); res.Returned != 1 || res.Total != 2 || !strings.Contains(res.DIDL, "<dc:title>TV</dc:title>") {
 		t.Fatalf("paged: %+v", res)
@@ -138,6 +148,7 @@ type browseResult struct {
 	DIDL     string
 	Returned int
 	Total    int
+	UpdateID string
 }
 
 func (b browseResult) header() string {
@@ -152,6 +163,7 @@ func parseBrowse(t *testing.T, body []byte) browseResult {
 			Resp struct {
 				Result         string
 				NumberReturned int
+				UpdateID       string
 				TotalMatches   int
 			} `xml:",any"`
 		}
@@ -163,7 +175,7 @@ func parseBrowse(t *testing.T, body []byte) browseResult {
 	if err := xml.Unmarshal([]byte(env.Body.Resp.Result), &didl); err != nil {
 		t.Fatalf("DIDL isn't XML: %v\n%s", err, env.Body.Resp.Result)
 	}
-	return browseResult{env.Body.Resp.Result, env.Body.Resp.NumberReturned, env.Body.Resp.TotalMatches}
+	return browseResult{env.Body.Resp.Result, env.Body.Resp.NumberReturned, env.Body.Resp.TotalMatches, env.Body.Resp.UpdateID}
 }
 
 func TestTVModel(t *testing.T) {
@@ -171,6 +183,10 @@ func TestTVModel(t *testing.T) {
 		"SEC_HHP_[TV] UE40ES6800/1.0 DLNADOC/1.50":              "UE40ES6800",
 		"DLNADOC/1.50 SEC_HHP_[TV] Samsung Q80 Series (55)/1.0": "Samsung Q80 Series (55)",
 		"VLC/3.0.20 LibVLC/3.0.20":                              "VLC",
+		"DLNADOC/1.50 SEC_HHP_Living room/1.0":                  "Living room",
+		"DLNADOC/1.50 SEC_HHP_/1.0 UPnP/1.0":                    "Samsung TV",
+		"Linux/5.4 UPnP/1.0 Kodi/21.0":                          "Kodi",
+		"Microsoft-Windows/10.0 UPnP/1.0":                       "Microsoft-Windows",
 		"":                                                      "",
 	} {
 		if got := tvModel(ua); got != want {

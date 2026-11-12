@@ -23,6 +23,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"path"
@@ -216,6 +217,7 @@ func (s *Server) serveBrowse(w http.ResponseWriter, req *http.Request, r *runnin
 			return true
 		}
 		items := s.continueItems(ctx, req, r, vis)
+		updateID = s.updateID(ctx, req, r)
 		if children {
 			entries = items
 		} else {
@@ -280,6 +282,19 @@ func (s *Server) serveBrowse(w http.ResponseWriter, req *http.Request, r *runnin
 		`<u:BrowseResponse xmlns:u="urn:schemas-upnp-org:service:%s:1"><Result>%s</Result><NumberReturned>%d</NumberReturned><TotalMatches>%d</TotalMatches><UpdateID>%s</UpdateID></u:BrowseResponse>`,
 		cdsType, escapeDIDL(didl), len(entries), total, xmlText(updateID)))
 	return true
+}
+
+// updateID is the library's current UpdateID, as dms last reported it. TVs
+// reload their lists when it changes, so the Continue watching folder must
+// report the same one as the rest of the library.
+func (s *Server) updateID(ctx context.Context, req *http.Request, r *running) string {
+	if v, ok := r.lastUpdateID.Load().(string); ok && v != "" {
+		return v
+	}
+	if code, _, uid, _ := s.dmsBrowse(ctx, req, r, "0", "BrowseMetadata", "*", ""); code == http.StatusOK {
+		return uid
+	}
+	return "0"
 }
 
 // didlHeader is the DIDL-Lite opening tag dms writes.
@@ -370,6 +385,7 @@ func (s *Server) dmsBrowse(ctx context.Context, tv *http.Request, r *running, ob
 	if uid == "" {
 		uid = "0"
 	}
+	r.lastUpdateID.Store(uid)
 	return http.StatusOK, env.Body.Resp.Result, uid, raw
 }
 
@@ -440,8 +456,9 @@ func xmlText(s string) string {
 // in "Show on these TVs".
 type TV struct {
 	Address  string    `json:"address"`
-	Name     string    `json:"name,omitempty"` // given in Reelyard
-	Model    string    `json:"model"`          // from the device's User-Agent
+	Name     string    `json:"name,omitempty"`  // given in Reelyard
+	Model    string    `json:"model"`           // from the device's User-Agent
+	Agent    string    `json:"agent,omitempty"` // the User-Agent itself (shortened)
 	LastSeen time.Time `json:"lastSeen"`
 }
 
@@ -475,10 +492,14 @@ func loadTVs(ctx context.Context, st *store.Store, log interface{ Warn(string, .
 // seen records a request from a TV. It's saved when the TV is new, its
 // model changed, or every tvSaveEvery.
 func (t *tvRegistry) seen(ip, userAgent string) {
-	if ip == "" {
-		return
+	if parsed := net.ParseIP(ip); parsed == nil || parsed.IsLoopback() {
+		return // this machine (tools, tests), not a TV
 	}
 	model := tvModel(userAgent)
+	agent := userAgent
+	if len(agent) > 200 {
+		agent = agent[:200]
+	}
 	now := time.Now()
 	t.mu.Lock()
 	tv := t.tvs[ip]
@@ -490,6 +511,9 @@ func (t *tvRegistry) seen(ip, userAgent string) {
 	}
 	if model != "" && model != tv.Model {
 		tv.Model, save = model, true
+	}
+	if agent != "" && agent != tv.Agent {
+		tv.Agent, save = agent, true
 	}
 	tv.LastSeen = now
 	if now.Sub(t.saved[ip]) > tvSaveEvery {
@@ -582,24 +606,45 @@ func (s *Server) ForgetTV(address string) bool {
 	return ok
 }
 
-// tvModel makes a readable device name from a User-Agent, e.g.
-// "SEC_HHP_[TV] Samsung Q80 Series (55)/1.0 DLNADOC/1.50" → "Samsung Q80
-// Series (55)".
+// tvModel makes a readable device name from a User-Agent. Samsung TVs
+// send "SEC_HHP_[TV] <model>/1.0" (or "SEC_HHP_<name>/1.0") after
+// "DLNADOC/1.50"; other devices are named by their first product token that
+// isn't a protocol or OS.
 func tvModel(ua string) string {
 	ua = strings.TrimSpace(ua)
+	if i := strings.Index(ua, "SEC_HHP_"); i >= 0 {
+		m := strings.TrimSpace(ua[i+len("SEC_HHP_"):])
+		m = strings.TrimSpace(strings.TrimPrefix(m, "[TV]"))
+		if j := strings.IndexByte(m, '/'); j >= 0 {
+			m = m[:j]
+		}
+		if m = strings.TrimSpace(m); m != "" {
+			return clip(m)
+		}
+		return "Samsung TV"
+	}
 	if i := strings.Index(ua, "[TV] "); i >= 0 {
 		m := ua[i+len("[TV] "):]
 		if j := strings.IndexByte(m, '/'); j > 0 {
 			m = m[:j]
 		}
-		return strings.TrimSpace(m)
+		return clip(strings.TrimSpace(m))
 	}
-	m := ua
-	if j := strings.IndexAny(m, "/ "); j > 0 {
-		m = m[:j]
+	for _, tok := range strings.Fields(ua) {
+		name, _, _ := strings.Cut(tok, "/")
+		name = strings.Trim(name, "(),;")
+		switch strings.ToLower(name) {
+		case "", "dlnadoc", "upnp", "linux", "windows", "mozilla", "android", "http", "platinum", "x11":
+			continue
+		}
+		return clip(name)
 	}
-	if len(m) > 48 {
-		m = m[:48]
+	return ""
+}
+
+func clip(s string) string {
+	if len(s) > 48 {
+		return s[:48]
 	}
-	return m
+	return s
 }

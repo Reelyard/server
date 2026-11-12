@@ -253,7 +253,7 @@ export class ApiError extends Error {
 }
 
 export type DlnaSettings = { enabled: boolean; name: string; port: number; interfaces: string[]; transcode: boolean; trackProgress: boolean; watchedMark: boolean; tvs: string[] };
-export type DlnaServer = { name: string; port: number; viewerId?: number; running: boolean; error?: string };
+export type DlnaServer = { name: string; port: number; viewerId?: number; running: boolean; error?: string; conflict?: string };
 export type DlnaStatus = { running: boolean; addresses: string[]; error?: string; ffmpeg: boolean; ffprobe: boolean; servers: DlnaServer[] };
 export type TV = { address: string; name?: string; model: string; lastSeen: string };
 export type Viewer = { id: number; name: string; slot: number; allTitles: boolean; titles: string[]; dlna: boolean; tvs: string[]; createdAt: string };

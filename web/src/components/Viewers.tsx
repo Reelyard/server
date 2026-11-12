@@ -268,9 +268,10 @@ function ServerLine({ v, server }: { v: Viewer; server?: DlnaServer }) {
   const where = v.tvs.length === 0 ? "every TV" : `${v.tvs.length} TV${v.tvs.length > 1 ? "s" : ""}`;
   if (!server) return <span className="text-xs text-muted">Server starts with DLNA · on {where}</span>;
   return (
-    <span className={`text-xs ${server.running ? "text-muted" : "text-bad"}`}>
+    <span className={`text-xs ${server.running && !server.conflict ? "text-muted" : "text-bad"}`}>
       “{server.name}” on port {server.port} · on {where}
       {server.error ? ` · not running: ${server.error}` : ""}
+      {server.conflict ? ` · another device (${server.conflict}) has a server with this name; rename this viewer` : ""}
     </span>
   );
 }

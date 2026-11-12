@@ -34,6 +34,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/anacrolix/dms/dlna/dms"
@@ -75,6 +76,9 @@ type ServerStatus struct {
 	ViewerID int64  `json:"viewerId,omitempty"`
 	Running  bool   `json:"running"`
 	Error    string `json:"error,omitempty"`
+	// Conflict is the address of another device on the network with this
+	// server's name: TVs can't tell the two apart (see conflicts.go).
+	Conflict string `json:"conflict,omitempty"`
 }
 
 // Interface is a network the server can announce on.
@@ -95,6 +99,12 @@ type Server struct {
 	status Status
 	ffmpeg string
 	tvs    *tvRegistry
+
+	// Duplicate-name checks (conflicts.go).
+	gen          int      // bumped on every restart
+	ips          []string // local IPs the servers are announced on
+	conflictStop chan struct{}
+	search       searchFunc // nil: real SSDP search
 }
 
 type running struct {
@@ -112,6 +122,8 @@ type running struct {
 	// transport reaches dms over the pipe (set by front).
 	transport http.RoundTripper
 	vis       visCache
+	// lastUpdateID is the library UpdateID dms last reported.
+	lastUpdateID atomic.Value
 }
 
 // New loads the saved settings. Call Start to begin serving.
@@ -234,6 +246,10 @@ func (s *Server) restart() {
 		s.opts.Log.Warn("dlna: not started", "err", err)
 		return
 	}
+	s.ips = nil
+	for _, ifc := range ifcs {
+		s.ips = append(s.ips, ipv4s(ifc)...)
+	}
 	for i, spec := range s.specs() {
 		ss := ServerStatus{Name: spec.name, Port: spec.port}
 		if spec.viewer != nil {
@@ -259,6 +275,10 @@ func (s *Server) restart() {
 			}
 		}
 		s.status.Servers = append(s.status.Servers, ss)
+	}
+	if len(s.runs) > 0 {
+		s.conflictStop = make(chan struct{})
+		go s.watchConflicts(s.gen, s.ips, s.conflictStop)
 	}
 }
 
@@ -380,6 +400,11 @@ func (s *Server) start(spec serverSpec, ifcs []net.Interface) (*running, error) 
 
 // stop shuts the servers down. Caller holds s.mu.
 func (s *Server) stop() {
+	s.gen++
+	if s.conflictStop != nil {
+		close(s.conflictStop)
+		s.conflictStop = nil
+	}
 	runs := s.runs
 	s.runs = nil
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

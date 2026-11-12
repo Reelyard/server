@@ -148,6 +148,14 @@ export function DlnaOptions() {
           )}
         </>
       )}
+      {status?.servers
+        ?.filter((sv) => sv.conflict)
+        .map((sv) => (
+          <p key={sv.name} role="alert" className="rounded-lg bg-bad-soft px-3 py-2 text-sm text-bad">
+            Another device on your network ({sv.conflict}) also has a DLNA server called “{sv.name}”, so TVs mix the two up: lists empty or change, and playback can
+            stop. Give one of them a different name.
+          </p>
+        ))}
       <Note msg={msg} />
       {!msg && status?.error && <Note msg={{ ok: false, text: status.error }} />}
       <div><button className="btn-primary" disabled={busy || !s}>Save DLNA settings</button></div>
