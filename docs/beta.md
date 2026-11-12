@@ -1,17 +1,17 @@
 # Reelyard beta testing
 
-Thanks for helping test Reelyard before its first public release. The code is
-private for now; you were invited to the repository so you can download
-releases and report problems.
+Thanks for helping test Reelyard before its first release. Anyone can join:
+betas are published on GitHub like any release, and problems are reported as
+GitHub issues. Expect rough edges, and keep a copy of anything you can't
+lose.
 
 Only download content you have the rights to. Public-domain films such as
 *Night of the Living Dead* (1968) are good for testing.
 
 ## Install the beta
 
-Beta releases are tagged `v0.1.0-beta.N` and listed under
-[Releases](https://github.com/reelyard/server/releases) (sign in to GitHub to
-see them).
+Beta releases are tagged `v0.1.0-beta.N` and marked **Pre-release** under
+[Releases](https://github.com/reelyard/server/releases).
 
 **Docker and NAS systems** use the image `ghcr.io/reelyard/server:beta`, which
 always points at the newest beta. Follow the [NAS guide](nas.md) for your
@@ -46,9 +46,13 @@ Whatever you'd normally do is the most useful test. If you want a list:
 3. **Watch it**: on your TV through DLNA (it shows up as *Reelyard*), or in
    Jellyfin, Emby or Plex. Tell us your TV or player's brand and model,
    whether it worked or not, and whether subtitles showed.
-4. **Leave it running** for a few days: new episodes, restarts, a full disk,
+4. **Viewers**: in **Settings → Viewers**, add a family member, limit them to
+   a few titles and show their server only on one TV. Check that TV lists
+   "Reelyard · *name*" with just those titles, and that resume points there
+   are kept apart from yours.
+5. **Leave it running** for a few days: new episodes, restarts, a full disk,
    a VPN going down (if you use `REELYARD_BIND_INTERFACE`).
-5. **Update** to the next beta: pull `:beta` again, or install the new
+6. **Update** to the next beta: pull `:beta` again, or install the new
    package, and check your settings and library survive.
 
 ## Reporting
@@ -57,5 +61,5 @@ Open an [issue](https://github.com/reelyard/server/issues/new/choose):
 **Something's wrong** for bugs, **Idea or feedback** for the rest. The
 version is at `http://<your machine>:8787/api/v1/health`.
 
-Please don't post passwords, API keys, addon URLs that contain keys, or your
-list of titles; trim log lines before pasting them.
+Issues are public, so don't post passwords, API keys, addon URLs that
+contain keys, or your list of titles; trim log lines before pasting them.
