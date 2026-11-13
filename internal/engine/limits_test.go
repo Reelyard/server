@@ -26,6 +26,11 @@ func (c *clock) Add(d time.Duration) {
 
 func newClockedEngine(t *testing.T, free uint64) (*Engine, *store.Store, *clock, string) {
 	t.Helper()
+	return newFreeEngine(t, func(string) (uint64, error) { return free, nil })
+}
+
+func newFreeEngine(t *testing.T, freeSpace func(string) (uint64, error)) (*Engine, *store.Store, *clock, string) {
+	t.Helper()
 	base := t.TempDir()
 	st, err := store.Open(context.Background(), filepath.Join(base, "h.db"))
 	if err != nil {
@@ -37,7 +42,7 @@ func newClockedEngine(t *testing.T, free uint64) (*Engine, *store.Store, *clock,
 	e, err := New(context.Background(), Options{
 		Store: st, Log: testLog(), DataDir: filepath.Join(base, "data"), DownloadDir: dl,
 		NoDHT: true, NoDefaultTrackers: true, Tick: 20 * time.Millisecond, Now: c.Now,
-		FreeSpace: func(string) (uint64, error) { return free, nil },
+		FreeSpace: freeSpace,
 	})
 	if err != nil {
 		t.Fatal(err)

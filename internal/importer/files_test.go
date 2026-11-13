@@ -3,6 +3,7 @@ package importer
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -100,5 +101,32 @@ func TestProbeFile(t *testing.T) {
 	}
 	if pr.Resolution != "720p" || pr.VideoCodec != "mpeg4" || len(pr.AudioLangs) != 1 || pr.AudioLangs[0] != "pt" {
 		t.Fatalf("probe = %+v", pr)
+	}
+}
+
+func TestCopyNeedsRoom(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "a.mkv")
+	os.WriteFile(src, bytes.Repeat([]byte("x"), 1<<20), 0o644)
+	old := freeSpace
+	t.Cleanup(func() { freeSpace = old })
+
+	freeSpace = func(string) (uint64, error) { return copyHeadroom + 512<<10, nil } // less than the file plus headroom
+	dst := filepath.Join(dir, "lib", "a.mkv")
+	os.MkdirAll(filepath.Dir(dst), 0o755)
+	if err := copyFile(src, dst); !errors.Is(err, ErrNoRoom) {
+		t.Fatalf("copy without room: %v", err)
+	}
+	if _, err := os.Stat(dst); !os.IsNotExist(err) {
+		t.Fatal("partial copy left behind")
+	}
+	// A folder that doesn't exist yet is checked on its nearest parent.
+	var asked string
+	freeSpace = func(p string) (uint64, error) { asked = p; return 1 << 40, nil }
+	if err := roomForCopy(filepath.Join(dir, "lib", "new", "deeper"), 1<<20); err != nil || asked != filepath.Join(dir, "lib") {
+		t.Fatalf("roomForCopy: %v, asked %q", err, asked)
+	}
+	if err := copyFile(src, dst); err != nil {
+		t.Fatalf("copy with room: %v", err)
 	}
 }

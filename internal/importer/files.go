@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/reelyard/server/internal/diskfree"
 	"github.com/reelyard/server/internal/lang"
 )
 
@@ -25,6 +26,41 @@ const (
 
 // ErrExists means a different file already sits at the library path.
 var ErrExists = errors.New("a different file already has this name in the library")
+
+// ErrNoRoom means a copy into the library wouldn't fit on its disk.
+var ErrNoRoom = errors.New("not enough free disk space in the library folder")
+
+// copyHeadroom is kept free on the library's disk by copies and remuxes
+// (hardlinks take no space).
+const copyHeadroom = 1 << 30
+
+// freeSpace reports free bytes on the disk holding a path (tests override).
+var freeSpace = diskfree.Free
+
+// roomForCopy checks that a need-byte file written into dir leaves
+// copyHeadroom free. Unknown free space doesn't block.
+func roomForCopy(dir string, need int64) error {
+	// The folder may not exist yet: ask about the nearest one that does.
+	for {
+		if _, err := os.Stat(dir); err == nil {
+			break
+		}
+		up := filepath.Dir(dir)
+		if up == dir {
+			break
+		}
+		dir = up
+	}
+	free, err := freeSpace(dir)
+	if err != nil || need <= 0 {
+		return nil
+	}
+	if uint64(need)+copyHeadroom > free {
+		return fmt.Errorf("%w: %.1f GB free, the copy needs %.1f GB plus 1 GB kept free",
+			ErrNoRoom, float64(free)/(1<<30), float64(need)/(1<<30))
+	}
+	return nil
+}
 
 // Place puts src at dst: a hardlink when both are on the same disk (no
 // extra space, and seeding keeps working), else a copy. An existing dst
@@ -80,6 +116,11 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	defer in.Close()
+	if fi, err := in.Stat(); err == nil {
+		if err := roomForCopy(filepath.Dir(dst), fi.Size()); err != nil {
+			return err
+		}
+	}
 	tmp, err := os.CreateTemp(filepath.Dir(dst), ".reelyard-copy-*")
 	if err != nil {
 		return err

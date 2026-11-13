@@ -120,6 +120,7 @@ type Engine struct {
 	jobs     map[int64]*job
 	settings Settings
 	ticks    int
+	diskLow  bool // free space fell below MinFreeGB: nothing downloads
 
 	wake   chan struct{}
 	cancel context.CancelFunc
@@ -454,18 +455,27 @@ func (e *Engine) onInfo(j *job) {
 			j.dirty = true
 		}
 	}
-	if j.d.State != store.StateSeeding {
-		if err := e.roomFor(j.d.Size - j.d.DoneBytes); err != nil {
-			e.stopJob(j)
-			e.setState(j, store.StateFailed, err.Error())
-			return
-		}
-	}
+	// Save the metadata first: a download that waits for disk space
+	// starts again without fetching it from peers.
 	if _, err := os.Stat(e.metaPath(j.d.InfoHash)); err != nil {
 		mi := t.Metainfo()
 		if f, err := os.Create(e.metaPath(j.d.InfoHash)); err == nil {
 			_ = mi.Write(f)
 			f.Close()
+		}
+	}
+	if j.d.State != store.StateSeeding {
+		if err := e.roomFor(j.d.Size-j.d.DoneBytes, j); err != nil {
+			e.updateProgress(j)
+			e.stopJob(j)
+			if waitsForSpace(err) {
+				// It fits once the running downloads are done with
+				// theirs (or space is freed): back in the queue.
+				e.setState(j, store.StateQueued, err.Error())
+			} else {
+				e.setState(j, store.StateFailed, err.Error())
+			}
+			return
 		}
 	}
 	if j.d.State != store.StateSeeding {
@@ -635,15 +645,60 @@ func (e *Engine) FreeBytes() (uint64, error) { return e.opts.FreeSpace(e.opts.Do
 // ErrNoSpace means a download wouldn't fit on disk.
 var ErrNoSpace = errors.New("not enough free disk space")
 
-// RoomFor checks that need more bytes fit in the download folder while
-// keeping the configured space free.
+// DiskFullMsg is the note on a download paused because free space in the
+// download folder fell below MinFreeGB. Such downloads queue again by
+// themselves once there is room.
+const DiskFullMsg = "Paused: the disk is almost full. Resumes by itself once there is room."
+
+// waitSpacePrefix starts the note on a queued download that would fit on
+// its own but not next to what running downloads still have to write.
+const waitSpacePrefix = "Waiting for disk space"
+
+// diskCheckEvery is how many ticks pass between free-space checks.
+const diskCheckEvery = 10
+
+// spaceErr is a not-enough-space error. busy: it would fit if the running
+// downloads didn't still need their share.
+type spaceErr struct {
+	msg  string
+	busy bool
+}
+
+func (e *spaceErr) Error() string        { return e.msg }
+func (e *spaceErr) Is(target error) bool { return target == ErrNoSpace }
+
+func waitsForSpace(err error) bool {
+	var se *spaceErr
+	return errors.As(err, &se) && se.busy
+}
+
+// RoomFor checks that need more bytes fit in the download folder next to
+// what running downloads still have to write, keeping the configured space
+// free.
 func (e *Engine) RoomFor(need int64) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	return e.roomFor(need)
+	return e.roomFor(need, nil)
 }
 
-func (e *Engine) roomFor(need int64) error {
+// reserved is what running downloads (but skip) still have to write.
+// Caller holds e.mu.
+func (e *Engine) reserved(skip *job) int64 {
+	var n int64
+	for _, j := range e.jobs {
+		if j == skip || (j.d.State != store.StateDownloading && j.d.State != store.StateMetadata) {
+			continue
+		}
+		if left := j.d.Size - j.d.DoneBytes; left > 0 {
+			n += left
+		}
+	}
+	return n
+}
+
+// roomFor checks that need bytes fit, besides what running downloads other
+// than skip still need. Caller holds e.mu.
+func (e *Engine) roomFor(need int64, skip *job) error {
 	if need <= 0 {
 		return nil
 	}
@@ -653,9 +708,56 @@ func (e *Engine) roomFor(need int64) error {
 	}
 	keep := uint64(e.settings.MinFreeGB) << 30
 	if uint64(need)+keep > free {
-		return fmt.Errorf("%w: %s free, needs %s plus %d GB kept free", ErrNoSpace, gb(int64(free)), gb(need), e.settings.MinFreeGB)
+		return &spaceErr{msg: fmt.Sprintf("%s: %s free, needs %s plus %d GB kept free", ErrNoSpace, gb(int64(free)), gb(need), e.settings.MinFreeGB)}
+	}
+	res := e.reserved(skip)
+	if uint64(need)+keep+uint64(res) > free {
+		return &spaceErr{busy: true, msg: fmt.Sprintf("%s (%s: %s free, running downloads still need %s, this one %s plus %d GB kept free)",
+			waitSpacePrefix, ErrNoSpace, gb(int64(free)), gb(res), gb(need), e.settings.MinFreeGB)}
 	}
 	return nil
+}
+
+// checkDisk pauses every running download when free space in the download
+// folder drops below MinFreeGB (or to nothing), and queues them again once
+// it is back. Caller holds e.mu.
+func (e *Engine) checkDisk() {
+	free, err := e.opts.FreeSpace(e.opts.DownloadDir)
+	if err != nil {
+		return // can't tell; leave things as they are
+	}
+	keep := uint64(e.settings.MinFreeGB) << 30
+	low := free < keep || free == 0
+	if low {
+		var names []string
+		for _, j := range e.jobs {
+			if j.d.State != store.StateDownloading && j.d.State != store.StateMetadata {
+				continue
+			}
+			e.updateProgress(j)
+			e.stopJob(j)
+			e.setState(j, store.StatePaused, DiskFullMsg)
+			names = append(names, displayName(j.d))
+			e.opts.Log.Warn("download paused: disk almost full", "id", j.d.ID, "name", j.d.Name, "free", free)
+		}
+		if len(names) > 0 {
+			sort.Strings(names)
+			e.activity("warn", "", fmt.Sprintf("Only %s free in the download folder (keeping %d GB free): paused %s",
+				gb(int64(free)), e.settings.MinFreeGB, strings.Join(names, ", ")))
+		}
+	} else {
+		requeued := 0
+		for _, j := range e.jobs {
+			if j.d.State == store.StatePaused && j.d.Error == DiskFullMsg {
+				e.setState(j, store.StateQueued, "")
+				requeued++
+			}
+		}
+		if requeued > 0 {
+			e.opts.Log.Info("disk space back: downloads queued again", "count", requeued, "free", free)
+		}
+	}
+	e.diskLow = low
 }
 
 func gb(n int64) string {
@@ -842,6 +944,9 @@ func (e *Engine) loop(ctx context.Context) {
 		if e.ticks%10 == 0 {
 			e.checkNetwork()
 		}
+		if e.ticks%diskCheckEvery == 0 {
+			e.checkDisk()
+		}
 		e.schedule()
 		e.refresh(e.opts.Tick.Seconds())
 		e.ticks++
@@ -915,10 +1020,16 @@ func (e *Engine) schedule() {
 			queued = append(queued, j)
 		}
 	}
-	// Only downloads that won't get a free slot need one freed.
+	// Only downloads that won't get a free slot need one freed; those
+	// waiting for disk space couldn't use one.
 	waiting := 0
 	if limit := e.settings.MaxActive; limit > 0 {
-		waiting = len(queued) - (limit - len(running))
+		for _, j := range queued {
+			if !strings.HasPrefix(j.d.Error, waitSpacePrefix) {
+				waiting++
+			}
+		}
+		waiting -= limit - len(running)
 	}
 	if waiting > 0 && e.net.OK {
 		// Longest without a byte first.
@@ -953,6 +1064,21 @@ func (e *Engine) schedule() {
 	for _, j := range queued {
 		if e.settings.MaxActive > 0 && active >= e.settings.MaxActive {
 			return
+		}
+		if e.diskLow {
+			return // checkDisk queues them again once there is room
+		}
+		// Size known (restarted, resumed): check room before starting.
+		// Size not known yet: onInfo checks once the metadata is in.
+		if j.d.Size > 0 {
+			if err := e.roomFor(j.d.Size-j.d.DoneBytes, j); err != nil {
+				if waitsForSpace(err) {
+					e.setState(j, store.StateQueued, err.Error())
+				} else {
+					e.setState(j, store.StateFailed, err.Error())
+				}
+				continue
+			}
 		}
 		if err := e.start(j); err != nil {
 			e.setState(j, store.StateFailed, err.Error())
