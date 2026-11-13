@@ -180,6 +180,14 @@ func placeAudioFirst(ctx context.Context, src, dst string, pr Probe, prefs []str
 		}
 		// dst is a hardlink from before: replace it with a reordered copy.
 	}
+	// The reordered file is a full copy: without room for it, place the
+	// file as it is (a hardlink when the disk allows).
+	if si, serr := os.Stat(src); serr == nil {
+		if rerr := roomForCopy(filepath.Dir(dst), si.Size()); rerr != nil {
+			method, err = Place(src, dst)
+			return method, "", fmt.Sprintf("couldn't put the %s audio first (%v)", lang.Name(lead), rerr), err
+		}
+	}
 	if rerr := remuxAudioFirst(ctx, ffmpeg, src, dst, pr, pick); rerr != nil {
 		if ctx.Err() != nil {
 			return "", "", "", ctx.Err()
