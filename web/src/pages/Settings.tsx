@@ -4,6 +4,7 @@ import { DlnaOptions, MediaServers } from "../components/Playback";
 import { Viewers } from "../components/Viewers";
 import { AddonLinks } from "../components/AddonLinks";
 import { UpdateSettings } from "../components/Updates";
+import { Backup } from "../components/Backup";
 import { TabPanel, Tabs, useTab, type Tab } from "../components/Tabs";
 
 function fmt(d?: string) {
@@ -469,6 +470,7 @@ const TABS: Tab[] = [
   { id: "downloads", label: "Downloads" },
   { id: "apps", label: "Apps and API" },
   { id: "updates", label: "Updates" },
+  { id: "backup", label: "Backup" },
   { id: "account", label: "Account" },
 ];
 
@@ -505,6 +507,7 @@ export default function Settings({ user }: { user: User }) {
           </>
         )}
         {tab === "updates" && <UpdateSettings />}
+        {tab === "backup" && <Backup />}
         {tab === "account" && <Password />}
       </TabPanel>
     </div>

@@ -290,6 +290,19 @@ export type Onboarding = {
 };
 export type FoldersResult = { changed: boolean; restarting: boolean; hardlinks: boolean; download: FolderInfo; library: FolderInfo };
 
+// ImportResult says what a settings import changed.
+export type ImportCount = { added: number; updated: number; skipped: number };
+export type ImportResult = {
+  settings: string[];
+  suppliers: ImportCount;
+  profiles: ImportCount;
+  mediaServers: ImportCount;
+  viewers: ImportCount;
+  titles: ImportCount;
+  problems: string[];
+  sections: Record<string, number>;
+};
+
 // UpdateStatus is the current version, the latest release and what can be done.
 export type UpdateSettings = { channel: "stable" | "beta"; auto: boolean };
 export type Release = { version: string; name: string; url: string; notes: string; publishedAt: string; prerelease: boolean };
@@ -355,6 +368,8 @@ export const api = {
   approveDevice: (code: string) => request<{ device: Device }>("POST", "/devices/approve", { code }).then((r) => r.device),
   removeDevice: (id: number) => request<void>("DELETE", `/devices/${id}`),
   system: () => request<SystemInfo>("GET", "/system"),
+  importSettings: (data: unknown, sections: string[], dryRun = false) =>
+    request<ImportResult>("POST", "/settings/import", { data, sections, dryRun }),
   updates: () => request<UpdateStatus>("GET", "/updates"),
   checkUpdates: () => request<UpdateStatus>("POST", "/updates/check"),
   applyUpdate: () => request<UpdateStatus>("POST", "/updates/apply"),
