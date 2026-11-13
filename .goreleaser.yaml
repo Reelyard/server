@@ -89,9 +89,10 @@ homebrew_casks:
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
     directory: Casks
-    # Published only once the tap repository and its token exist.
-    # Skipped without a tap token, and for betas (the tap is public).
-    skip_upload: '{{ if or (not (index .Env "HOMEBREW_TAP_TOKEN")) .Prerelease }}true{{ else }}false{{ end }}'
+    # Written to github.com/reelyard/homebrew-tap on every release, betas
+    # included (only betas exist so far); skipped when the release workflow
+    # has no HOMEBREW_TAP_TOKEN.
+    skip_upload: '{{ if not (index .Env "HOMEBREW_TAP_TOKEN") }}true{{ else }}false{{ end }}'
     hooks:
       post:
         # The binaries aren't notarized; let macOS run them.
