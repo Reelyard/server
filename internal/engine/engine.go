@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"log/slog"
 	"net"
 	"os"
@@ -396,6 +397,12 @@ func addPeers(t *torrent.Torrent, peers []string) {
 // start adds the torrent to the client (if needed) and selects the file.
 // Caller holds e.mu.
 func (e *Engine) start(j *job) error {
+	// A seeding download whose files are gone (deleted by hand to free
+	// space, say) stops sharing before anything is asked of peers.
+	if j.d.State == store.StateSeeding && !e.hasData(j) {
+		e.dataGone(j)
+		return nil
+	}
 	ih := metainfo.NewHashFromHex(j.d.InfoHash)
 	opts := torrent.AddTorrentOpts{InfoHash: ih}
 	if mi, err := metainfo.LoadFromFile(e.metaPath(j.d.InfoHash)); err == nil {
@@ -441,14 +448,18 @@ func (e *Engine) onInfo(j *job) {
 			return
 		}
 		j.file = files[j.d.FileIdx]
-		j.file.Download()
+		if j.d.State != store.StateSeeding {
+			j.file.Download()
+		}
 		if j.d.FilePath == "" || j.d.Size == 0 {
 			j.d.FilePath = filepath.Join(j.d.InfoHash, filepath.FromSlash(j.file.Path()))
 			j.d.Size = j.file.Length()
 			j.dirty = true
 		}
 	} else {
-		t.DownloadAll()
+		if j.d.State != store.StateSeeding {
+			t.DownloadAll()
+		}
 		if j.d.FilePath == "" || j.d.Size == 0 {
 			j.d.FilePath = filepath.Join(j.d.InfoHash, info.BestName())
 			j.d.Size = t.Length()
@@ -463,6 +474,10 @@ func (e *Engine) onInfo(j *job) {
 			_ = mi.Write(f)
 			f.Close()
 		}
+	}
+	if j.d.State == store.StateSeeding && !e.hasData(j) {
+		e.dataGone(j)
+		return
 	}
 	if j.d.State != store.StateSeeding {
 		if err := e.roomFor(j.d.Size-j.d.DoneBytes, j); err != nil {
@@ -481,6 +496,38 @@ func (e *Engine) onInfo(j *job) {
 	if j.d.State != store.StateSeeding {
 		e.setState(j, store.StateDownloading, "")
 	}
+}
+
+// hasData reports whether a seeding download's files are still in the
+// download folder. Seeding only shares what's there: if they're gone (e.g.
+// deleted by hand to free space), asking the torrent for them would
+// download them all again.
+func (e *Engine) hasData(j *job) bool {
+	if j.d.FilePath == "" {
+		return true
+	}
+	st, err := os.Stat(filepath.Join(e.opts.DownloadDir, j.d.FilePath))
+	if err != nil {
+		return !errors.Is(err, fs.ErrNotExist)
+	}
+	return st.IsDir() || st.Size() >= j.d.Size
+}
+
+// dataGone stops sharing a download whose files left the download folder.
+// Caller holds e.mu.
+func (e *Engine) dataGone(j *job) {
+	e.stopJob(j)
+	name := displayName(j.d)
+	if j.d.ImportState == store.ImportImported {
+		e.setState(j, store.StateDone, "")
+		j.d.DataRemoved, j.dirty = true, true
+		e.opts.Log.Info("sharing stopped: download copy is gone", "id", j.d.ID)
+		e.activity("info", j.d.TitleID, "Stopped sharing "+name+": its download copy is gone; the library file stays")
+		return
+	}
+	e.setState(j, store.StateFailed, "The downloaded files are missing from the download folder.")
+	e.opts.Log.Warn("download files are missing", "id", j.d.ID)
+	e.activity("warn", j.d.TitleID, "The files of "+name+" are missing from the download folder")
 }
 
 func (e *Engine) metaPath(ih string) string {
@@ -597,6 +644,8 @@ func (e *Engine) Remove(ctx context.Context, id int64, deleteData bool) error {
 		}
 		if err := e.removeInside(target); err != nil {
 			e.opts.Log.Warn("delete download data", "id", id, "err", err)
+		} else {
+			e.reopen(j.d.InfoHash)
 		}
 	}
 	e.opts.Log.Info("download removed", "id", id, "deletedData", deleteData)
@@ -867,7 +916,42 @@ func (e *Engine) removeData(j *job) error {
 	if others > 0 && j.d.FilePath != "" {
 		target = filepath.Join(e.opts.DownloadDir, j.d.FilePath)
 	}
-	return e.removeInside(target)
+	if err := e.removeInside(target); err != nil {
+		return err
+	}
+	e.reopen(j.d.InfoHash)
+	return nil
+}
+
+// reopen drops the torrent ih and adds it again for the jobs still using
+// it. The torrent library keeps each file of a running torrent open (and
+// memory-mapped) until the torrent is dropped, so a file deleted while
+// other downloads share its torrent would keep its disk space until they
+// all stop. Reopening lets go of it; the others carry on where they were
+// (piece completion is kept). Caller holds e.mu.
+func (e *Engine) reopen(ih string) {
+	var users []*job
+	var t *torrent.Torrent
+	for _, o := range e.jobs {
+		if o.d.InfoHash == ih && o.t != nil {
+			users = append(users, o)
+			t = o.t
+		}
+	}
+	if t == nil {
+		return
+	}
+	for _, o := range users {
+		e.updateProgress(o)
+		o.t, o.file = nil, nil
+	}
+	t.Drop()
+	for _, o := range users {
+		if err := e.start(o); err != nil {
+			e.opts.Log.Warn("restart download after deleting a shared file", "id", o.d.ID, "err", err)
+		}
+	}
+	e.opts.Log.Info("reopened torrent to release deleted files", "infohash", ih, "downloads", len(users))
 }
 
 // SetImport records the library import state of a download, in memory and
